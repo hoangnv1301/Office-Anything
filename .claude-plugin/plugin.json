@@ -11,5 +11,11 @@
     "guardrails",
     "hooks",
     "team"
-  ]
+  ],
+  "author": {
+    "name": "hoangnv1301",
+    "url": "https://github.com/hoangnv1301"
+  },
+  "homepage": "https://hoangnv1301.github.io/Office-Anything/",
+  "repository": "https://github.com/hoangnv1301/Office-Anything"
 }

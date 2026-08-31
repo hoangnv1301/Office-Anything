@@ -30,6 +30,11 @@ Nothing happens. No hooks fire, nothing blocks a commit, no files appear. With n
 directory there is nothing for it to have an opinion about, and it says "not applicable"
 rather than showing you a row of green ticks that mean nothing.
 
+⛔ **Restart Claude Code after installing.** Hooks are read when a session starts, so the
+wall is not armed in the session you installed from. Everything else works immediately;
+the gate does not. This is worth knowing because the obvious way to test a new plugin is
+to try it straight away, and it will look like the wall does nothing.
+
 Then hire someone, and it switches on.
 
 ## Hire someone

@@ -70,6 +70,32 @@ Read these before adding anything. Every one shipped, and every one is now pinne
 that only tests exports cannot see a README promising the wrong command. When you add a
 claim to the README, add the test that pins it.
 
+## ⛔ Verified by installing it, not by reading it
+
+`claude plugin validate .` passes, and `claude plugin install` reports:
+
+```
+Skills (2)  desk-fire, desk-hire
+Hooks (1)   PreToolUse  (harness-only — no model context cost)
+Always-on:  ~67 tok
+```
+
+⚠️ **Claude Code counts `commands/*.md` as SKILLS.** The docs call `commands/` "skills as
+flat markdown files", so a plugin with no `skills/` directory still reports two skills. Do
+not "fix" this by adding a `skills/` directory.
+
+⛔ **HOOKS DO NOT ARM UNTIL THE SESSION RESTARTS**, and this was found by installing the
+plugin and then trying to violate the wall. The write went through. The hook was registered
+correctly on disk and blocked with exit 2 when run by hand, but the running session had been
+started before the plugin existed, so it had no hook to run.
+
+Nothing in the install output says this. A user who installs and immediately tests concludes
+the wall does not work. The README now says it at the install step.
+
+⭐ **The failure also demonstrated why both layers exist.** The hook missed it because it was
+not loaded; `checks/run.mjs` caught it immediately: "pricing is a knowledge desk and has a
+sender". A gate you have not restarted into is exactly the case a check is for.
+
 ## Adding things
 
 **A check** — export `applies(root)` and `report(root)`, return `{code, applicable, why}`,
