@@ -1,4 +1,4 @@
-# bullpen
+# remit
 
 **You hire a desk. You fire a desk.** An AI workforce where every role is a folder, every
 role has a boundary, and the boundaries are enforced by things that exit non-zero.
@@ -28,7 +28,7 @@ Every rule here is in the repo because skipping it broke something real.
 ## Install
 
 ```bash
-/plugin install bullpen@bullpen
+/plugin install remit@remit
 ```
 
 **Nothing happens.** No hooks fire, no checks run, nothing blocks a commit. Every check
