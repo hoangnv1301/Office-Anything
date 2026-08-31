@@ -1,9 +1,8 @@
 # Office-Anything
 
-**You hire a desk. You fire a desk.**
+**Plug in and get an office.**
 
-An AI workforce where every role has a boundary, and the boundary is a thing that exits
-non-zero.
+Hire AI staff for Claude Code, each with a desk, a browser, and things they may not touch.
 
 ```
 /desk-hire "someone who answers our Instagram DMs"
@@ -29,13 +28,16 @@ It has no UI, no server, no database, and nothing to log into. There is nothing 
 It is also not another agent framework. It does not orchestrate, schedule, or route. It
 **runs on Claude Code** and uses what is already there:
 
-| Claude Code gives you | Office-Anything uses it for |
-|---|---|
-| subagents | a desk is an agent with a folder and a boundary |
-| skills | what a desk knows how to do |
-| hooks | the gates, which block the action rather than ask the model nicely |
-| slash commands | `/desk-hire`, `/desk-fire` |
-| plugins | how all of it arrives, in one install |
+| Claude Code gives you | Office-Anything uses it for | ships? |
+|---|---|---|
+| hooks | a gate that BLOCKS the write, rather than asking the model nicely | ✅ |
+| slash commands | `/desk-hire`, `/desk-fire` | ✅ |
+| plugins | how all of it arrives, in one install | ✅ |
+| subagents | the desks themselves. `hire` writes them into YOUR project | produced, not shipped |
+| skills | nothing yet needs one. Two commands carry the workflow | ⛔ not yet |
+
+⚠️ **That last column is there because this README lied about it.** It claimed all five and
+shipped only commands. If a row ever goes green, it is because the directory exists.
 
 Nothing here reimplements any of that. If you already use Claude Code, this is additive.
 
@@ -128,7 +130,7 @@ port is now a test failure naming both.
 - **A test that has never failed has never been checked.**
 
 ```bash
-node --test "tests/**/*.test.mjs"     # 42 tests
+node --test "tests/**/*.test.mjs"     # 49 tests
 ```
 
 Then go break something and watch them go red. They were verified that way, not assumed to

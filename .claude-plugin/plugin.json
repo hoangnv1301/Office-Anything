@@ -1,7 +1,7 @@
 {
   "name": "office-anything",
   "displayName": "Office-Anything",
-  "description": "An AI workforce for Claude Code. You hire a desk, you fire a desk, and every role has a boundary that exits non-zero.",
+  "description": "Plug in and get an office. Hire AI staff for Claude Code, each with a desk, a browser, and things they may not touch.",
   "version": "0.1.0",
   "license": "MIT",
   "keywords": [
