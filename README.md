@@ -3,6 +3,17 @@
 A Claude Code plugin for hiring and firing AI agents. Each gets a desk, a browser, and
 limits that are enforced, not suggested.
 
+<p align="center">
+  <a href="https://github.com/hoangnv1301/Office-Anything/actions"><img alt="tests" src="https://img.shields.io/badge/tests-49%20passing-3fb950"></a>
+  <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
+  <img alt="deps" src="https://img.shields.io/badge/dependencies-0-3fb950">
+  <img alt="claude code" src="https://img.shields.io/badge/Claude%20Code-plugin-8957e5">
+</p>
+
+<p align="center">
+  <img src="assets/the-wall.svg" alt="A channel desk can reach a customer. A knowledge desk holds margins and contracts, has no browser and no way to send, and the route from it to a customer is blocked before the file is written." width="100%">
+</p>
+
 ```
 /desk-hire "someone who answers our Instagram DMs"
 
@@ -139,3 +150,9 @@ work: sabotaging the send wall to always return 0 turns four of them red.
 
 Early and honest about it. The contract, hire, fire, the send wall and the unfinished check
 are real and run. MIT.
+
+## Star history
+
+<a href="https://star-history.com/#hoangnv1301/Office-Anything&Date">
+  <img src="https://api.star-history.com/svg?repos=hoangnv1301/Office-Anything&type=Date" alt="Star history" width="600">
+</a>

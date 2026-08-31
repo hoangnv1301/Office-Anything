@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 380" width="900" height="380" font-family="ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+  <style>
+    /* Mid-tones chosen to read on BOTH GitHub themes, with a media query on top.
+       A diagram that is only legible in one theme is illegible to half the readers. */
+    .ink   { fill: #24292f }
+    .muted { fill: #57606a }
+    .card  { fill: #ffffff; stroke: #d0d7de }
+    .rule  { stroke: #d0d7de }
+    @media (prefers-color-scheme: dark) {
+      .ink   { fill: #e6edf3 }
+      .muted { fill: #9198a1 }
+      .card  { fill: #151b23; stroke: #3d444d }
+      .rule  { stroke: #3d444d }
+    }
+    .t   { font-size: 15px; font-weight: 600 }
+    .s   { font-size: 12.5px }
+    .k   { font-size: 11px; font-weight: 600; letter-spacing: .08em }
+    .ok  { fill: #1a7f37 }
+    .no  { fill: #cf222e }
+    @media (prefers-color-scheme: dark) { .ok { fill:#3fb950 } .no { fill:#f85149 } }
+  </style>
+
+  <text x="20" y="30" class="ink t">Every desk gets what its job needs. Nothing else.</text>
+
+  <!-- customer -->
+  <circle cx="72" cy="196" r="26" class="card" stroke-width="1.5"/>
+  <path d="M72 186a8 8 0 1 1 0 16 8 8 0 0 1 0-16M58 214c3-8 8-11 14-11s11 3 14 11" fill="none" class="rule" stroke-width="1.6"/>
+  <text x="72" y="252" text-anchor="middle" class="muted s">a customer</text>
+
+  <!-- channel desk -->
+  <rect x="190" y="120" width="230" height="152" rx="10" class="card" stroke-width="1.5"/>
+  <text x="210" y="148" class="ink t">support</text>
+  <text x="210" y="167" class="k ok">CHANNEL</text>
+  <text x="210" y="194" class="muted s">its own desk</text>
+  <text x="210" y="214" class="muted s">its own browser, on screen</text>
+  <text x="210" y="234" class="muted s">a voice it has to pass</text>
+  <text x="210" y="256" class="ok s">✓ can reach a customer</text>
+
+  <!-- knowledge desk -->
+  <rect x="580" y="120" width="230" height="152" rx="10" class="card" stroke-width="1.5"/>
+  <text x="600" y="148" class="ink t">pricing</text>
+  <text x="600" y="167" class="k muted">KNOWLEDGE</text>
+  <text x="600" y="194" class="muted s">margins, contracts, rates</text>
+  <text x="600" y="214" class="muted s">no browser</text>
+  <text x="600" y="234" class="muted s">no way to send</text>
+  <text x="600" y="256" class="no s">✗ cannot reach a customer</text>
+
+  <!-- customer <-> channel : allowed -->
+  <line x1="104" y1="196" x2="182" y2="196" class="rule" stroke-width="1.8"/>
+  <path d="M174 190l8 6-8 6" fill="none" class="rule" stroke-width="1.8"/>
+
+  <!-- channel <-> knowledge : allowed, asks a question -->
+  <line x1="424" y1="196" x2="572" y2="196" class="rule" stroke-width="1.8" stroke-dasharray="5 5"/>
+  <text x="498" y="188" text-anchor="middle" class="muted s">asks</text>
+  <text x="498" y="216" text-anchor="middle" class="muted s">gets one number back</text>
+
+  <!-- the blocked route -->
+  <path d="M600 300 Q 340 356 104 300" fill="none" class="no" stroke="currentColor" stroke-width="1.8" stroke-dasharray="5 5" opacity=".9"/>
+  <g>
+    <circle cx="352" cy="330" r="15" fill="#cf222e"/>
+    <path d="M345 323l14 14M359 323l-14 14" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+  </g>
+  <text x="352" y="368" text-anchor="middle" class="no s">blocked before the file is written, not reported afterwards</text>
+</svg>
