@@ -128,7 +128,7 @@ port is now a test failure naming both.
 - **A test that has never failed has never been checked.**
 
 ```bash
-node --test "tests/**/*.test.mjs"     # 25 tests
+node --test "tests/**/*.test.mjs"     # 37 tests
 ```
 
 Then go break something and watch them go red. They were verified that way, not assumed to
