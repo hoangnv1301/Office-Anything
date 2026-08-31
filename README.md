@@ -1,4 +1,4 @@
-# ClawOffice
+# Office-Anything
 
 **You hire a desk. You fire a desk.**
 
@@ -29,7 +29,7 @@ It has no UI, no server, no database, and nothing to log into. There is nothing 
 It is also not another agent framework. It does not orchestrate, schedule, or route. It
 **runs on Claude Code** and uses what is already there:
 
-| Claude Code gives you | ClawOffice uses it for |
+| Claude Code gives you | Office-Anything uses it for |
 |---|---|
 | subagents | a desk is an agent with a folder and a boundary |
 | skills | what a desk knows how to do |
@@ -48,12 +48,12 @@ Everyone can spin up ten agents. The trouble starts after:
 - your docs say you have six agents and nine are running
 - every check is green because most of them never ran
 
-ClawOffice is about **what each agent is allowed to hold**, and **how you remove one**.
+Office-Anything is about **what each agent is allowed to hold**, and **how you remove one**.
 
 ## Install
 
 ```bash
-/plugin install clawoffice@clawoffice
+/plugin install office-anything@office-anything
 ```
 
 **Nothing happens.** No hooks fire, nothing blocks a commit. Every check answers
@@ -128,7 +128,7 @@ port is now a test failure naming both.
 - **A test that has never failed has never been checked.**
 
 ```bash
-node --test "tests/**/*.test.mjs"     # 37 tests
+node --test "tests/**/*.test.mjs"     # 42 tests
 ```
 
 Then go break something and watch them go red. They were verified that way, not assumed to

@@ -9,7 +9,7 @@ import { roster } from '../lib/desk.mjs'
 import { report } from '../checks/send-wall.mjs'
 import { report as unfinished } from '../checks/unfinished.mjs'
 
-const fresh = () => mkdtempSync(join(tmpdir(), 'clawoffice-'))
+const fresh = () => mkdtempSync(join(tmpdir(), 'office-anything-'))
 const clean = (r) => rmSync(r, { recursive: true, force: true })
 
 // ── inference suggests, never decides ────────────────────────────────────────
