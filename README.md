@@ -6,7 +6,7 @@ An AI workforce where every role has a boundary, and the boundary is a thing tha
 non-zero.
 
 ```
-/desk hire "someone who answers our Instagram DMs"
+/desk-hire "someone who answers our Instagram DMs"
 
   reads it   →  kind: channel
   issues     →  its own folder, its own Chrome (headed, on its own declared port),
@@ -34,7 +34,7 @@ It is also not another agent framework. It does not orchestrate, schedule, or ro
 | subagents | a desk is an agent with a folder and a boundary |
 | skills | what a desk knows how to do |
 | hooks | the gates, which block the action rather than ask the model nicely |
-| slash commands | `/desk hire`, `/desk fire` |
+| slash commands | `/desk-hire`, `/desk-fire` |
 | plugins | how all of it arrives, in one install |
 
 Nothing here reimplements any of that. If you already use Claude Code, this is additive.
@@ -92,7 +92,7 @@ for deciding who may talk to a customer.
 
 ## Firing
 
-`/desk fire <name> --reason "..."` — the part nobody else ships. It **refuses** rather than
+`/desk-fire <name> --reason "..."` — the part nobody else ships. It **refuses** rather than
 warns: a live desk, or one anything still references, does not get fired.
 
 1. ⛔ **Close its session first.** A retired desk does not exit when its folder moves. Six

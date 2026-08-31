@@ -1,6 +1,8 @@
 {
   "name": "clawoffice",
+  "displayName": "ClawOffice",
   "description": "You hire a desk, you fire a desk. An AI workforce where every role has a boundary that exits non-zero.",
   "version": "0.1.0",
-  "license": "MIT"
+  "license": "MIT",
+  "keywords": ["agents", "subagents", "ai-workforce", "guardrails", "hooks", "team"]
 }
