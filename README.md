@@ -98,13 +98,12 @@ No UI, no server, no database, nothing to log into. It is also not another agent
 it does not orchestrate, schedule or route. It runs on Claude Code and uses what is already
 there.
 
-| Claude Code gives you | used for | ships |
-|---|---|---|
-| hooks | gates that block the write | ✅ |
-| slash commands | `/desk-hire`, `/desk-fire` | ✅ |
-| plugins | how it all arrives, in one install | ✅ |
-| subagents | the desks themselves, written into **your** project | produced |
-| skills | nothing needs one yet | not yet |
+| Claude Code gives you | used for |
+|---|---|
+| hooks | the gates that block a write |
+| slash commands | `/desk-hire`, `/desk-fire` |
+| plugins | how it all arrives, in one install |
+| subagents | the desks themselves, written into **your** project |
 
 If you already use Claude Code, this is additive. Nothing here reimplements any of it.
 
@@ -120,11 +119,7 @@ Ports are written down, never worked out from a desk's position in a list. That 
 pedantic until you add a desk called `billing` and every desk alphabetically after it
 silently moves to a different port.
 
-## The rules it holds itself to
-
-- A check that only reports is not a gate. If it matters, it fails the command.
-- A check that examined nothing has not passed. It says "unknown" instead.
-- A test that has never failed has never been checked.
+## Tests
 
 ```bash
 node --test "tests/**/*.test.mjs"     # 49 tests
@@ -132,11 +127,6 @@ node --test "tests/**/*.test.mjs"     # 49 tests
 
 Then go break something and watch them go red. That is how they were verified rather than
 assumed: sabotage the send wall so it always passes, and four of them turn red.
-
-## Status
-
-Early, and honest about it. The contract, hire, fire, the send wall and the stub check are
-real and run today. MIT.
 
 ## Star history
 
