@@ -13,6 +13,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { roster } from '../lib/desk.mjs'
+import { isMain } from '../lib/is-main.mjs'
 
 export const applies = (root) => existsSync(join(root, 'desks'))
 
@@ -57,7 +58,7 @@ export function report(root = process.cwd()) {
   return { code: 4, applicable: true, why: `${findings.length} thing(s) never filled in after hiring`, findings }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   const r = report()
   if (!r.applicable) { console.log(`   not applicable  ${r.why}`); process.exit(0) }
   if (r.code === 7) { console.log(`UNKNOWN  ${r.why}`); process.exit(7) }

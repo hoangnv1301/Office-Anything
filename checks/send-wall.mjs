@@ -15,6 +15,7 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { roster, mayHold } from '../lib/desk.mjs'
+import { isMain } from '../lib/is-main.mjs'
 
 const SENDER = /\.(mjs|js|ts|py)$/
 
@@ -73,7 +74,7 @@ export function report(root = process.cwd()) {
   return { code: 4, applicable: true, why: `${findings.length} desk(s) on the wrong side of the send wall`, findings }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   const r = report()
   if (!r.applicable) { console.log(`   not applicable  ${r.why}`); process.exit(0) }
   if (r.code === 7) { console.log(`UNKNOWN  ${r.why}`); process.exit(7) }

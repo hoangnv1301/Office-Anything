@@ -1,0 +1,12 @@
+{
+  "name": "clawoffice",
+  "owner": { "name": "ClawOffice" },
+  "plugins": [
+    {
+      "name": "clawoffice",
+      "source": "./",
+      "description": "You hire a desk, you fire a desk. An AI workforce where every role has a boundary that exits non-zero.",
+      "version": "0.1.0"
+    }
+  ]
+}
