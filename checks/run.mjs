@@ -1,0 +1,56 @@
+#!/usr/bin/env node
+// EVERY CHECK, ONE COMMAND, ONE EXIT CODE.
+//
+// ⛔ THIS FILE EXISTS BECAUSE CHECKS THAT ARE NOT WIRED TO ANYTHING DO NOT RUN. In the
+// system this came from, a full-tree credential scan sat unwired for weeks. It was named
+// in three documents and a lesson about not reading measurements, two tests imported it so
+// the suite kept proving it worked, and no schedule ever ran it. When it was finally wired
+// up, its first run was red.
+//
+// Adding a check here is ONE line. That is the entire point: the cost of surfacing a check
+// has to be near zero, or it does not get surfaced.
+//
+//   0  every applicable check is clean
+//   4  ⛔ at least one has a finding
+//   7  at least one could not answer, and none had a finding
+import { report as sendWall } from './send-wall.mjs'
+import { report as unfinished } from './unfinished.mjs'
+import { isMain } from '../lib/is-main.mjs'
+
+export const CHECKS = [
+  { name: 'send-wall',  run: sendWall,   answers: 'can a desk that should not reach a customer, reach one' },
+  { name: 'unfinished', run: unfinished, answers: 'is a desk still wearing the stubs it was hired with' },
+]
+
+export function collect(root = process.cwd(), checks = CHECKS) {
+  const rows = checks.map(c => {
+    // ⛔ A CHECK THAT THROWS IS NOT A CHECK THAT PASSED. Without this, one bad import
+    // takes down the runner and every check after it reports nothing, silently.
+    try { return { ...c, ...c.run(root) } }
+    catch (e) { return { ...c, code: 7, applicable: true, why: `threw: ${e.message}` } }
+  })
+  const bad = rows.filter(r => r.code === 4)
+  const unknown = rows.filter(r => r.code === 7)
+  return { rows, code: bad.length ? 4 : unknown.length ? 7 : 0, bad, unknown }
+}
+
+if (isMain(import.meta.url)) {
+  const r = collect()
+  for (const row of r.rows) {
+    const tag = row.applicable === false ? '  --  ' : row.code === 0 ? '  ok  ' : row.code === 7 ? ' ???  ' : '  ⛔  '
+    console.log(`${tag}${row.name.padEnd(12)}${row.why}`)
+  }
+  console.log('')
+  if (r.code === 0) {
+    // ⛔ SAY HOW MANY ACTUALLY LOOKED. "All checks passed" over a set that all reported
+    // not-applicable is the most reassuring lie this tool could tell.
+    const looked = r.rows.filter(x => x.applicable !== false).length
+    console.log(looked ? `ok  ${looked} of ${r.rows.length} check(s) applied, all clean`
+                       : `   nothing applied yet. Hire a desk and these switch on.`)
+    process.exit(0)
+  }
+  if (r.code === 7) { console.log(`UNKNOWN  ${r.unknown.length} check(s) could not answer`); process.exit(7) }
+  console.log(`⛔ ${r.bad.length} check(s) have a finding`)
+  for (const b of r.bad) for (const f of b.findings ?? []) console.log(`   ${b.name}: ${f.desk} ${f.say}`)
+  process.exit(4)
+}

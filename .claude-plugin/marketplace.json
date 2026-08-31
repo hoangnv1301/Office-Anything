@@ -1,0 +1,14 @@
+{
+  "name": "office-anything",
+  "owner": {
+    "name": "Office-Anything"
+  },
+  "plugins": [
+    {
+      "name": "office-anything",
+      "source": "./",
+      "description": "A Claude Code plugin for hiring and firing AI agents. Each gets a desk, a browser, and limits that are enforced, not suggested.",
+      "version": "0.1.0"
+    }
+  ]
+}

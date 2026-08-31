@@ -1,0 +1,3 @@
+#!/bin/sh
+# ⛔ Blocks a commit that contains a credential. Install: git config core.hooksPath .githooks
+exec node "$(git rev-parse --show-toplevel)/hooks/no-secrets.mjs" --staged
