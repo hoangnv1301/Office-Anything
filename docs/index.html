@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Office-Anything — hire a desk, fire a desk</title>
+<meta name="description" content="A Claude Code plugin for hiring and firing AI agents. Each gets a desk, a browser, and limits that are enforced, not suggested.">
+<meta property="og:title" content="Office-Anything">
+<meta property="og:description" content="Some agents should never be able to talk to a customer. Not because you told them not to.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
+<style>
+  :root{
+    --paper:#e8ebee; --surface:#f5f7f8; --raised:#fff;
+    --ink:#11161c; --ink-2:#454f5b; --ink-3:#6b7683;
+    --line:#ccd3da; --line-2:#b3bdc7;
+    --brass:#8a6529; --brass-2:#a67c3d;
+    --block:#a5251a; --block-bg:#fbeceb; --block-line:#e9bdb8;
+    --allow:#1f5c40; --allow-bg:#e9f3ee; --allow-line:#b6d8c6;
+    --term-bg:#12181f; --term-ink:#d5dde5;
+    --shadow:0 1px 2px rgba(17,22,28,.05), 0 8px 24px -12px rgba(17,22,28,.14);
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#0e1216; --surface:#161c22; --raised:#1b222a;
+    --ink:#e7ecf1; --ink-2:#a7b3bf; --ink-3:#7d8894;
+    --line:#2a333c; --line-2:#3a454f;
+    --brass:#d4a463; --brass-2:#c08f4a;
+    --block:#f0776a; --block-bg:#2a1614; --block-line:#5a2b25;
+    --allow:#6fc79b; --allow-bg:#132318; --allow-line:#255139;
+    --term-bg:#080b0e; --term-ink:#d5dde5;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }}
+  :root[data-theme="dark"]{
+    --paper:#0e1216; --surface:#161c22; --raised:#1b222a;
+    --ink:#e7ecf1; --ink-2:#a7b3bf; --ink-3:#7d8894;
+    --line:#2a333c; --line-2:#3a454f;
+    --brass:#d4a463; --brass-2:#c08f4a;
+    --block:#f0776a; --block-bg:#2a1614; --block-line:#5a2b25;
+    --allow:#6fc79b; --allow-bg:#132318; --allow-line:#255139;
+    --term-bg:#080b0e; --term-ink:#d5dde5;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font:16px/1.6 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace}
+  .wrap{max-width:1020px;margin:0 auto;padding:0 20px}
+  a{color:var(--brass)}
+
+  /* ── blocks ───────────────────────────────────────────── */
+  .block{background:var(--surface);border:1px solid var(--line);border-radius:4px;box-shadow:var(--shadow)}
+  .block-h{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;
+    align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .tag{font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;font-weight:700;color:var(--brass)}
+  .grid{display:grid;gap:16px}
+  section{padding:56px 0}
+  section+section{border-top:1px solid var(--line)}
+
+  /* ── hero ─────────────────────────────────────────────── */
+  header{padding:70px 0 56px}
+  h1{font-family:Georgia,"Iowan Old Style",serif;font-weight:400;
+    font-size:clamp(33px,5.6vw,54px);line-height:1.08;letter-spacing:-.015em;
+    margin:14px 0 18px;text-wrap:balance;max-width:19ch}
+  h1 em{font-style:italic;color:var(--brass)}
+  .lede{font-size:18px;color:var(--ink-2);max-width:56ch;margin:0 0 28px}
+  .cta{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .btn{display:inline-block;font:600 14px/1 inherit;padding:12px 18px;border-radius:4px;
+    text-decoration:none;border:1px solid transparent;transition:opacity .14s,border-color .14s}
+  .btn-1{background:var(--ink);color:var(--paper)}
+  .btn-1:hover{opacity:.85}
+  .btn-2{border-color:var(--line-2);color:var(--ink)}
+  .btn-2:hover{border-color:var(--brass)}
+  .btn:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+  .pills{display:flex;gap:8px;flex-wrap:wrap;margin:26px 0 0;padding:0;list-style:none}
+  .pills li{font-size:12px;color:var(--ink-3);border:1px solid var(--line);
+    border-radius:100px;padding:4px 11px;background:var(--surface)}
+
+  h2{font-family:Georgia,"Iowan Old Style",serif;font-weight:400;font-size:26px;
+    letter-spacing:-.01em;margin:0 0 6px;text-wrap:balance}
+  .sub{color:var(--ink-3);margin:0 0 26px;max-width:60ch}
+
+  /* ── desks ────────────────────────────────────────────── */
+  .desks{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:760px){.desks{grid-template-columns:1fr}}
+  .desk{all:unset;display:block;cursor:pointer;background:var(--surface);
+    border:1px solid var(--line);border-radius:4px;padding:18px;box-shadow:var(--shadow);
+    transition:border-color .14s,transform .14s,background .14s}
+  .desk:hover{transform:translateY(-2px);border-color:var(--line-2)}
+  .desk[aria-pressed="true"]{border-color:var(--brass);background:var(--raised)}
+  .desk:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+  .plate{font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:600;margin:0 0 2px}
+  .kind{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;
+    color:var(--ink-3);margin:0 0 13px}
+  .holds{list-style:none;margin:0;padding:0;font-size:13.5px;color:var(--ink-2)}
+  .holds li{padding:2.5px 0 2.5px 17px;position:relative}
+  .holds li::before{content:"·";position:absolute;left:5px;color:var(--ink-3)}
+  .holds li.no{color:var(--ink-3)}
+  .holds li.no::before{content:"×";color:var(--block);font-size:11px}
+
+  /* ── terminal ─────────────────────────────────────────── */
+  pre.term{margin:0;padding:20px 18px;background:var(--term-bg);color:var(--term-ink);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;
+    line-height:1.62;overflow-x:auto;min-height:210px;white-space:pre-wrap;word-break:break-word}
+  .c-dim{color:#6d7c8a}.c-bad{color:#f0776a}.c-good{color:#6fc79b}.c-key{color:#d4a463}
+  .verdict{display:flex;gap:9px;align-items:baseline;padding:13px 18px;font-size:13.5px;
+    border-top:1px solid var(--line);flex-wrap:wrap}
+  .verdict.is-block{background:var(--block-bg);color:var(--block);border-top-color:var(--block-line)}
+  .verdict.is-allow{background:var(--allow-bg);color:var(--allow);border-top-color:var(--allow-line)}
+  .verdict.is-idle{background:var(--surface);color:var(--ink-3)}
+  .run{font:600 13.5px/1 inherit;background:var(--ink);color:var(--paper);border:0;
+    border-radius:4px;padding:11px 16px;cursor:pointer;transition:opacity .14s}
+  .run:hover{opacity:.85}
+  .run:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+  /* ── feature blocks ───────────────────────────────────── */
+  .two{grid-template-columns:1fr 1fr}
+  @media(max-width:760px){.two{grid-template-columns:1fr}}
+  .card{padding:20px}
+  .card h3{margin:0 0 7px;font-size:16px;font-weight:600}
+  .card p{margin:0;color:var(--ink-2);font-size:14.5px}
+  .card code{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:var(--brass)}
+
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
+  th{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+  td:first-child{color:var(--ink-2)}
+  tbody tr:last-child td{border-bottom:0}
+  .y{color:var(--allow);font-weight:600}.n{color:var(--block);font-weight:600}
+  .m{color:var(--ink-3)}
+
+  footer{padding:34px 0 60px;border-top:1px solid var(--line);color:var(--ink-3);font-size:13.5px;
+    display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <p class="tag">A Claude Code plugin</p>
+    <h1>Some agents should <em>never</em> talk to a customer.</h1>
+    <p class="lede">Not because you told them not to. Office-Anything gives every agent a desk
+      and a job, then takes away the ability to do anyone else's. Try to break it below.</p>
+    <div class="cta">
+      <a class="btn btn-1" href="https://github.com/hoangnv1301/Office-Anything">View on GitHub</a>
+      <a class="btn btn-2" href="#try">Try the wall</a>
+    </div>
+    <ul class="pills">
+      <li>49 tests</li><li>0 dependencies</li><li>MIT</li><li>no server, no dashboard</li>
+    </ul>
+  </header>
+</div>
+
+<div class="wrap">
+<section id="try">
+  <h2>The floor</h2>
+  <p class="sub">Three desks in a small office. Pick one, then try to give it a way to send.</p>
+
+  <div class="grid desks" role="group" aria-label="Choose a desk">
+    <button class="desk" aria-pressed="true" data-desk="support" data-kind="channel" data-live="true">
+      <p class="plate">support</p><p class="kind">Channel · live</p>
+      <ul class="holds"><li>its own browser, on screen</li><li>reads the inbox</li>
+        <li>a voice it must pass</li><li>can send, because you made it live</li></ul>
+    </button>
+    <button class="desk" aria-pressed="false" data-desk="mail" data-kind="channel" data-live="false">
+      <p class="plate">mail</p><p class="kind">Channel · dark</p>
+      <ul class="holds"><li>its own browser, on screen</li><li>reads the inbox</li>
+        <li>a voice it must pass</li><li class="no">cannot send yet</li></ul>
+    </button>
+    <button class="desk" aria-pressed="false" data-desk="pricing" data-kind="knowledge" data-live="false">
+      <p class="plate">pricing</p><p class="kind">Knowledge</p>
+      <ul class="holds"><li>margins, contracts, rates</li><li class="no">no browser</li>
+        <li class="no">no inbox</li><li class="no">no way to send. Ever.</li></ul>
+    </button>
+  </div>
+
+  <div class="block" style="margin-top:16px">
+    <div class="block-h">
+      <p style="margin:0;font-size:13.5px;color:var(--ink-2)">Write a sender into
+        <span class="mono" id="target" style="color:var(--ink);font-weight:600">desks/support/runtime/send/reply.mjs</span></p>
+      <button class="run" id="run">Try it</button>
+    </div>
+    <pre class="term" id="term" aria-live="polite"><span class="c-dim">Pick a desk above, then press Try it.
+
+This is the real hook and its real output. The only thing
+simulated is the file write.</span></pre>
+    <div class="verdict is-idle" id="verdict"><strong>Ready</strong><span>Nothing attempted yet.</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Why a hook, not a rule</h2>
+  <p class="sub">A written rule is something a model can talk itself out of at 2am with a
+    customer waiting. A hook is not the model's decision.</p>
+  <div class="grid two">
+    <div class="block card"><h3>It runs before the file exists</h3>
+      <p>Not a report you read afterwards, if somebody runs it. The write is refused, and the
+      tool call returns the reason.</p></div>
+    <div class="block card"><h3>Checked in both directions</h3>
+      <p>A live desk with <em>no</em> way to send fails just as loudly. That one means somebody
+      is being ignored.</p></div>
+    <div class="block card"><h3>Hiring refuses to guess</h3>
+      <p><code>"quotes prices to customers"</code> names both customers and internal figures,
+      so it stops and asks rather than picking one.</p></div>
+    <div class="block card"><h3>Firing is the part everyone skips</h3>
+      <p>It will not fire a live desk, or one anything still references. It archives instead
+      of deleting, and hands back the steps no script can do.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>What each desk is issued</h2>
+  <p class="sub">Decided when you hire, not argued about later.</p>
+  <div class="block" style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Gets</th><th>Channel</th><th>Knowledge</th><th>Lead</th></tr></thead>
+      <tbody>
+        <tr><td>Its own browser, visible on screen</td><td class="y">yes</td><td class="m">—</td><td class="y">yes</td></tr>
+        <tr><td>A reader for its channel</td><td class="y">yes</td><td class="m">—</td><td class="m">—</td></tr>
+        <tr><td>A voice standard it has to pass</td><td class="y">yes</td><td class="m">—</td><td class="m">—</td></tr>
+        <tr><td><strong>A way to send</strong></td><td class="m">only once live</td><td class="n">never</td><td class="n">never</td></tr>
+        <tr><td>The codebase-graph tool</td><td class="m">—</td><td class="m">—</td><td class="y">yes</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Built on what Claude Code already has</h2>
+  <p class="sub">No server, no dashboard, no database. Nothing here reimplements anything.</p>
+  <div class="grid two">
+    <div class="block card"><h3><span class="mono" style="color:var(--brass)">hooks</span></h3>
+      <p>The gate above. Blocks the write rather than reporting it.</p></div>
+    <div class="block card"><h3><span class="mono" style="color:var(--brass)">slash commands</span></h3>
+      <p><code>/desk-hire</code> and <code>/desk-fire</code>.</p></div>
+    <div class="block card"><h3><span class="mono" style="color:var(--brass)">subagents</span></h3>
+      <p>The desks themselves, written into your project when you hire one.</p></div>
+    <div class="block card"><h3><span class="mono" style="color:var(--brass)">plugins</span></h3>
+      <p>How all of it arrives, in one install.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Install</h2>
+  <p class="sub">Nothing happens until you hire someone. With no <span class="mono">desks/</span>
+    directory there is nothing to have an opinion about, so it says so instead of showing you
+    green ticks that mean nothing.</p>
+  <div class="block">
+    <div class="block-h"><span class="tag">In Claude Code</span></div>
+    <pre class="term" style="min-height:0"><span class="c-dim">$</span> /plugin install office-anything@office-anything
+<span class="c-dim">$</span> /desk-hire <span class="c-key">"someone who answers our Instagram DMs"</span>
+
+<span class="c-dim">  reads it   → kind: channel
+  issues     → a folder, its own Chrome, a reader, a voice standard
+  withholds  → a sender. It starts dark.</span>
+
+<span class="c-bad">  ⛔ chat: facts.md is still the stub. This desk knows nothing.</span></pre>
+  </div>
+  <p class="sub" style="margin-top:18px">It fails on purpose. A new desk really does know
+    nothing yet, so it says so and tells you what to write. Anything that hands you a
+    finished-looking agent is training you to stop reading its output.</p>
+</section>
+
+<footer>
+  <span><a href="https://github.com/hoangnv1301/Office-Anything">github.com/hoangnv1301/Office-Anything</a></span>
+  <span>MIT · 49 tests · no dependencies</span>
+</footer>
+</div>
+
+<script>
+  const desks=[...document.querySelectorAll('.desk')],term=document.getElementById('term'),
+        verdict=document.getElementById('verdict'),target=document.getElementById('target'),
+        run=document.getElementById('run');
+  let current=desks[0];
+  const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const path=d=>`desks/${d.dataset.desk}/runtime/send/reply.mjs`;
+
+  function select(d){
+    current=d;
+    desks.forEach(x=>x.setAttribute('aria-pressed',String(x===d)));
+    target.textContent=path(d);
+    term.innerHTML=`<span class="c-dim">Ready to write a sender into ${esc(path(d))}.\nPress Try it.</span>`;
+    verdict.className='verdict is-idle';
+    verdict.innerHTML='<strong>Ready</strong><span>Nothing attempted yet.</span>';
+  }
+  desks.forEach(d=>d.addEventListener('click',()=>select(d)));
+
+  run.addEventListener('click',()=>{
+    const d=current,kind=d.dataset.kind,live=d.dataset.live==='true',name=d.dataset.desk;
+    const head=`<span class="c-dim">$</span> write ${esc(path(d))}
+<span class="c-dim">  → PreToolUse: send-wall-gate.mjs</span>
+<span class="c-dim">  → desks/${esc(name)}/desk.json  kind=<span class="c-key">${kind}</span> live=<span class="c-key">${live}</span></span>
+
+`;
+    if(kind==='knowledge'){
+      term.innerHTML=head+`<span class="c-bad">⛔ BLOCKED. ${esc(name)} is a KNOWLEDGE desk and you are giving it a
+way to send.
+
+A knowledge desk holds prices, margins and contracts. The wall is
+that it has no route to a customer, and "no route" means the
+capability is ABSENT, not disabled.
+
+If this desk genuinely needs to talk to people, it is the wrong
+kind. Change its kind in desks/${esc(name)}/desk.json deliberately, where
+somebody reviews it.</span>
+
+<span class="c-dim">exit 2 — the file was never created</span>`;
+      verdict.className='verdict is-block';
+      verdict.innerHTML='<strong>Blocked</strong><span>The margins never got a route out.</span>';
+    } else if(!live){
+      term.innerHTML=head+`<span class="c-bad">⛔ BLOCKED. ${esc(name)} is a channel desk but it is DARK, and you are
+giving it a sender.
+
+Going live is meant to be a deliberate, reviewed edit to desk.json,
+not a file quietly appearing. Set "live": true first, on purpose,
+and then write this.</span>
+
+<span class="c-dim">exit 2 — the file was never created</span>`;
+      verdict.className='verdict is-block';
+      verdict.innerHTML='<strong>Blocked</strong><span>Going live stays a decision, not a side effect.</span>';
+    } else {
+      term.innerHTML=head+`<span class="c-good">✓ allowed. ${esc(name)} is a live channel desk. Sending is its job.</span>
+
+<span class="c-dim">exit 0 — file written</span>`;
+      verdict.className='verdict is-allow';
+      verdict.innerHTML='<strong>Allowed</strong><span>The one desk whose job is talking to people.</span>';
+    }
+  });
+</script>
+</body>
+</html>
