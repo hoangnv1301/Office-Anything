@@ -12,7 +12,7 @@ import { portCollisions, nextFreePort, readDesk } from '../lib/desk.mjs'
 // passes that test too.
 
 function world(desks) {
-  const root = mkdtempSync(join(tmpdir(), 'remit-'))
+  const root = mkdtempSync(join(tmpdir(), 'clawoffice-'))
   for (const d of desks) {
     const dir = join(root, 'desks', d.name)
     mkdirSync(dir, { recursive: true })
@@ -28,7 +28,7 @@ function world(desks) {
 const clean = (r) => rmSync(r, { recursive: true, force: true })
 
 test('an install with no desks/ is NOT APPLICABLE, and is never reported as a pass', () => {
-  const root = mkdtempSync(join(tmpdir(), 'remit-'))
+  const root = mkdtempSync(join(tmpdir(), 'clawoffice-'))
   const r = report(root)
   assert.equal(r.applicable, false, 'a check with nothing to guard must say so')
   assert.equal(r.code, 0, 'and must not block anyone')
@@ -36,7 +36,7 @@ test('an install with no desks/ is NOT APPLICABLE, and is never reported as a pa
 })
 
 test('⛔ a desks/ directory holding nothing is UNKNOWN, never clean', () => {
-  const root = mkdtempSync(join(tmpdir(), 'remit-'))
+  const root = mkdtempSync(join(tmpdir(), 'clawoffice-'))
   mkdirSync(join(root, 'desks'), { recursive: true })
   const r = report(root)
   assert.equal(r.code, 7, 'an empty walk has not passed, it has failed to look')
@@ -105,7 +105,7 @@ test('hiring and firing never renumber anyone, because ports are declared', () =
 })
 
 test('⛔ a malformed desk.json throws, and is never a silently skipped desk', () => {
-  const root = mkdtempSync(join(tmpdir(), 'remit-'))
+  const root = mkdtempSync(join(tmpdir(), 'clawoffice-'))
   const dir = join(root, 'desks', 'broken')
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, 'desk.json'), '{ "name": "broken", "kind": "channel" }')   // no port
