@@ -15,6 +15,11 @@ limits that are enforced, not suggested.
        alt="A support desk can reach a customer. A pricing desk holds margins and contracts, has no browser and no way to send, and the route from it to a customer is blocked.">
 </p>
 
+<p align="center">
+  <b><a href="https://hoangnv1301.github.io/Office-Anything/">Try the wall &rarr;</a></b><br>
+  <sub>Pick a desk, try to give it a way to send, and read the gate's actual refusal.</sub>
+</p>
+
 ## Install
 
 ```bash
