@@ -4,63 +4,16 @@ A Claude Code plugin for hiring and firing AI agents. Each gets a desk, a browse
 limits that are enforced, not suggested.
 
 <p align="center">
-  <a href="https://github.com/hoangnv1301/Office-Anything/actions"><img alt="tests" src="https://img.shields.io/badge/tests-49%20passing-3fb950"></a>
+  <img alt="tests" src="https://img.shields.io/badge/tests-49%20passing-3fb950">
+  <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
-  <img alt="deps" src="https://img.shields.io/badge/dependencies-0-3fb950">
   <img alt="claude code" src="https://img.shields.io/badge/Claude%20Code-plugin-8957e5">
 </p>
 
 <p align="center">
-  <img src="assets/the-wall.svg" alt="A channel desk can reach a customer. A knowledge desk holds margins and contracts, has no browser and no way to send, and the route from it to a customer is blocked before the file is written." width="100%">
+  <img src="assets/the-wall.svg" width="100%"
+       alt="A support desk can reach a customer. A pricing desk holds margins and contracts, has no browser and no way to send, and the route from it to a customer is blocked.">
 </p>
-
-```
-/desk-hire "someone who answers our Instagram DMs"
-
-  reads it   →  kind: channel
-  issues     →  its own folder, its own Chrome (headed, on its own declared port),
-                a reader, a voice standard, a voice gate
-  withholds  →  a sender. It starts dark.
-
-  ⛔ chat: facts.md is still the stub. This desk knows nothing.
-```
-
-That last line is not a bug. **A new hire is not green.** It arrives with real files, real
-headings and no content, and the checks say exactly what is missing. A generator that emits
-a passing desk teaches you on day one that the gates are decoration.
-
----
-
-## This is not another dashboard
-
-It has no UI, no server, no database, and nothing to log into. There is nothing to watch.
-
-It is also not another agent framework. It does not orchestrate, schedule, or route. It
-**runs on Claude Code** and uses what is already there:
-
-| Claude Code gives you | Office-Anything uses it for | ships? |
-|---|---|---|
-| hooks | a gate that BLOCKS the write, rather than asking the model nicely | ✅ |
-| slash commands | `/desk-hire`, `/desk-fire` | ✅ |
-| plugins | how all of it arrives, in one install | ✅ |
-| subagents | the desks themselves. `hire` writes them into YOUR project | produced, not shipped |
-| skills | nothing yet needs one. Two commands carry the workflow | ⛔ not yet |
-
-⚠️ **That last column is there because this README lied about it.** It claimed all five and
-shipped only commands. If a row ever goes green, it is because the directory exists.
-
-Nothing here reimplements any of that. If you already use Claude Code, this is additive.
-
-## The problem it actually solves
-
-Everyone can spin up ten agents. The trouble starts after:
-
-- the agent that knows your margins is one prompt away from telling a customer
-- you cannot remove an agent without breaking three others that quietly depended on it
-- your docs say you have six agents and nine are running
-- every check is green because most of them never ran
-
-Office-Anything is about **what each agent is allowed to hold**, and **how you remove one**.
 
 ## Install
 
@@ -68,57 +21,92 @@ Office-Anything is about **what each agent is allowed to hold**, and **how you r
 /plugin install office-anything@office-anything
 ```
 
-**Nothing happens.** No hooks fire, nothing blocks a commit. Every check answers
-`applies()` before it answers anything else, and with no `desks/` directory there is nothing
-to have an opinion about. It reports **not applicable** — which is deliberately not the same
-as passing.
+Nothing happens. No hooks fire, nothing blocks a commit, no files appear. With no `desks/`
+directory there is nothing for it to have an opinion about, and it says "not applicable"
+rather than showing you a row of green ticks that mean nothing.
 
 Then hire someone, and it switches on.
 
+## Hire someone
+
+```
+/desk-hire "someone who answers our Instagram DMs"
+```
+
+```
+  reads it   →  kind: channel
+  issues     →  a folder, its own Chrome, a reader, a voice standard
+  withholds  →  a sender. It starts dark.
+
+  ⛔ chat: facts.md is still the stub. This desk knows nothing.
+```
+
+**It fails on purpose.** A new desk really does know nothing yet, so it says so and tells
+you what to write. Anything that hands you a finished-looking agent out of the box is
+training you to stop reading its output.
+
+## Fire someone
+
+```
+/desk-fire chat --reason "the channel is being retired this quarter"
+```
+
+Firing is the part most setups skip, so removing an agent quietly breaks three others.
+This refuses to do it badly. It will not fire a desk that is still live, or one that
+anything else still references, and it archives rather than deletes.
+
+It then hands you the steps no script can do for you: close its session, move any shared
+code it owned, rehome its knowledge, reassign its open work, and take it out of your docs.
+
+The reason is required and recorded. An override that costs nothing to type becomes
+something you type into everything.
+
 ## The wall
 
-A knowledge desk holds prices, margins, contracts. A channel desk talks to people. The wall
-is that a knowledge desk **has no way to send** — the capability is absent, not disabled.
+Some agents should never be able to talk to a customer, no matter how the conversation
+goes. A **knowledge** desk holds prices, margins and contracts. A **channel** desk talks to
+people. The wall between them is that a knowledge desk has no way to send anything — the
+capability is absent, not switched off.
 
-| issued | channel | knowledge | lead |
+| gets | channel | knowledge | lead |
 |---|---|---|---|
-| its own browser, **headed** | ✅ | ⛔ | ✅ |
-| a reader | ✅ | | |
-| a voice gate | ✅ | | |
-| **a sender** | only when live | ⛔ **never** | ⛔ never |
-| the codebase-graph tool | | | ✅ lead only |
+| its own browser, visible on screen | ✅ | — | ✅ |
+| a reader for its channel | ✅ | — | — |
+| a voice standard it has to pass | ✅ | — | — |
+| **a way to send** | only once you make it live | **never** | never |
+| the codebase-graph tool | — | — | ✅ |
 
-⛔ **Headed is about accounts, not about Chrome.** A desk browser holds a signed-in session
-on a real site. If it acts where nobody can see it, the first evidence is what it did to a
-real account. The incident behind this rule opened 19 threads in 81 seconds, and nobody
-watched it happen.
+The wall is enforced by a hook, so it blocks the write instead of reporting it afterwards:
 
-⛔ **The wall is checked in both directions.** A missing sender on a live channel desk fails
-as loudly as a present one on a knowledge desk. The first means a customer is being ignored;
-the second means your margins have a route out. A one-directional version of this check
-happily passes a team that cannot answer anybody.
+```
+⛔ BLOCKED. pricing is a KNOWLEDGE desk and you are giving it a way to send.
 
-⛔ **And the hire refuses to guess.** "quotes prices to customers" mentions both customers
-and internal figures, so it returns **ambiguous** and asks. Counting keywords is not a basis
-for deciding who may talk to a customer.
+If this desk genuinely needs to talk to people, it is the wrong kind. Change its
+kind in desks/pricing/desk.json deliberately, where somebody reviews it.
+```
 
-## Firing
+It is checked both ways. A live channel desk with **no** way to send fails just as loudly,
+because that means someone is being ignored.
 
-`/desk-fire <name> --reason "..."` — the part nobody else ships. It **refuses** rather than
-warns: a live desk, or one anything still references, does not get fired.
+And hiring refuses to guess. `"quotes prices to customers"` mentions both customers and
+internal figures, so it stops and asks rather than picking one. Counting keywords is not a
+way to decide who may talk to a customer.
 
-1. ⛔ **Close its session first.** A retired desk does not exit when its folder moves. Six
-   were once reported up while nine were running — three retired desks were live and invisible.
-2. ⛔ **Move any shared code it owned.** Removing one desk once broke nine test files at
-   once, because it was quietly carrying a whole deliverable gate.
-3. **Rehome its knowledge**, naming the successor, or it is lost.
-4. **Reassign its open work**, or the board keeps a promise nobody holds.
-5. **Archive to `bk/`.** Never delete.
-6. **Delete its row from your docs.** Three removed desks stayed listed for a day, telling
-   agents to go ask a desk that no longer existed.
+## This is not another dashboard
 
-The reason must be 20+ characters and it is recorded. **An override that is free to type
-becomes boilerplate** — ask any team that added `--force` and then typed it into everything.
+No UI, no server, no database, nothing to log into. It is also not another agent framework:
+it does not orchestrate, schedule or route. It runs on Claude Code and uses what is already
+there.
+
+| Claude Code gives you | used for | ships |
+|---|---|---|
+| hooks | gates that block the write | ✅ |
+| slash commands | `/desk-hire`, `/desk-fire` | ✅ |
+| plugins | how it all arrives, in one install | ✅ |
+| subagents | the desks themselves, written into **your** project | produced |
+| skills | nothing needs one yet | not yet |
+
+If you already use Claude Code, this is additive. Nothing here reimplements any of it.
 
 ## The contract
 
@@ -126,30 +114,29 @@ becomes boilerplate** — ask any team that added `--force` and then typed it in
 { "name": "billing", "kind": "knowledge", "port": 9231, "live": false }
 ```
 
-One file. The roster, the port map, the docs table and the tests all read it.
+One file per desk. The roster, the port map, your docs and the tests all read it.
 
-⛔ **Ports are declared, never derived.** The system this came from allocated them by
-position in a sorted list, so hiring `billing` silently renumbered every desk sorting after
-it — and firing one did the same in reverse. Four separate incidents. Two desks claiming one
-port is now a test failure naming both.
+Ports are written down, never worked out from a desk's position in a list. That sounds
+pedantic until you add a desk called `billing` and every desk alphabetically after it
+silently moves to a different port.
 
-## The rules
+## The rules it holds itself to
 
-- **A check that reports is not a gate.** If it matters, it exits non-zero.
-- **An empty walk is UNKNOWN, never clean.** A checker that examined nothing has not passed.
-- **A test that has never failed has never been checked.**
+- A check that only reports is not a gate. If it matters, it fails the command.
+- A check that examined nothing has not passed. It says "unknown" instead.
+- A test that has never failed has never been checked.
 
 ```bash
 node --test "tests/**/*.test.mjs"     # 49 tests
 ```
 
-Then go break something and watch them go red. They were verified that way, not assumed to
-work: sabotaging the send wall to always return 0 turns four of them red.
+Then go break something and watch them go red. That is how they were verified rather than
+assumed: sabotage the send wall so it always passes, and four of them turn red.
 
 ## Status
 
-Early and honest about it. The contract, hire, fire, the send wall and the unfinished check
-are real and run. MIT.
+Early, and honest about it. The contract, hire, fire, the send wall and the stub check are
+real and run today. MIT.
 
 ## Star history
 
