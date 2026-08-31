@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # the suite
+node --test "tests/**/*.test.mjs"    # 54 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -24,6 +24,24 @@ the directory and reports one failing test with a buried MODULE_NOT_FOUND.
 ⛔ **`checks/` and `hooks/` are not the same job and must not be merged.** A check reports
 after the fact, if somebody runs it. A hook stops the action. The check exists so you can
 audit a repo you did not write; the hook exists because the audit is too late.
+
+## The desk contract
+
+```json
+{ "name": "billing", "kind": "knowledge", "port": 9231, "live": false }
+```
+
+One file per desk. The roster, the port map, the docs table and the tests all read it.
+
+⛔ **Ports are declared, never derived from position in a list.** Deriving them means adding
+a desk called `billing` silently moves every desk alphabetically after it to a different
+port, and firing one does the same in reverse.
+
+⛔ **Hiring needs TWO readers to agree.** The model decides the kind, because reading intent
+from a sentence is a model's job and a keyword list cannot do it. `agreeOnKind` then forms
+its own view from the words, and `hire` REFUSES if they differ or if the description is
+ambiguous. That call decides who may talk to a customer, which makes it the one place a
+second opinion earns its cost.
 
 ## The rules that keep this honest
 

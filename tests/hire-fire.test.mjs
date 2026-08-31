@@ -143,3 +143,41 @@ test('⛔ the manual steps are RETURNED, so a skipped one is visible', () => {
   }
   clean(root)
 })
+
+// ── two readers must agree ───────────────────────────────────────────────────
+// ⛔ The highest-stakes call this tool makes is who may talk to a customer. A model
+// deciding alone is one unchecked judgement from one sentence; a keyword list deciding
+// alone cannot read intent at all. So they check each other.
+
+test('⛔ hire REFUSES when the model and the words disagree', async () => {
+  const { agreeOnKind } = await import('../lib/hire.mjs')
+  const r = agreeOnKind('knowledge', 'answers customer DMs on Instagram all day')
+  assert.equal(r.ok, false, 'one reading gives it a browser and a route to customers; the other does not')
+  assert.match(r.why, /browser and a route to customers/)
+})
+
+test('⛔ and it refuses an AMBIGUOUS description even when the model sounds sure', async () => {
+  const { agreeOnKind } = await import('../lib/hire.mjs')
+  const r = agreeOnKind('channel', 'quotes prices to customers')
+  assert.equal(r.ok, false, 'confidence is not evidence when the sentence does two things')
+})
+
+test('agreement passes when both readers land on the same kind', async () => {
+  const { agreeOnKind } = await import('../lib/hire.mjs')
+  assert.equal(agreeOnKind('channel', 'answers our Instagram DMs').ok, true)
+})
+
+test('⛔ NO keyword signal is not a disagreement', async () => {
+  const { agreeOnKind } = await import('../lib/hire.mjs')
+  const r = agreeOnKind('knowledge', 'handles refunds')
+  assert.equal(r.ok, true, 'a clear description can contain none of the words this list knows')
+  assert.equal(r.secondOpinion, 'no signal')
+})
+
+test('⛔ hire() itself refuses, not just the helper', () => {
+  const root = fresh()
+  assert.throws(
+    () => hire(root, { name: 'x', kind: 'knowledge', description: 'answers customer DMs on Instagram' }),
+    /refusing to hire/, 'the guard must be in the path everyone uses, not one they can skip')
+  clean(root)
+})

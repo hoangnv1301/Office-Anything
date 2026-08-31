@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 400" width="940" height="400" role="img"
+     aria-label="One Claude Code conversation becomes three desks. Each desk is its own agent with its own context, and each is issued only what its job needs: the support desk gets a browser and can reply, the pricing desk holds margins and has no way to send, the lead organizes and hires.">
+  <style>
+    .ink   { fill: #11161c }
+    .mid   { fill: #454f5b }
+    .dim   { fill: #6b7683 }
+    .panel { fill: #f5f7f8; stroke: #ccd3da; stroke-width: 1 }
+    .wire  { stroke: #b3bdc7; fill: none; stroke-width: 1.5 }
+    .brass { fill: #8a6529 }
+    .stop  { fill: #a5251a }
+    .go    { fill: #1f5c40 }
+    @media (prefers-color-scheme: dark) {
+      .ink   { fill: #e7ecf1 }
+      .mid   { fill: #a7b3bf }
+      .dim   { fill: #7d8894 }
+      .panel { fill: #161c22; stroke: #2a333c }
+      .wire  { stroke: #3a454f }
+      .brass { fill: #d4a463 }
+      .stop  { fill: #f0776a }
+      .go    { fill: #6fc79b }
+    }
+    .h  { font: 600 14px ui-monospace, Menlo, monospace }
+    .k  { font: 700 9.5px ui-sans-serif, -apple-system, sans-serif; letter-spacing: .13em }
+    .b  { font: 12.5px ui-sans-serif, -apple-system, sans-serif }
+    .c  { font: 12px ui-monospace, Menlo, monospace }
+  </style>
+
+  <!-- the one conversation -->
+  <rect x="18" y="150" width="196" height="94" rx="5" class="panel"/>
+  <text x="34" y="176" class="k brass">YOUR CLAUDE CODE</text>
+  <text x="34" y="200" class="c ink">/desk-hire "someone</text>
+  <text x="34" y="218" class="c ink">who answers our DMs"</text>
+  <text x="34" y="236" class="c dim">/desk-fire mail</text>
+
+  <!-- fan out -->
+  <path d="M214 197 C 252 197 252 70 288 70"   class="wire"/>
+  <path d="M214 197 C 252 197 252 197 288 197" class="wire"/>
+  <path d="M214 197 C 252 197 252 324 288 324" class="wire"/>
+
+  <!-- support -->
+  <rect x="292" y="24" width="300" height="92" rx="5" class="panel"/>
+  <text x="310" y="48" class="h ink">support</text>
+  <text x="310" y="66" class="k go">CHANNEL · LIVE</text>
+  <text x="310" y="88" class="b mid">its own context, its own Chrome</text>
+  <text x="310" y="106" class="b mid">reads the inbox, replies</text>
+
+  <!-- pricing -->
+  <rect x="292" y="151" width="300" height="92" rx="5" class="panel"/>
+  <text x="310" y="175" class="h ink">pricing</text>
+  <text x="310" y="193" class="k dim">KNOWLEDGE</text>
+  <text x="310" y="215" class="b mid">margins, contracts, rates</text>
+  <text x="310" y="233" class="b mid">no browser, no way to send</text>
+
+  <!-- lead -->
+  <rect x="292" y="278" width="300" height="92" rx="5" class="panel"/>
+  <text x="310" y="302" class="h ink">lead</text>
+  <text x="310" y="320" class="k dim">LEAD</text>
+  <text x="310" y="342" class="b mid">organizes, hires, fires</text>
+  <text x="310" y="360" class="b mid">reads the codebase graph</text>
+
+  <!-- what each may do -->
+  <text x="646" y="48" class="k brass">MAY REACH A CUSTOMER</text>
+
+  <g transform="translate(646,66)">
+    <circle cx="7" cy="-4" r="7" class="go"/>
+    <path d="M4 -4l2.2 2.4L10.4 -6.6" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    <text x="22" y="0" class="b ink">support, because that is its job</text>
+  </g>
+
+  <g transform="translate(646,193)">
+    <circle cx="7" cy="-4" r="7" class="stop"/>
+    <path d="M4.2 -6.8l5.6 5.6M9.8 -6.8l-5.6 5.6" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+    <text x="22" y="0" class="b ink">pricing, never</text>
+  </g>
+  <text x="668" y="213" class="b dim">the capability is absent,</text>
+  <text x="668" y="230" class="b dim">not switched off</text>
+
+  <g transform="translate(646,320)">
+    <circle cx="7" cy="-4" r="7" class="stop"/>
+    <path d="M4.2 -6.8l5.6 5.6M9.8 -6.8l-5.6 5.6" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+    <text x="22" y="0" class="b ink">the lead, never</text>
+  </g>
+
+  <text x="18" y="388" class="b dim">One conversation. Real Claude agents, each with its own desk, its own context, and only what its job needs.</text>
+</svg>

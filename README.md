@@ -4,20 +4,20 @@ A Claude Code plugin for hiring and firing AI agents. Each gets a desk, a browse
 limits that are enforced, not suggested.
 
 <p align="center">
-  <img alt="tests" src="https://img.shields.io/badge/tests-49%20passing-3fb950">
+  <img alt="tests" src="https://img.shields.io/badge/tests-54%20passing-3fb950">
   <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
   <img alt="claude code" src="https://img.shields.io/badge/Claude%20Code-plugin-8957e5">
 </p>
 
 <p align="center">
-  <img src="assets/the-wall.svg" width="100%"
-       alt="A support desk can reach a customer. A pricing desk holds margins and contracts, has no browser and no way to send, and the route from it to a customer is blocked.">
+  <img src="assets/the-office.svg" width="100%"
+       alt="One Claude Code conversation becomes three desks. Each is its own agent with its own context: support gets a browser and can reply, pricing holds margins and has no way to send, the lead organizes and hires.">
 </p>
 
 <p align="center">
-  <b><a href="https://hoangnv1301.github.io/Office-Anything/">Try the wall &rarr;</a></b><br>
-  <sub>Pick a desk, try to give it a way to send, and read the gate's actual refusal.</sub>
+  <b><a href="https://hoangnv1301.github.io/Office-Anything/">See it work &rarr;</a></b><br>
+  <sub>Pick a desk, try to give it a job that isn't its own, and watch it refuse.</sub>
 </p>
 
 ## Install
@@ -111,27 +111,6 @@ there.
 | subagents | the desks themselves, written into **your** project |
 
 If you already use Claude Code, this is additive. Nothing here reimplements any of it.
-
-## The contract
-
-```json
-{ "name": "billing", "kind": "knowledge", "port": 9231, "live": false }
-```
-
-One file per desk. The roster, the port map, your docs and the tests all read it.
-
-Ports are written down, never worked out from a desk's position in a list. That sounds
-pedantic until you add a desk called `billing` and every desk alphabetically after it
-silently moves to a different port.
-
-## Tests
-
-```bash
-node --test "tests/**/*.test.mjs"     # 49 tests
-```
-
-Then go break something and watch them go red. That is how they were verified rather than
-assumed: sabotage the send wall so it always passes, and four of them turn red.
 
 ## Star history
 

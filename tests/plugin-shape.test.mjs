@@ -75,14 +75,14 @@ test('commands live where the spec says they are discovered', () => {
 // spawns it again. It survived only because execFileSync does not expand the glob. Counting
 // source is boring and terminates.
 test('⛔ the test count the README quotes is the real one', () => {
-  const readme = readFileSync(join(ROOT, 'README.md'), 'utf8')
-  const claimed = readme.match(/#\s*(\d+)\s*tests/)
-  assert.ok(claimed, 'the README should say how many tests there are')
+  const doc = readFileSync(join(ROOT, 'CLAUDE.md'), 'utf8')
+  const claimed = doc.match(/#\s*(\d+)\s*tests/)
+  assert.ok(claimed, 'CLAUDE.md should say how many tests there are')
 
   let real = 0
   for (const f of readdirSync(join(ROOT, 'tests'))) {
     if (!f.endsWith('.test.mjs')) continue
     real += (readFileSync(join(ROOT, 'tests', f), 'utf8').match(/^test\(/gm) ?? []).length
   }
-  assert.equal(Number(claimed[1]), real, `README says ${claimed[1]} tests, the files define ${real}`)
+  assert.equal(Number(claimed[1]), real, `CLAUDE.md says ${claimed[1]} tests, the files define ${real}`)
 })
