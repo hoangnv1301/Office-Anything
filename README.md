@@ -2,7 +2,8 @@
 
 **Plug in and get an office.**
 
-Hire AI staff for Claude Code, each with a desk, a browser, and things they may not touch.
+Hire AI staff for Claude Code, each with their own desk, their own browser, and no way to
+reach what isn't theirs.
 
 ```
 /desk-hire "someone who answers our Instagram DMs"
