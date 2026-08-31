@@ -1,9 +1,7 @@
 # Office-Anything
 
-**Plug in and get an office.**
-
-Hire AI staff for Claude Code, each with their own desk, their own browser, and no way to
-reach what isn't theirs.
+A Claude Code plugin for hiring and firing AI agents. Each gets a desk, a browser, and
+limits that are enforced, not suggested.
 
 ```
 /desk-hire "someone who answers our Instagram DMs"
