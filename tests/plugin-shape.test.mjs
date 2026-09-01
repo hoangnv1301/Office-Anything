@@ -170,3 +170,13 @@ test('⛔ every registration in run.mjs has a file behind it', async () => {
     assert.ok(c.answers && c.answers.length > 20, `"${c.name}" must say what it ANSWERS, in a line somebody can read`)
   }
 })
+
+// ⛔ A VERSION NUMBER WITH NO CHANGELOG ENTRY TELLS A USER NOTHING. Six releases shipped
+// before this file existed, so somebody on 0.1.0 could see 0.2.4 offered and have no way to
+// learn that 0.1.0 shipped a check that alarmed them for a count they could not state.
+test('⛔ the current version has a CHANGELOG entry', () => {
+  const v = JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'plugin.json'), 'utf8')).version
+  const log = readFileSync(join(ROOT, 'CHANGELOG.md'), 'utf8')
+  assert.match(log, new RegExp(`^## ${v.replace(/\./g, '\\.')}\\s*$`, 'm'),
+    `plugin.json says ${v} and CHANGELOG.md has no "## ${v}" section`)
+})
