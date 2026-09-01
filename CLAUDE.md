@@ -169,6 +169,14 @@ keeping one copy. The test count sat in four places and exactly one was watched,
 single test made three of them quietly wrong, and the wrong ones were the two a stranger
 sees first.
 
+## Removing things
+
+Retire to `bk/<date>-<what>/` with a `WHY.md` beside it. Do not delete.
+
+⚠️ **A dead-file sweep has expected false positives**, so read the list rather than acting
+on it: `LICENSE` and every `tests/*.test.mjs` are referenced by nothing, and neither is dead.
+`applies` and `report` appearing five times each is the check contract, not duplication.
+
 ## Adding things
 
 **A check** — export `applies(root)` and `report(root)`, return `{code, applicable, why}`,
