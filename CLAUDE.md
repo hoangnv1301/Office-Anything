@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 74 tests
+node --test "tests/**/*.test.mjs"    # 76 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -124,6 +124,19 @@ and every one is now pinned by a test in `tests/robustness.test.mjs`.
 
 ⚠️ **None of these were visible in the code.** Four of the five needed a desk to exist and a
 second action to be taken against it. Read the module and every one looks fine.
+
+## ⛔ A GUARD ON A PATH THE DOCS DO NOT USE IS NOT A GUARD
+
+`desk-hire.md` told the model to pick a port with `nextFreePort` and write `desk.json`
+itself. It never mentioned `hire()`. So the documented path hand-rolled a desk and skipped
+every guard that lives inside that function: the name rules, the port already being claimed,
+the one-lead rule, and the second-reader agreement about who may talk to a customer.
+
+The guard was real, tested, and on a road nobody was told to drive down.
+
+⛔ **A command names the guarded entry point, never the parts it is built from.** Two tests
+hold it: every command must call the real function, and a command may not name an export
+that does not exist.
 
 ## ⛔ The pattern behind most of the faults above
 

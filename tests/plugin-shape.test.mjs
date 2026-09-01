@@ -70,3 +70,29 @@ test('commands live where the spec says they are discovered', () => {
 // now watches all four places the number appears, so this was a second owner for a question
 // that already had one. Retired rather than left to disagree with it.
 // See tests/stated-numbers.test.mjs.
+
+// ⛔ FOUND IN AN AUDIT: desk-hire.md told the model to pick a port and write desk.json by
+// hand, and never mentioned hire(). A model following the documented path would have
+// hand-rolled a desk and skipped every guard inside hire() — the name rules, the port
+// check, the one-lead rule, and the second-reader agreement about who may talk to a
+// customer. A guard on a path the docs do not use is not a guard.
+test('⛔ every command points at the guarded entry point, not at the parts', async () => {
+  const hire = readFileSync(join(ROOT, 'commands', 'desk-hire.md'), 'utf8')
+  assert.match(hire, /hire\(/, 'desk-hire must tell the model to call hire()')
+  assert.match(hire, /[Dd]o not assemble a desk by hand|not assemble/, 'and to say why the manual path is wrong')
+
+  const fire = readFileSync(join(ROOT, 'commands', 'desk-fire.md'), 'utf8')
+  assert.match(fire, /fire\(/, 'desk-fire must tell the model to call fire()')
+  assert.match(fire, /blockers/, 'and to run the blockers check first')
+})
+
+test('⛔ a command may not name an export that does not exist', async () => {
+  const libs = { hire: await import('../lib/hire.mjs'), desk: await import('../lib/desk.mjs'), fire: await import('../lib/fire.mjs') }
+  const known = new Set(Object.values(libs).flatMap(m => Object.keys(m)))
+  for (const f of readdirSync(join(ROOT, 'commands'))) {
+    const text = readFileSync(join(ROOT, 'commands', f), 'utf8')
+    for (const m of text.matchAll(/`([a-zA-Z][a-zA-Z0-9]*)\(/g)) {
+      assert.ok(known.has(m[1]), `${f} tells the model to call ${m[1]}(), which nothing exports`)
+    }
+  }
+})
