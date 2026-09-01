@@ -7,8 +7,13 @@ Try something without letting it into the rest of your setup. What to try: $ARGU
 The point of a trial desk is that firing it is a real uninstall. That only works if
 everything the trial brings in lands inside the desk, and is written down.
 
-1. **Hire a desk for it.** Name it after the thing, kind `knowledge` unless it genuinely
-   needs to talk to people. A trial gets no sender and no route out.
+1. **Call `hire(root, { name, kind, description })`** from `lib/hire.mjs`. Name the desk
+   after the thing, kind `knowledge` unless it genuinely needs to talk to people. A trial
+   gets no sender and no route out.
+
+   ⛔ **Do not assemble the desk by hand.** Picking a port yourself and writing `desk.json`
+   directly skips the name rules, the port check, the one-lead rule and the second-reader
+   agreement about who may talk to a customer. Those live inside `hire()` and nowhere else.
 
 2. **Install into the desk's own folder**, never the project root. Clone, npm install,
    config files: all of it under `desks/<name>/`.

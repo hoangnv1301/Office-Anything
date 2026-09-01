@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 80 tests
+node --test "tests/**/*.test.mjs"    # 81 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -148,9 +148,14 @@ the one-lead rule, and the second-reader agreement about who may talk to a custo
 
 The guard was real, tested, and on a road nobody was told to drive down.
 
-⛔ **A command names the guarded entry point, never the parts it is built from.** Two tests
-hold it: every command must call the real function, and a command may not name an export
-that does not exist.
+⛔ **A command names the guarded entry point, never the parts it is built from.** Three
+tests hold it: every command must call the real function, every command must say why the
+hand-rolled path is wrong, and a command may not name an export that does not exist.
+
+⚠️ **The first version of that guard named two commands and missed the third.** `desk-try.md`
+shipped later saying "hire a desk for it" in prose, pointing at no function, and the guard
+could not see it. **A guard with a hardcoded list does not cover the member added after it
+was written** — the same fault as a hardcoded column width. It walks `commands/` now.
 
 ## ⛔ The pattern behind most of the faults above
 

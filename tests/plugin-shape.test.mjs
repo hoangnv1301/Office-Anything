@@ -76,14 +76,26 @@ test('commands live where the spec says they are discovered', () => {
 // hand-rolled a desk and skipped every guard inside hire() — the name rules, the port
 // check, the one-lead rule, and the second-reader agreement about who may talk to a
 // customer. A guard on a path the docs do not use is not a guard.
-test('⛔ every command points at the guarded entry point, not at the parts', async () => {
-  const hire = readFileSync(join(ROOT, 'commands', 'desk-hire.md'), 'utf8')
-  assert.match(hire, /hire\(/, 'desk-hire must tell the model to call hire()')
-  assert.match(hire, /[Dd]o not assemble a desk by hand|not assemble/, 'and to say why the manual path is wrong')
+test('⛔ EVERY command points at a guarded entry point, not at the parts', () => {
+  // ⛔ THIS TEST NAMED TWO COMMANDS AND MISSED THE THIRD. desk-try.md shipped saying
+  // "hire a desk for it" in prose, pointing at no function, and this guard could not see
+  // it because it checked desk-hire.md and desk-fire.md by name. A guard with a hardcoded
+  // list does not cover the member added after it was written, which is the same fault as
+  // a hardcoded column width: correct until somebody adds one more thing.
+  for (const f of readdirSync(join(ROOT, 'commands'))) {
+    const text = readFileSync(join(ROOT, 'commands', f), 'utf8')
+    assert.match(text, /\b(hire|fire)\(/,
+      `commands/${f} never tells the model to call hire() or fire(). A model following it ` +
+      `assembles a desk by hand and skips every guard inside those functions.`)
+  }
+})
 
-  const fire = readFileSync(join(ROOT, 'commands', 'desk-fire.md'), 'utf8')
-  assert.match(fire, /fire\(/, 'desk-fire must tell the model to call fire()')
-  assert.match(fire, /blockers/, 'and to run the blockers check first')
+test('⛔ and each command warns against the manual path it replaces', () => {
+  for (const f of readdirSync(join(ROOT, 'commands'))) {
+    const text = readFileSync(join(ROOT, 'commands', f), 'utf8')
+    assert.match(text, /not assemble|Do not work around|do not retry/i,
+      `commands/${f} points at the guarded call but never says why the hand-rolled path is wrong`)
+  }
 })
 
 test('⛔ a command may not name an export that does not exist', async () => {
