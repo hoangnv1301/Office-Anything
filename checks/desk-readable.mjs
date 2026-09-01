@@ -10,7 +10,7 @@
 // this one has already named it.
 //
 // Exit 0 clean, 4 finding, 7 UNKNOWN.
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { rosterSafe, portCollisions } from '../lib/desk.mjs'
 import { isMain } from '../lib/is-main.mjs'
@@ -33,7 +33,21 @@ export function report(root = process.cwd()) {
     }
   }
   if (!desks.length) {
-    return { code: 7, applicable: true, why: 'desks/ exists but holds no desk.json, so nothing was examined' }
+    // ⛔ STILL UNKNOWN. An empty walk has not passed, and a desks/ directory with nothing in
+    // it is genuinely ambiguous: a hire that failed halfway looks exactly like this.
+    //
+    // ⚠️ BUT THE MESSAGE MUST NOT ALARM SOMEBODY WHO JUST DID THE RIGHT THING. Firing your
+    // last desk leaves exactly this state, and bk/ says so. The verdict does not change; the
+    // explanation does, because a check that reads as a fault when you followed the
+    // instructions is a check you start ignoring.
+    let fired = 0
+    try { fired = readdirSync(join(root, 'bk')).filter(d => d.endsWith('-removed') || /-removed-\d+$/.test(d)).length } catch {}
+    return {
+      code: 7, applicable: true,
+      why: fired
+        ? `no desks. ${fired} archived in bk/, so this is probably deliberate rather than broken`
+        : 'desks/ exists but holds no desk.json, so nothing was examined',
+    }
   }
 
   // ⛔ TWO DESKS ON ONE PORT is a readability problem too: both claim the same browser.

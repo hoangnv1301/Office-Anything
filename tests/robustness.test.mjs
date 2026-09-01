@@ -113,3 +113,29 @@ test('⛔ the board column is derived from the longest name, not a literal', asy
     'a hardcoded width breaks silently the day somebody adds a longer check name, and it has twice')
   assert.match(src, /Math\.max\(\.\.\.r\.rows\.map/)
 })
+
+// ⛔ FOUND BY SWEEPING EVERY CHECK ACROSS SIX WORLDS. Firing your last desk leaves an empty
+// desks/, and the board answered "nothing was examined" — an alarm, at somebody who had just
+// followed the tool's own instructions. A check that reads as a fault when you did the right
+// thing is a check you learn to ignore, and the next one is real.
+//
+// The VERDICT does not change: an empty walk is still UNKNOWN, because a hire that failed
+// halfway leaves exactly this state too. Only the explanation changes.
+test('⛔ firing the last desk is still UNKNOWN, but the message says it looks deliberate', async () => {
+  const { report } = await import('../checks/desk-readable.mjs')
+  const root = fresh()
+  hire(root, { name: 'gone', kind: 'knowledge' })
+  fire(root, 'gone', { reason: 'the last desk in this office goes', date: '2026-09-01' })
+  const r = report(root)
+  assert.equal(r.code, 7, 'an empty walk has not passed, and that rule does not bend')
+  assert.match(r.why, /archived in bk\/.*deliberate/, 'but it must not read as breakage')
+  clean(root)
+})
+
+test('an empty desks/ with no archives still reads as unexplained', async () => {
+  const { report } = await import('../checks/desk-readable.mjs')
+  const root = fresh()
+  mkdirSync(join(root, 'desks'), { recursive: true })
+  assert.match(report(root).why, /nothing was examined/, 'no archives means nothing explains the emptiness')
+  clean(root)
+})
