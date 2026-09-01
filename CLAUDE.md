@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 77 tests
+node --test "tests/**/*.test.mjs"    # 78 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -124,6 +124,20 @@ and every one is now pinned by a test in `tests/robustness.test.mjs`.
 
 ⚠️ **None of these were visible in the code.** Four of the five needed a desk to exist and a
 second action to be taken against it. Read the module and every one looks fine.
+
+## ⛔ BUMP THE VERSION OR NOBODY GETS THE FIX
+
+The plugin cache is keyed by version. `claude plugin install` COPIES the files; it does not
+symlink, so editing this repo changes nothing for anyone who installed.
+
+Twelve rounds of fixes went in with `plugin.json` still saying 0.1.0. `claude plugin update`
+answered **"already at the latest version"** and did nothing. The installed copy had 3
+checks and 2 commands while the repo had 6 and 3, and every verification run in that window
+was testing the repo rather than the thing Claude Code had loaded.
+
+⛔ **Version bump is not bookkeeping, it is the delivery mechanism.** Bump it in BOTH
+`plugin.json` and `marketplace.json`; a test asserts they agree. Then
+`claude plugin marketplace update` followed by `claude plugin update`, and restart.
 
 ## ⛔ A GUARD ON A PATH THE DOCS DO NOT USE IS NOT A GUARD
 

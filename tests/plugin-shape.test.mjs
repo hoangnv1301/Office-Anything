@@ -109,3 +109,20 @@ test('⛔ the landing page advertises every command the README does', () => {
       `commands/${f} ships and docs/index.html never mentions /${c}`)
   }
 })
+
+// ⛔ FOUND BY RUNNING `claude plugin update` AND WATCHING IT DO NOTHING.
+//
+// The plugin cache is keyed by VERSION. Twelve rounds of fixes went into the repo with
+// plugin.json still saying 0.1.0, so `claude plugin update` answered "already at the latest
+// version" and a user would have received none of them. The install had 3 checks and 2
+// commands while the repo had 6 and 3.
+//
+// Bumping the version is not bookkeeping. It is the only thing that delivers a fix.
+test('⛔ plugin.json and marketplace.json state the SAME version', () => {
+  const p = JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'plugin.json'), 'utf8'))
+  const m = JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'marketplace.json'), 'utf8'))
+  assert.ok(p.version, 'without a version, update has nothing to compare and delivers nothing')
+  assert.equal(p.version, m.plugins[0].version,
+    'the two disagree, so the marketplace offers one version and the plugin claims another')
+  assert.match(p.version, /^\d+\.\d+\.\d+$/, 'semver, because the updater compares it as one')
+})
