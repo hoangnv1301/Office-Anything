@@ -1,8 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { hire } from '../lib/hire.mjs'
 import { fire } from '../lib/fire.mjs'
 import { rosterSafe } from '../lib/desk.mjs'
@@ -99,4 +100,16 @@ test('⛔ an empty desks/ produces ONE unknown across the whole run, not one per
   assert.equal(r.unknown.length, 1, 'four checks saying one thing is how a board stops being read')
   assert.equal(r.unknown[0].name, 'desk-readable', 'and the one that says it owns the question')
   clean(root)
+})
+
+test('⛔ the board column is derived from the longest name, not a literal', async () => {
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'checks', 'run.mjs'), 'utf8')
+  // ⛔ STRIP COMMENTS FIRST. The first version of this test failed on the COMMENT that
+  // explains the fix, which cites the old padEnd(12) and padEnd(14) as prose. A matcher
+  // that cannot tell code from an explanation of code will fire on every file that
+  // documents the thing it forbids.
+  const code = src.split('\n').filter(l => !l.trimStart().startsWith('//')).join('\n')
+  assert.doesNotMatch(code, /padEnd\(\d+\)/,
+    'a hardcoded width breaks silently the day somebody adds a longer check name, and it has twice')
+  assert.match(src, /Math\.max\(\.\.\.r\.rows\.map/)
 })

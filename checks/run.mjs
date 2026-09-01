@@ -17,6 +17,7 @@ import { report as deskReadable } from './desk-readable.mjs'
 import { report as sendWall } from './send-wall.mjs'
 import { report as unfinished } from './unfinished.mjs'
 import { report as strayWrites } from './stray-writes.mjs'
+import { report as statedNumbers } from './stated-numbers.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 export const CHECKS = [
@@ -26,6 +27,7 @@ export const CHECKS = [
   { name: 'send-wall',  run: sendWall,   answers: 'can a desk that should not reach a customer, reach one' },
   { name: 'unfinished', run: unfinished, answers: 'is a desk still wearing the stubs it was hired with' },
   { name: 'stray-writes', run: strayWrites, answers: 'did a desk leave anything outside its own folder' },
+  { name: 'stated-numbers', run: statedNumbers, answers: 'does every number this project states about itself match reality' },
 ]
 
 export function collect(root = process.cwd(), checks = CHECKS) {
@@ -42,9 +44,14 @@ export function collect(root = process.cwd(), checks = CHECKS) {
 
 if (isMain(import.meta.url)) {
   const r = collect()
+  // ⛔ DERIVED FROM THE LONGEST NAME, NEVER A LITERAL. This was padEnd(12), which broke the
+  // day a check called "stray-writes" was added, then padEnd(14), which broke the day
+  // "stated-numbers" was added. A width that has to be widened every time a check is added
+  // is not a column width, it is a bug with a delay on it.
+  const w = Math.max(...r.rows.map(x => x.name.length)) + 2
   for (const row of r.rows) {
     const tag = row.applicable === false ? '  --  ' : row.code === 0 ? '  ok  ' : row.code === 7 ? ' ???  ' : '  ⛔  '
-    console.log(`${tag}${row.name.padEnd(14)}${row.why}`)
+    console.log(`${tag}${row.name.padEnd(w)}${row.why}`)
   }
   console.log('')
   if (r.code === 0) {

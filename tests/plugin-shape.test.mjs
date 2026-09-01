@@ -66,23 +66,7 @@ test('commands live where the spec says they are discovered', () => {
   }
 })
 
-// ⛔ THE README QUOTES A TEST COUNT, AND A QUOTED NUMBER GOES STALE THE MOMENT YOU ADD
-// ONE. It said 25 while the suite had 36. Nobody lies on purpose; the number just lives in
-// a different file from the thing it counts. So it gets checked, like every other claim.
-//
-// ⚠️ COUNTED STATICALLY, NEVER BY RUNNING THE SUITE. The first version of this test shelled
-// out to `node --test` from inside a test, which spawns the suite from within the suite, which
-// spawns it again. It survived only because execFileSync does not expand the glob. Counting
-// source is boring and terminates.
-test('⛔ the test count the README quotes is the real one', () => {
-  const doc = readFileSync(join(ROOT, 'CLAUDE.md'), 'utf8')
-  const claimed = doc.match(/#\s*(\d+)\s*tests/)
-  assert.ok(claimed, 'CLAUDE.md should say how many tests there are')
-
-  let real = 0
-  for (const f of readdirSync(join(ROOT, 'tests'))) {
-    if (!f.endsWith('.test.mjs')) continue
-    real += (readFileSync(join(ROOT, 'tests', f), 'utf8').match(/^test\(/gm) ?? []).length
-  }
-  assert.equal(Number(claimed[1]), real, `CLAUDE.md says ${claimed[1]} tests, the files define ${real}`)
-})
+// ⛔ The test that used to live here watched ONE file's count. checks/stated-numbers.mjs
+// now watches all four places the number appears, so this was a second owner for a question
+// that already had one. Retired rather than left to disagree with it.
+// See tests/stated-numbers.test.mjs.

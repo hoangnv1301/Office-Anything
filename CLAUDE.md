@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 66 tests
+node --test "tests/**/*.test.mjs"    # 72 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -124,6 +124,23 @@ and every one is now pinned by a test in `tests/robustness.test.mjs`.
 
 ⚠️ **None of these were visible in the code.** Four of the five needed a desk to exist and a
 second action to be taken against it. Read the module and every one looks fine.
+
+## ⛔ The pattern behind most of the faults above
+
+Four of the seven were the same shape: **one question with more than one owner.**
+
+| question | owners before | owner now |
+|---|---|---|
+| can this desk be read | 3 checks, 6 findings for 2 faults | `desk-readable` |
+| is `desks/` empty | 4 checks, 4 UNKNOWNs | `desk-readable` |
+| how many tests are there | 4 hand-written copies, 1 covered | `stated-numbers` |
+| what kind is this desk | the model AND a keyword list, silently | both, and they must agree |
+
+⚠️ **A number describing the code, stored where the code cannot reach it, drifts the moment
+anybody works.** You do not fix that by being careful. You fix it by checking it, or by
+keeping one copy. The test count sat in four places and exactly one was watched, so adding a
+single test made three of them quietly wrong, and the wrong ones were the two a stranger
+sees first.
 
 ## Adding things
 
