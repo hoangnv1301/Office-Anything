@@ -17,7 +17,7 @@
 // Exit 0 clean, 4 finding, 7 UNKNOWN.
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
-import { roster } from '../lib/desk.mjs'
+import { rosterSafe } from '../lib/desk.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 export const applies = (root) => existsSync(join(root, 'desks'))
@@ -39,7 +39,9 @@ function walk(dir, root, out = [], depth = 0) {
 
 export function report(root = process.cwd()) {
   if (!applies(root)) return { code: 0, applicable: false, why: 'no desks/ directory' }
-  const desks = roster(join(root, 'desks'))
+  const { desks, broken } = rosterSafe(join(root, 'desks'))
+  // A desk this cannot read is skipped in silence. desk-readable owns that finding, and
+  // one fault reported by four checks is how a board stops being read.
   if (!desks.length) return { code: 7, applicable: true, why: 'desks/ exists but holds no desk.json' }
 
   // Only desks that actually claim to have brought something in are interesting.

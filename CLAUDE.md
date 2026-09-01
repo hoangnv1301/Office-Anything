@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 58 tests
+node --test "tests/**/*.test.mjs"    # 65 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -95,6 +95,30 @@ the wall does not work. The README now says it at the install step.
 ⭐ **The failure also demonstrated why both layers exist.** The hook missed it because it was
 not loaded; `checks/run.mjs` caught it immediately: "pricing is a knowledge desk and has a
 sender". A gate you have not restarted into is exactly the case a check is for.
+
+## ⛔ Five faults found by USING it, not reading it
+
+Ten rounds of hiring, firing and deliberately breaking desks. Every one of these shipped
+and every one is now pinned by a test in `tests/robustness.test.mjs`.
+
+1. **A 200-character desk name was accepted.** A name goes into a directory path, a port
+   map, a docs table and a test name. 40 is the limit now.
+2. **Firing the same name twice in one day threw a raw ENOTEMPTY** — and that was the GOOD
+   outcome. On a filesystem where rename onto an existing directory succeeds, the first
+   archive would have been destroyed silently. An archive is the only copy of a desk that
+   ever existed, so `fire` now suffixes rather than overwriting.
+3. **`desk.json` and its folder could disagree about the name.** Two statements of one fact,
+   and downstream readers picked different ones: the port map keyed by the file, the paths
+   keyed by the folder.
+4. **One malformed desk.json blinded every check.** All three returned UNKNOWN and six
+   healthy desks went unexamined because of a typo in a seventh. `rosterSafe` reports the
+   broken ones and keeps going.
+5. ⛔ **One fault produced six findings.** Every check needs the roster, so every check hit
+   the same bad file and said so. `desk-readable` owns that question now and the others skip
+   in silence. A board becomes noise not by being wrong but by saying one thing three times.
+
+⚠️ **None of these were visible in the code.** Four of the five needed a desk to exist and a
+second action to be taken against it. Read the module and every one looks fine.
 
 ## Adding things
 

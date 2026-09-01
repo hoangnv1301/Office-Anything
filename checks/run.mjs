@@ -13,12 +13,16 @@
 //   0  every applicable check is clean
 //   4  ⛔ at least one has a finding
 //   7  at least one could not answer, and none had a finding
+import { report as deskReadable } from './desk-readable.mjs'
 import { report as sendWall } from './send-wall.mjs'
 import { report as unfinished } from './unfinished.mjs'
 import { report as strayWrites } from './stray-writes.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 export const CHECKS = [
+  // ⛔ FIRST, because every check below needs the roster. If a desk cannot be read, this
+  // one says so and the others stay quiet rather than repeating it.
+  { name: 'desk-readable', run: deskReadable, answers: 'can every desk be read, and does any port get claimed twice' },
   { name: 'send-wall',  run: sendWall,   answers: 'can a desk that should not reach a customer, reach one' },
   { name: 'unfinished', run: unfinished, answers: 'is a desk still wearing the stubs it was hired with' },
   { name: 'stray-writes', run: strayWrites, answers: 'did a desk leave anything outside its own folder' },

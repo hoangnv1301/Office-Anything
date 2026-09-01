@@ -14,7 +14,7 @@
 // Exit 0 clean, 4 finding, 7 UNKNOWN.
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { roster, mayHold } from '../lib/desk.mjs'
+import { rosterSafe, mayHold } from '../lib/desk.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 const SENDER = /\.(mjs|js|ts|py)$/
@@ -36,7 +36,9 @@ export function report(root = process.cwd()) {
   if (!applies(root)) {
     return { code: 0, applicable: false, why: 'no desks/ directory, so there is no wall to check' }
   }
-  const desks = roster(join(root, 'desks'))
+  const { desks, broken } = rosterSafe(join(root, 'desks'))
+  // A desk this cannot read is skipped in silence. desk-readable owns that finding, and
+  // one fault reported by four checks is how a board stops being read.
   if (!desks.length) {
     // ⛔ A desks/ directory holding nothing is UNKNOWN, not clean. Either the hire
     // failed halfway or something deleted them, and both deserve a look.
