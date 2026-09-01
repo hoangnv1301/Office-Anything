@@ -4,7 +4,7 @@ A Claude Code plugin for hiring and firing AI agents. Each gets a desk, a browse
 limits that are enforced, not suggested.
 
 <p align="center">
-  <img alt="tests" src="https://img.shields.io/badge/tests-81%20passing-3fb950">
+  <img alt="tests" src="https://img.shields.io/badge/tests-83%20passing-3fb950">
   <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
   <img alt="claude code" src="https://img.shields.io/badge/Claude%20Code-plugin-8957e5">

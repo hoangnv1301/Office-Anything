@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 81 tests
+node --test "tests/**/*.test.mjs"    # 83 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -173,6 +173,25 @@ anybody works.** You do not fix that by being careful. You fix it by checking it
 keeping one copy. The test count sat in four places and exactly one was watched, so adding a
 single test made three of them quietly wrong, and the wrong ones were the two a stranger
 sees first.
+
+## ⛔ Hardcoded lists, audited
+
+Three faults were one shape: **a list written by hand does not cover the member added after
+it.** So every literal list in the codebase was audited, and each is now either derived or
+deliberately closed.
+
+| list | verdict |
+|---|---|
+| `CHECKS` in `run.mjs` | ⛔ **the dangerous one.** A check not registered there never runs, while its own tests keep passing. Pinned in both directions now |
+| `STATED` in `stated-numbers.mjs` | closed by intent. Stating a number on a new surface is a decision, and the cost is one line |
+| `KINDS`, `ISSUE` | closed by design. A fourth kind of desk is a deliberate act |
+| `STEPS` in `fire.mjs` | content, not a registry. Each step carries the scar that put it there |
+| `SKIP` in `stray-writes.mjs` | walk exclusions. Missing one costs noise, never a false pass |
+
+⛔ **The registry one is what this project's ancestor got wrong.** A full-tree credential
+scan sat unregistered there for weeks, named in three documents and in a lesson about not
+reading measurements, with two tests proving it worked. Its first scheduled run was red.
+**A check nobody runs is worse than no check, because the board looks complete.**
 
 ## Removing things
 

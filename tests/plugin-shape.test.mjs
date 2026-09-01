@@ -138,3 +138,35 @@ test('⛔ plugin.json and marketplace.json state the SAME version', () => {
     'the two disagree, so the marketplace offers one version and the plugin claims another')
   assert.match(p.version, /^\d+\.\d+\.\d+$/, 'semver, because the updater compares it as one')
 })
+
+// ⛔ THE HIGHEST-STAKES HARDCODED LIST IN THIS PROJECT.
+//
+// checks/run.mjs registers every check by hand. A file that lands in checks/ and never gets
+// a line there SILENTLY NEVER RUNS, and its own tests keep passing, so nothing anywhere
+// says it is unwired. That is not hypothetical: the system this came from had a full-tree
+// credential scan sitting unregistered for weeks, named in three documents and a lesson,
+// with two tests proving it worked. Its first scheduled run was red.
+//
+// A check nobody runs is worse than no check, because the board looks complete.
+test('⛔ every check in checks/ is REGISTERED in run.mjs', async () => {
+  const { CHECKS } = await import('../checks/run.mjs')
+  const registered = new Set(CHECKS.map(c => c.name))
+  for (const f of readdirSync(join(ROOT, 'checks'))) {
+    if (!f.endsWith('.mjs') || f === 'run.mjs') continue
+    const name = f.replace(/\.mjs$/, '')
+    assert.ok(registered.has(name),
+      `checks/${f} exists and is not in CHECKS. It will never run, and its own tests will ` +
+      `keep passing while the board looks complete.`)
+  }
+})
+
+// ⛔ AND BOTH DIRECTIONS. A registration whose file has gone is a row that throws on every
+// run, or worse, a name somebody trusts that answers nothing.
+test('⛔ every registration in run.mjs has a file behind it', async () => {
+  const { CHECKS } = await import('../checks/run.mjs')
+  const onDisk = new Set(readdirSync(join(ROOT, 'checks')).map(f => f.replace(/\.mjs$/, '')))
+  for (const c of CHECKS) {
+    assert.ok(onDisk.has(c.name), `CHECKS registers "${c.name}" and checks/${c.name}.mjs does not exist`)
+    assert.ok(c.answers && c.answers.length > 20, `"${c.name}" must say what it ANSWERS, in a line somebody can read`)
+  }
+})
