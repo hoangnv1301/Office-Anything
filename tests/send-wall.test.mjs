@@ -35,11 +35,14 @@ test('an install with no desks/ is NOT APPLICABLE, and is never reported as a pa
   clean(root)
 })
 
-test('⛔ a desks/ directory holding nothing is UNKNOWN, never clean', () => {
+test('⛔ an empty desks/ is NOT APPLICABLE here, because desk-readable owns that UNKNOWN', () => {
   const root = mkdtempSync(join(tmpdir(), 'office-anything-'))
   mkdirSync(join(root, 'desks'), { recursive: true })
   const r = report(root)
-  assert.equal(r.code, 7, 'an empty walk has not passed, it has failed to look')
+  // "an empty walk is UNKNOWN, never clean" still holds — it is just said ONCE, by the
+  // check that owns the question. Four checks saying it is how a board becomes noise.
+  assert.equal(r.applicable, false, 'nothing to judge is not the same as looked and could not tell')
+  assert.equal(r.code, 0, 'and it must not block')
   clean(root)
 })
 

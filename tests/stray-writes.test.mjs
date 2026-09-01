@@ -48,10 +48,10 @@ test('a desk that installed nothing is not something to complain about', () => {
   clean(root)
 })
 
-test('⛔ no desks/ is NOT APPLICABLE, and an empty desks/ is UNKNOWN', () => {
+test('⛔ neither no desks/ nor an empty desks/ is this check\'s to report', () => {
   const bare = mkdtempSync(join(tmpdir(), 'oa-trial-'))
   assert.equal(report(bare).applicable, false)
   mkdirSync(join(bare, 'desks'), { recursive: true })
-  assert.equal(report(bare).code, 7, 'a walk that examined nothing has not passed')
+  assert.equal(report(bare).applicable, false, 'desk-readable says it once, so this stays quiet')
   clean(bare)
 })

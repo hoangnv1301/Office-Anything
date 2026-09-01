@@ -90,3 +90,13 @@ test('findings carry paths relative to the project, not absolute ones', () => {
   assert.match(r.findings[0].say, /^desks\/broken/)
   clean(root)
 })
+
+test('⛔ an empty desks/ produces ONE unknown across the whole run, not one per check', async () => {
+  const { collect } = await import('../checks/run.mjs')
+  const root = fresh()
+  mkdirSync(join(root, 'desks'), { recursive: true })
+  const r = collect(root)
+  assert.equal(r.unknown.length, 1, 'four checks saying one thing is how a board stops being read')
+  assert.equal(r.unknown[0].name, 'desk-readable', 'and the one that says it owns the question')
+  clean(root)
+})

@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 65 tests
+node --test "tests/**/*.test.mjs"    # 66 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -113,9 +113,14 @@ and every one is now pinned by a test in `tests/robustness.test.mjs`.
 4. **One malformed desk.json blinded every check.** All three returned UNKNOWN and six
    healthy desks went unexamined because of a typo in a seventh. `rosterSafe` reports the
    broken ones and keeps going.
-5. ⛔ **One fault produced six findings.** Every check needs the roster, so every check hit
+5. ⛔ **One fault produced six findings, and one CONDITION produced four UNKNOWNs.** Every check needs the roster, so every check hit
    the same bad file and said so. `desk-readable` owns that question now and the others skip
    in silence. A board becomes noise not by being wrong but by saying one thing three times.
+
+   ⚠️ **"An empty walk is UNKNOWN, never clean" still holds — it is just said ONCE.** An
+   empty `desks/` used to produce four UNKNOWN rows. Now `desk-readable` reports it and the
+   other three answer "not applicable", which is a genuinely different statement: *nothing
+   here to judge*, versus *I looked and could not tell*.
 
 ⚠️ **None of these were visible in the code.** Four of the five needed a desk to exist and a
 second action to be taken against it. Read the module and every one looks fine.

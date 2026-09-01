@@ -42,9 +42,10 @@ export function report(root = process.cwd()) {
   const { desks, broken } = rosterSafe(join(root, 'desks'))
   // A desk this cannot read is skipped in silence. desk-readable owns that finding, and
   // one fault reported by four checks is how a board stops being read.
-  if (!desks.length) return { code: 7, applicable: true, why: 'desks/ exists but holds no desk.json' }
-
-  // Only desks that actually claim to have brought something in are interesting.
+  // ⛔ NOT APPLICABLE, not UNKNOWN. There are no desks, so there is nothing here to
+  // judge -- which is a different statement from "I looked and could not tell".
+  // desk-readable owns the UNKNOWN for an empty desks/, so it is said once.
+  if (!desks.length) return { code: 0, applicable: false, why: 'no desks yet' }// Only desks that actually claim to have brought something in are interesting.
   const claiming = desks.filter(d => Array.isArray(d.installed) && d.installed.length)
   if (!claiming.length) {
     return { code: 0, applicable: true, why: `${desks.length} desk(s), none of them installed anything to track` }
