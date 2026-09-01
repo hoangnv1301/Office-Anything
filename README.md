@@ -4,7 +4,7 @@ A Claude Code plugin for hiring and firing AI agents. Each gets a desk, a browse
 limits that are enforced, not suggested.
 
 <p align="center">
-  <img alt="tests" src="https://img.shields.io/badge/tests-54%20passing-3fb950">
+  <img alt="tests" src="https://img.shields.io/badge/tests-58%20passing-3fb950">
   <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
   <img alt="claude code" src="https://img.shields.io/badge/Claude%20Code-plugin-8957e5">
@@ -54,6 +54,30 @@ Then hire someone, and it switches on.
 **It fails on purpose.** A new desk really does know nothing yet, so it says so and tells
 you what to write. Anything that hands you a finished-looking agent out of the box is
 training you to stop reading its output.
+
+## Try something without letting it in
+
+You have a list of repos you want to try and no appetite for what they do to your setup.
+
+```
+/desk-try "that scraping library everyone keeps posting about"
+```
+
+It hires a desk for the trial, installs everything **inside that desk**, and writes down
+what it brought. You talk to the desk about it, not to your main session, so it has its own
+context and its own browser. When you are done, `/desk-fire` it and a check confirms it left
+nothing behind:
+
+```
+⛔ 1 file(s) a desk brought in are living outside it
+   some-scraper installed "cool-lib", which is at config/cool-lib.rc
+
+   Firing that desk will not remove these.
+```
+
+⚠️ **What this is not.** A desk isolates a folder, a browser profile and an agent's context,
+and it makes removal verifiable. It is not a sandbox and does not stop a determined script
+writing where it likes. For genuinely untrusted code, use a container.
 
 ## Fire someone
 

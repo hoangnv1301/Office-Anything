@@ -15,11 +15,13 @@
 //   7  at least one could not answer, and none had a finding
 import { report as sendWall } from './send-wall.mjs'
 import { report as unfinished } from './unfinished.mjs'
+import { report as strayWrites } from './stray-writes.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 export const CHECKS = [
   { name: 'send-wall',  run: sendWall,   answers: 'can a desk that should not reach a customer, reach one' },
   { name: 'unfinished', run: unfinished, answers: 'is a desk still wearing the stubs it was hired with' },
+  { name: 'stray-writes', run: strayWrites, answers: 'did a desk leave anything outside its own folder' },
 ]
 
 export function collect(root = process.cwd(), checks = CHECKS) {
@@ -38,7 +40,7 @@ if (isMain(import.meta.url)) {
   const r = collect()
   for (const row of r.rows) {
     const tag = row.applicable === false ? '  --  ' : row.code === 0 ? '  ok  ' : row.code === 7 ? ' ???  ' : '  ⛔  '
-    console.log(`${tag}${row.name.padEnd(12)}${row.why}`)
+    console.log(`${tag}${row.name.padEnd(14)}${row.why}`)
   }
   console.log('')
   if (r.code === 0) {
