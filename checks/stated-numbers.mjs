@@ -15,9 +15,6 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { isMain } from '../lib/is-main.mjs'
 
-// This one is about the project itself, so it applies wherever the project is.
-export const applies = (root) => existsSync(join(root, 'tests'))
-
 export function realTestCount(root) {
   let n = 0
   for (const f of readdirSync(join(root, 'tests'))) {
@@ -35,8 +32,33 @@ export const STATED = [
   { file: 'docs/index.html', re: /tests-(\d+)%20passing|>(\d+) tests<|(\d+) tests · no dependencies/g },
 ]
 
+// ⛔ THIS CHECK IS ABOUT THIS PROJECT, NOT ABOUT YOUR OFFICE, AND IT HAS TO SAY SO.
+//
+// `applies` was "there is a tests/ directory", which is true in every project that uses
+// this plugin, because `hire` creates tests/desks/. So a user hired one desk and got a
+// permanent amber row about a test count they had never stated. A check that cannot be
+// satisfied by the person seeing it is worse than no check: it teaches them that amber
+// means nothing, and the next amber row is a real one.
+//
+// It applies where there are tests to count AND somewhere claiming a count. That is a
+// repo describing itself, which is the only place this question exists.
+export const applies = (root) => {
+  if (!existsSync(join(root, 'tests'))) return false
+  try {
+    if (!readdirSync(join(root, 'tests')).some(f => f.endsWith('.test.mjs'))) return false
+  } catch { return false }
+  return STATED.some(({ file, re }) => {
+    const p = join(root, file)
+    try { return existsSync(p) && new RegExp(re.source).test(readFileSync(p, 'utf8')) } catch { return false }
+  })
+}
+
 export function report(root = process.cwd()) {
-  if (!applies(root)) return { code: 0, applicable: false, why: 'no tests/ directory' }
+  // ⚠️ The reason must be TRUE. This said "no tests/ directory" in projects that have one,
+  // which sends the reader to look at a directory that is sitting right there.
+  if (!applies(root)) {
+    return { code: 0, applicable: false, why: 'this project does not state a test count about itself' }
+  }
   const real = realTestCount(root)
   if (!real) return { code: 7, applicable: true, why: 'tests/ exists but defines no tests, so there is nothing to compare' }
 
