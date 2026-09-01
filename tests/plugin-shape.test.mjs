@@ -96,3 +96,16 @@ test('⛔ a command may not name an export that does not exist', async () => {
     }
   }
 })
+
+// ⛔ THE SITE IS AN ADVERTISING SURFACE AND IT WENT STALE. /desk-try shipped, the README
+// documented it, and the landing page never mentioned it — so the strongest feature was
+// missing from the page most people see first. Two surfaces advertising the same product,
+// and nothing checking they agree, which is this project's recurring fault in a new place.
+test('⛔ the landing page advertises every command the README does', () => {
+  const site = readFileSync(join(ROOT, 'docs', 'index.html'), 'utf8')
+  for (const f of readdirSync(join(ROOT, 'commands'))) {
+    const c = f.replace(/\.md$/, '')
+    assert.match(site, new RegExp(`/${c}\\b`),
+      `commands/${f} ships and docs/index.html never mentions /${c}`)
+  }
+})

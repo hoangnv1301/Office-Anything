@@ -148,7 +148,7 @@
       <a class="btn btn-2" href="#try">Try the wall</a>
     </div>
     <ul class="pills">
-      <li>76 tests</li><li>0 dependencies</li><li>MIT</li><li>no server, no dashboard</li>
+      <li>77 tests</li><li>0 dependencies</li><li>MIT</li><li>no server, no dashboard</li>
     </ul>
   </header>
 </div>
@@ -187,6 +187,38 @@
 This is the real hook and its real output. The only thing
 simulated is the file write.</span></pre>
     <div class="verdict is-idle" id="verdict"><strong>Ready</strong><span>Nothing attempted yet.</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Try something without letting it in</h2>
+  <p class="sub">You have a list of repos you want to try and no appetite for what they do
+    to your setup.</p>
+  <div class="block">
+    <div class="block-h"><span class="tag">In Claude Code</span></div>
+    <pre class="term" style="min-height:0"><span class="c-dim">$</span> /desk-try <span class="c-key">"that scraping library everyone keeps posting about"</span>
+
+<span class="c-dim">  hires a desk for it, installs everything INSIDE that desk,
+  and writes down what it brought.</span>
+
+<span class="c-dim">$</span> /desk-fire some-scraper <span class="c-key">--reason "done evaluating it"</span>
+<span class="c-dim">$</span> node checks/run.mjs
+
+<span class="c-bad">  ⛔ 1 file(s) a desk brought in are living outside it
+     some-scraper installed "cool-lib", which is at config/cool-lib.rc
+
+     Firing that desk will not remove these.</span></pre>
+  </div>
+  <p class="sub" style="margin-top:18px">You talk to the desk about the trial, not to your
+    main session, so it keeps its own context and its own browser. When you fire it, a check
+    confirms it left nothing behind.</p>
+  <div class="grid two" style="margin-top:4px">
+    <div class="block card"><h3>What this is</h3>
+      <p>A folder, a browser profile and an agent's context of its own, and a removal you
+      can verify rather than hope about.</p></div>
+    <div class="block card"><h3>What this is not</h3>
+      <p>A sandbox. It does not stop a determined script writing where it likes. For
+      genuinely untrusted code, use a container.</p></div>
   </div>
 </section>
 
@@ -265,7 +297,7 @@ simulated is the file write.</span></pre>
 
 <footer>
   <span><a href="https://github.com/hoangnv1301/Office-Anything">github.com/hoangnv1301/Office-Anything</a></span>
-  <span>MIT · 76 tests · no dependencies</span>
+  <span>MIT · 77 tests · no dependencies</span>
 </footer>
 </div>
 
