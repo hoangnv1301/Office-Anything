@@ -3,6 +3,14 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.5.3
+
+- The chat answers at /, the table at /board; sidebar rows carry turns and
+  tokens; the session picker prefers a human (cli) session over subagent and
+  SDK transcripts sharing the project directory.
+- A right rail shows the selected session’s folder — its native scratchpad —
+  live, with sizes and ages.
+
 ## 0.5.1
 
 - `/desk-board` is now one word to a working dashboard: it reuses a board

@@ -19,6 +19,10 @@ export function chatPage() {
   .dname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .dsub{font-size:11px;color:var(--muted)}
   main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .right{width:240px;min-width:240px;border-left:1px solid var(--border);background:var(--panel);padding:14px 16px;overflow-y:auto}
+  .right h3{font-size:12px;color:var(--muted);margin:0 0 10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .file{padding:6px 0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .file .fs{color:var(--muted);font-size:11px}
   header{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:baseline}
   header .t{font-weight:600}
   header .s{font-size:12px;color:var(--muted)}
@@ -46,6 +50,7 @@ export function chatPage() {
   <div id="note"></div>
   <form id="f"><textarea id="box" placeholder="Type into this desk's live terminal…"></textarea><button id="go">Send</button></form>
 </main>
+<aside class="right"><h3>session folder</h3><div id="folder"><span class="dsub">—</span></div></aside>
 <script>
 const $=(q)=>document.querySelector(q)
 let sel=null, sending=false, canSend=false
@@ -70,6 +75,10 @@ async function poll(scroll){
   const t=await (await fetch('/api/transcript?key='+encodeURIComponent(sel))).json()
   $('#title').textContent=t.label
   $('#sub').textContent=t.model?t.model+' · '+t.count+' messages shown':'no session yet'
+  const kb=(n)=>n>=1048576?(n/1048576).toFixed(1)+' MB':n>=1024?Math.round(n/1024)+' KB':n+' B'
+  $('#folder').innerHTML=(t.folder&&t.folder.length)
+    ? t.folder.map(f=>'<div class="file" title="'+esc(f.name)+'">'+esc(f.name)+'<br><span class="fs">'+kb(f.size)+' · '+(f.ageMin<60?f.ageMin+'m':Math.round(f.ageMin/60)+'h')+' ago</span></div>').join('')
+    : '<span class="dsub">empty — the scratchpad starts clean each session</span>'
   const log=$('#log'); const stick=scroll||log.scrollTop+log.clientHeight>=log.scrollHeight-80
   log.innerHTML=t.messages.map(m=>'<div class="msg '+m.role+'">'+esc(m.text)+(m.tools&&m.tools.length?'<div>'+m.tools.map(x=>'<span class="chip">'+esc(x)+'</span>').join('')+'</div>':'')+'</div>').join('')
   if(stick)log.scrollTop=log.scrollHeight

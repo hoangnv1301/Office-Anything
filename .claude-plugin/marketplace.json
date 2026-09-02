@@ -8,7 +8,7 @@
       "name": "office-anything",
       "source": "./",
       "description": "A Claude Code plugin for hiring and firing AI agents. Each gets a desk, a browser, and limits that are enforced, not suggested.",
-      "version": "0.5.1"
+      "version": "0.5.3"
     }
   ],
   "description": "Office-Anything: hire and fire AI agents in Claude Code, each with a desk and enforced limits."

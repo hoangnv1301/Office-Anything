@@ -17,7 +17,7 @@ import { gatherOffice, slugFor } from './read.mjs'
 import { render } from './page.mjs'
 import { chatPage } from './chat-page.mjs'
 import { newestSession, chatFrom } from './transcript.mjs'
-import { transcriptStats } from './read.mjs'
+import { transcriptStats, worktop } from './read.mjs'
 import { send, orcaAvailable, normalizeTitle } from './send.mjs'
 import { readFileSync } from 'node:fs'
 import { rosterSafe } from '../lib/desk.mjs'
@@ -73,7 +73,10 @@ export function makeServer(root) {
         if (!t) return json(res, 200, { label: key, model: null, count: 0, messages: [] })
         const messages = chatFrom(readFileSync(t, 'utf8'))
         const label = chatRoster(root).find((r) => r.key === key)?.label ?? key
-        return json(res, 200, { label, model: messages.findLast?.((m) => m.model)?.model ?? null, count: messages.length, messages })
+        const now = Date.now()
+        const folder = worktop(join('/private/tmp', 'claude-' + process.getuid(), key))
+          .map((x) => ({ name: x.name, size: x.size, ageMin: Math.round((now - x.at) / 60000) }))
+        return json(res, 200, { label, model: messages.findLast?.((m) => m.model)?.model ?? null, count: messages.length, messages, folder })
       }
       if (url.pathname === '/api/send' && req.method === 'POST') {
         let body = ''
