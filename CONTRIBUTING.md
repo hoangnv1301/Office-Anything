@@ -68,8 +68,16 @@ the suite fails until they do.
 
 ## Releasing
 
-Bump the version in BOTH `.claude-plugin/plugin.json` and
-`.claude-plugin/marketplace.json` (a test asserts they agree), add a
-CHANGELOG entry, tag `vX.Y.Z`, publish a GitHub release. **The version bump is
-the delivery mechanism**: the plugin cache is keyed by version, and an
-unbumped fix reaches nobody.
+Two different acts, and mixing them up produced four public releases in one
+afternoon (0.5.1–0.5.4), two of them one-line fixes:
+
+- **Delivering to a machine** needs only a version bump in BOTH
+  `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` (a test
+  asserts they agree) plus `claude plugin update`. The cache is keyed by
+  version, and an unbumped fix reaches nobody. Patch bumps are cheap and
+  local — bump freely, tag nothing.
+- **A public release** (git tag + GitHub release page) is a story worth
+  telling: a meaningful bundle with a CHANGELOG entry that reads like one.
+  Batch the patches; release at minors, or at a patch only when it fixes
+  something a stranger is bitten by. A release page per one-line fix teaches
+  people to stop reading release pages.
