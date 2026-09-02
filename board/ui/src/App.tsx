@@ -27,6 +27,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
 
 type Desk = { key: string; label: string; sub: string; activeMin: number | null }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string }
@@ -113,6 +114,20 @@ export default function App() {
 
   const blocks = useMemo(() => toBlocks(pane?.messages ?? []), [pane])
 
+  const deskList = desks.map((d) => (
+    <Button key={d.key} variant={sel === d.key ? 'secondary' : 'ghost'} onClick={() => setSel(d.key)}
+      className="h-auto w-full justify-start rounded-none px-4 py-2.5">
+      <span className="flex w-full flex-col items-start gap-0.5 overflow-hidden">
+        <span className="flex items-center gap-2 text-sm font-medium">
+          <span className={'size-2 rounded-full ' + (d.activeMin != null && d.activeMin < 10 ? 'bg-emerald-500' : 'bg-muted-foreground/30')} />
+          {d.label}
+          {d.sub.includes('LIVE') && <Badge className="h-4 px-1.5 text-[10px]">LIVE</Badge>}
+        </span>
+        <span className="w-full truncate pl-4 text-left text-xs font-normal text-muted-foreground">{d.sub.replace(' · LIVE', '')}</span>
+      </span>
+    </Button>
+  ))
+
   const onSubmit = useCallback(async (m: PromptInputMessage, e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!canSend || !sel) return
@@ -139,31 +154,24 @@ export default function App() {
   return (
     <ResizablePanelGroup direction="horizontal" className="h-screen bg-background text-foreground">
       {/* item 3+7: panes told apart by TONE, resizable with bounds */}
-      <ResizablePanel defaultSize={18} minSize={12} maxSize={28} className="bg-sidebar">
+      <ResizablePanel defaultSize={18} minSize={12} maxSize={28} className="hidden bg-sidebar md:block">
         <div className="flex h-full flex-col">
           <div className="px-4 py-3 font-semibold">🏢 the office</div>
-          <ScrollArea className="min-h-0 flex-1">
-            {desks.map((d) => (
-              <Button key={d.key} variant={sel === d.key ? 'secondary' : 'ghost'} onClick={() => setSel(d.key)}
-                className="h-auto w-full justify-start rounded-none px-4 py-2.5">
-                <span className="flex w-full flex-col items-start gap-0.5 overflow-hidden">
-                  <span className="flex items-center gap-2 text-sm font-medium">
-                    <span className={'size-2 rounded-full ' + (d.activeMin != null && d.activeMin < 10 ? 'bg-emerald-500' : 'bg-muted-foreground/30')} />
-                    {d.label}
-                    {d.sub.includes('LIVE') && <Badge className="h-4 px-1.5 text-[10px]">LIVE</Badge>}
-                  </span>
-                  <span className="w-full truncate pl-4 text-left text-xs font-normal text-muted-foreground">{d.sub.replace(' · LIVE', '')}</span>
-                </span>
-              </Button>
-            ))}
-          </ScrollArea>
+          <ScrollArea className="min-h-0 flex-1">{deskList}</ScrollArea>
         </div>
       </ResizablePanel>
-      <ResizableHandle className="w-0 bg-transparent" />
+      <ResizableHandle className="hidden w-0 bg-transparent md:block" />
 
       <ResizablePanel defaultSize={60} minSize={40}>
         <Tabs value={view} onValueChange={setView} className="flex h-full flex-col gap-0">
-          <header className="flex items-center gap-2 px-6 py-2">
+          <header className="flex items-center gap-2 px-4 py-2 md:px-6">
+            <Sheet>
+              <SheetTrigger asChild><Button variant="ghost" size="sm" className="md:hidden">☰</Button></SheetTrigger>
+              <SheetContent side="left" className="w-72 p-0">
+                <SheetTitle className="px-4 py-3 text-base">🏢 the office</SheetTitle>
+                <ScrollArea className="h-full">{deskList}</ScrollArea>
+              </SheetContent>
+            </Sheet>
             <span className="font-semibold">{pane?.label ?? '…'}</span>
             {pane?.model && <Badge variant="secondary" className="text-[11px]">{pane.model}</Badge>}
             <span className="text-xs text-muted-foreground">{pane ? pane.count + ' messages' : ''}</span>
@@ -258,10 +266,10 @@ export default function App() {
           </TabsContent>
         </Tabs>
       </ResizablePanel>
-      <ResizableHandle className="w-0 bg-transparent" />
+      <ResizableHandle className="hidden w-0 bg-transparent md:block" />
 
       {/* item 4: one rail, a menu to switch what it shows */}
-      <ResizablePanel defaultSize={22} minSize={14} maxSize={34} className="bg-card">
+      <ResizablePanel defaultSize={22} minSize={14} maxSize={34} className="hidden bg-card md:block">
         <Tabs defaultValue="workspace" className="flex h-full flex-col gap-0">
           <TabsList className="m-2">
             <TabsTrigger value="workspace" className="text-xs">workspace</TabsTrigger>
