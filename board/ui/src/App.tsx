@@ -100,14 +100,14 @@ export default function App() {
         </header>
 
         <Conversation className="flex-1">
-          <ConversationContent className="mx-auto w-full max-w-3xl">
+          <ConversationContent className="mx-auto w-full max-w-3xl gap-2">
             {(!pane || pane.messages.length === 0) && (
               <ConversationEmptyState title="Nothing yet" description="This desk has no conversation in its current session." />
             )}
             {pane?.messages.map((m, i) => (
               <div key={i}>
                 {m.reasoning && (
-                  <Reasoning className="mb-1" isStreaming={false} defaultOpen={false}>
+                  <Reasoning className="mb-0.5" isStreaming={false} defaultOpen={false}>
                     <ReasoningTrigger />
                     <ReasoningContent>{m.reasoning}</ReasoningContent>
                   </Reasoning>
@@ -118,7 +118,7 @@ export default function App() {
                   </Message>
                 )}
                 {m.tools?.map((t, k) => (
-                  <Tool key={k} className="my-1">
+                  <Tool key={k} className="my-0.5 mb-0.5">
                     <ToolHeader type="dynamic-tool" state="output-available" toolName={t.name} />
                     <ToolContent><ToolInput input={t.input} /></ToolContent>
                   </Tool>

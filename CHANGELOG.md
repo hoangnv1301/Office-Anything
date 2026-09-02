@@ -3,6 +3,13 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.5.8
+
+- The workspace tree walks breadth-first with a per-directory cap: one fat
+  directory (bk/ holds every retired desk) was eating the whole entry budget
+  and starving its siblings out of the tree.
+- Conversation gap 8 -> 2; a transcript is a dialogue, not a gallery.
+
 ## 0.5.7
 
 - Messages render markdown through the registry renderer, minus its two heavy

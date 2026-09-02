@@ -82,24 +82,32 @@ export function worktop(scratchBase) {
 // .git and node_modules are nobody's reading; everything else shows, dotfiles
 // included, because desks genuinely live in .claude/ and friends. Bounded in
 // depth and entry count so a big repo cannot flood the page.
-export function treeOf(dir, { depth = 3, maxEntries = 400 } = {}) {
+export function treeOf(dir, { depth = 3, maxEntries = 500, perDir = 50 } = {}) {
   let budget = maxEntries
-  const walk = (d, left) => {
-    const node = { dirs: {}, files: [] }
-    if (left < 0 || budget <= 0) return node
+  const root = { dirs: {}, files: [] }
+  const queue = [{ d: dir, node: root, level: 0 }]
+  while (queue.length) {
+    const { d, node, level } = queue.shift()
     let entries = []
-    try { entries = readdirSync(d, { withFileTypes: true }) } catch { return node }
+    try { entries = readdirSync(d, { withFileTypes: true }) } catch { continue }
     entries.sort((a, b) => (b.isDirectory() ? 1 : 0) - (a.isDirectory() ? 1 : 0) || a.name.localeCompare(b.name))
+    let taken = 0
     for (const e of entries) {
-      if (budget <= 0) { node.truncated = true; break }
       if (e.name === '.git' || e.name === 'node_modules') continue
-      budget--
-      if (e.isDirectory()) node.dirs[e.name] = left > 0 ? walk(join(d, e.name), left - 1) : { dirs: {}, files: [], shallow: true }
-      else { let size = 0; try { size = statSync(join(d, e.name)).size } catch {} ; node.files.push({ name: e.name, size }) }
+      if (taken >= perDir || budget <= 0) { node.truncated = true; break }
+      taken++; budget--
+      if (e.isDirectory()) {
+        const child = { dirs: {}, files: [] }
+        node.dirs[e.name] = child
+        if (level + 1 < depth) queue.push({ d: join(d, e.name), node: child, level: level + 1 })
+        else child.shallow = true
+      } else {
+        let size = 0; try { size = statSync(join(d, e.name)).size } catch {}
+        node.files.push({ name: e.name, size })
+      }
     }
-    return node
   }
-  return walk(dir, depth)
+  return root
 }
 
 export function gatherOffice(root, {
