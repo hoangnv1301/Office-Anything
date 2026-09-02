@@ -59,7 +59,8 @@ export function makeServer(root) {
       // nothing; this server only hands the files over.
       if (url.pathname === '/' || url.pathname === '/chat') {
         try {
-          res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+          // no-store: an open tab must not keep yesterday's UI after an update
+          res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
           return res.end(readFileSync(new URL('./ui/dist/index.html', import.meta.url)))
         } catch {
           res.writeHead(503, { 'content-type': 'text/plain' })

@@ -3,6 +3,13 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.5.6
+
+- Every AI Element with corresponding data is on the page: thinking blocks
+  render with Reasoning, tool calls with their parameters render with Tool,
+  and the session folder is a real FileTree. index.html ships no-store so an
+  open tab cannot keep yesterday's UI.
+
 ## 0.5.5
 
 - The chat is the REAL components now: shadcn/ui plus AI Elements

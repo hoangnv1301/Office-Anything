@@ -21,7 +21,7 @@ test('user text and assistant text become messages; plumbing does not', () => {
   const m = chatFrom(jsonl)
   assert.equal(m.length, 2, 'a tool_result and a torn line are plumbing, not chat')
   assert.deepEqual(m.map((x) => x.role), ['user', 'assistant'])
-  assert.deepEqual(m[1].tools, ['Bash'])
+  assert.deepEqual(m[1].tools, [{ name: 'Bash', input: {} }], 'tools carry their input for the Tool element')
   assert.equal(m[1].model, 'claude-opus-5')
 })
 

@@ -50,8 +50,15 @@ export function chatFrom(jsonlText, { limit = 80 } = {}) {
       if (text.trim() && !isToolResult) out.push({ role: 'user', text: text.slice(0, 4000), at: j.timestamp ?? null })
     } else if (j.type === 'assistant' && m) {
       const text = textOf(m.content)
-      const tools = Array.isArray(m.content) ? m.content.filter((b) => b.type === 'tool_use').map((b) => b.name) : []
-      if (text.trim() || tools.length) out.push({ role: 'assistant', text: text.slice(0, 4000), tools, at: j.timestamp ?? null, model: m.model ?? null })
+      // every part of the native record the UI has an element for: text,
+      // thinking (-> Reasoning), tool_use with input (-> Tool)
+      const arr = Array.isArray(m.content) ? m.content : []
+      const tools = arr.filter((b) => b.type === 'tool_use')
+        .map((b) => ({ name: b.name, input: b.input ?? {} }))
+      const reasoning = arr.filter((b) => b.type === 'thinking').map((b) => b.thinking ?? '').join('\n').slice(0, 4000)
+      if (text.trim() || tools.length || reasoning.trim()) {
+        out.push({ role: 'assistant', text: text.slice(0, 4000), tools, reasoning: reasoning.trim() || null, at: j.timestamp ?? null, model: m.model ?? null })
+      }
     }
   }
   return out.slice(-limit)

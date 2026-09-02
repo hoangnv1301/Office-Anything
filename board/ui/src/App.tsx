@@ -6,6 +6,9 @@ import {
   Conversation, ConversationContent, ConversationEmptyState, ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
 import { Message, MessageContent } from '@/components/ai-elements/message'
+import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
+import { Tool, ToolHeader, ToolContent, ToolInput } from '@/components/ai-elements/tool'
+import { FileTree, FileTreeFolder, FileTreeFile } from '@/components/ai-elements/file-tree'
 import {
   PromptInput, PromptInputBody, PromptInputTextarea, PromptInputFooter, PromptInputSubmit,
   type PromptInputMessage,
@@ -15,7 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 
 type Desk = { key: string; label: string; sub: string; activeMin: number | null }
-type Msg = { role: 'user' | 'assistant'; text: string; tools?: string[] }
+type Msg = { role: 'user' | 'assistant'; text: string; tools?: { name: string; input: unknown }[]; reasoning?: string | null }
 type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[] }
 
 const kb = (n: number) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'
@@ -89,16 +92,25 @@ export default function App() {
               <ConversationEmptyState title="Nothing yet" description="This desk has no conversation in its current session." />
             )}
             {pane?.messages.map((m, i) => (
-              <Message from={m.role} key={i}>
-                <MessageContent>
-                  <span className="whitespace-pre-wrap break-words">{m.text}</span>
-                  {m.tools && m.tools.length > 0 && (
-                    <span className="mt-1 flex flex-wrap gap-1">
-                      {m.tools.map((t, k) => <Badge key={k} variant="outline" className="text-[10px] font-normal text-muted-foreground">⚙ {t}</Badge>)}
-                    </span>
-                  )}
-                </MessageContent>
-              </Message>
+              <div key={i}>
+                {m.reasoning && (
+                  <Reasoning className="mb-1" isStreaming={false} defaultOpen={false}>
+                    <ReasoningTrigger />
+                    <ReasoningContent>{m.reasoning}</ReasoningContent>
+                  </Reasoning>
+                )}
+                {(m.text || m.role === 'user') && (
+                  <Message from={m.role}>
+                    <MessageContent><span className="whitespace-pre-wrap break-words">{m.text}</span></MessageContent>
+                  </Message>
+                )}
+                {m.tools?.map((t, k) => (
+                  <Tool key={k} className="my-1">
+                    <ToolHeader type="dynamic-tool" state="output-available" toolName={t.name} />
+                    <ToolContent><ToolInput input={t.input} /></ToolContent>
+                  </Tool>
+                ))}
+              </div>
             ))}
           </ConversationContent>
           <ConversationScrollButton />
@@ -121,15 +133,31 @@ export default function App() {
       <aside className="w-64 min-w-64 border-l bg-sidebar">
         <div className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">session folder</div>
         <Separator />
-        <ScrollArea className="h-full px-4 py-2">
+        <ScrollArea className="h-full px-2 py-2">
           {pane?.folder?.length
-            ? pane.folder.map((f, i) => (
-              <div key={i} className="py-1.5">
-                <div className="truncate text-[13px]" title={f.name}>{f.name}</div>
-                <div className="text-[11px] text-muted-foreground">{kb(f.size)} · {age(f.ageMin)}</div>
-              </div>
-            ))
-            : <div className="py-2 text-xs text-muted-foreground">empty — the scratchpad starts clean each session</div>}
+            ? <FileTree className="border-0 bg-transparent">
+                {(() => {
+                  type Node = { files: [string, { size: number; ageMin: number }][]; dirs: Record<string, Node> }
+                  const root: Node = { files: [], dirs: {} }
+                  for (const f of pane.folder) {
+                    const parts = f.name.split('/')
+                    let n = root
+                    for (const d of parts.slice(0, -1)) n = (n.dirs[d] ??= { files: [], dirs: {} })
+                    n.files.push([parts[parts.length - 1], f])
+                  }
+                  const renderNode = (n: Node, prefix: string): React.ReactNode => (<>
+                    {Object.entries(n.dirs).map(([d, c]) => (
+                      <FileTreeFolder key={prefix + d} name={d} path={prefix + d}>{renderNode(c, prefix + d + '/')}</FileTreeFolder>
+                    ))}
+                    {n.files.map(([name, f]) => (
+                      <FileTreeFile key={prefix + name} path={prefix + name}
+                        name={name} title={kb(f.size) + ' · ' + age(f.ageMin)} />
+                    ))}
+                  </>)
+                  return renderNode(root, '')
+                })()}
+              </FileTree>
+            : <div className="px-2 py-2 text-xs text-muted-foreground">empty — the scratchpad starts clean each session</div>}
         </ScrollArea>
       </aside>
     </div>
