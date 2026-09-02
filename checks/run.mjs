@@ -13,6 +13,8 @@
 //   0  every applicable check is clean
 //   4  ⛔ at least one has a finding
 //   7  at least one could not answer, and none had a finding
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { report as deskReadable } from './desk-readable.mjs'
 import { report as sendWall } from './send-wall.mjs'
 import { report as unfinished } from './unfinished.mjs'
@@ -43,7 +45,21 @@ export function collect(root = process.cwd(), checks = CHECKS) {
 }
 
 if (isMain(import.meta.url)) {
-  const r = collect()
+  // ⛔ THE ARGUMENT IS HONORED OR THE RUN REFUSES. collect(root) always took a
+  // root, and the CLI never passed one, so `node checks/run.mjs /some/repo`
+  // silently audited the directory you were STANDING IN and printed a clean
+  // board about the wrong codebase. Found 2026-09-02 by pointing it at a repo
+  // from a temp directory: the board reported the temp directory. The README
+  // sells auditing "a repo you did not write", and that was the one thing the
+  // CLI could not do. A guard on a path the docs do not use, in this repo's
+  // own words -- and falling back to cwd on a BAD argument would be the same
+  // bug with politeness: you asked about X, it answered about Y.
+  const arg = process.argv[2]
+  if (arg && !existsSync(arg)) {
+    console.error(`⛔ no such directory: ${arg}. Refusing to audit the cwd in its place.`)
+    process.exit(7)
+  }
+  const r = collect(arg ? resolve(arg) : process.cwd())
   // ⛔ DERIVED FROM THE LONGEST NAME, NEVER A LITERAL. This was padEnd(12), which broke the
   // day a check called "stray-writes" was added, then padEnd(14), which broke the day
   // "stated-numbers" was added. A width that has to be widened every time a check is added
