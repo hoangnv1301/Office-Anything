@@ -67,6 +67,12 @@ export function makeServer(root) {
           return res.end('board UI not built: run `npm run build` in board/ui (maintainers only; releases ship it prebuilt)')
         }
       }
+      if (url.pathname === '/favicon.svg' || url.pathname === '/icons.svg') {
+        try {
+          res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'max-age=3600' })
+          return res.end(readFileSync(new URL('./ui/dist' + url.pathname, import.meta.url)))
+        } catch { res.writeHead(404); return res.end() }
+      }
       if (url.pathname.startsWith('/assets/') && !url.pathname.includes('..')) {
         try {
           const type = url.pathname.endsWith('.js') ? 'text/javascript' : url.pathname.endsWith('.css') ? 'text/css' : url.pathname.endsWith('.svg') ? 'image/svg+xml' : 'application/octet-stream'

@@ -15,6 +15,7 @@ import { Image as AIImage } from '@/components/ai-elements/image'
 import {
   PromptInput, PromptInputBody, PromptInputTextarea, PromptInputFooter, PromptInputSubmit,
   PromptInputTools, PromptInputActionAddAttachments, PromptInputHeader,
+  PromptInputActionMenu, PromptInputActionMenuTrigger, PromptInputActionMenuContent,
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai-elements/web-preview'
@@ -152,7 +153,7 @@ export default function App() {
   }, [canSend, sel, poll])
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="h-screen bg-background text-foreground">
+    <ResizablePanelGroup orientation="horizontal" className="h-screen bg-background text-foreground">
       {/* item 3+7: panes told apart by TONE, resizable with bounds */}
       <ResizablePanel defaultSize={18} minSize={12} maxSize={28} className="hidden bg-sidebar md:block">
         <div className="flex h-full flex-col">
@@ -166,7 +167,7 @@ export default function App() {
         <Tabs value={view} onValueChange={setView} className="flex h-full flex-col gap-0">
           <header className="flex items-center gap-2 px-4 py-2 md:px-6">
             <Sheet>
-              <SheetTrigger asChild><Button variant="ghost" size="sm" className="md:hidden">☰</Button></SheetTrigger>
+              <SheetTrigger render={<Button variant="ghost" size="sm" className="md:hidden">☰</Button>} />
               <SheetContent side="left" className="w-72 p-0">
                 <SheetTitle className="px-4 py-3 text-base">🏢 the office</SheetTitle>
                 <ScrollArea className="h-full">{deskList}</ScrollArea>
@@ -227,9 +228,14 @@ export default function App() {
                 </PromptInputBody>
                 <PromptInputFooter>
                   <PromptInputTools>
-                    <PromptInputActionAddAttachments />
+                    <PromptInputActionMenu>
+                      <PromptInputActionMenuTrigger />
+                      <PromptInputActionMenuContent>
+                        <PromptInputActionAddAttachments />
+                      </PromptInputActionMenuContent>
+                    </PromptInputActionMenu>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-8 text-xs">/ commands</Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="h-8 text-xs">/ commands</Button>} />
                       <DropdownMenuContent className="max-h-72 overflow-y-auto">
                         {commands.map((c) => (
                           <DropdownMenuItem key={c} onSelect={() => {
@@ -251,7 +257,7 @@ export default function App() {
               <WebPreview className="flex-1" defaultUrl={cdp.tabs[cdpSel]?.devtools ?? ''}>
                 <WebPreviewNavigation>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-8 max-w-72 truncate text-xs">{cdp.tabs[cdpSel]?.title || 'tab'}</Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="h-8 max-w-72 truncate text-xs">{cdp.tabs[cdpSel]?.title || 'tab'}</Button>} />
                     <DropdownMenuContent>
                       {cdp.tabs.map((t, i) => <DropdownMenuItem key={i} onSelect={() => setCdpSel(i)}>{t.title || t.url}</DropdownMenuItem>)}
                     </DropdownMenuContent>

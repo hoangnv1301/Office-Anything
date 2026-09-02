@@ -3,6 +3,16 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.5.10
+
+- The white page: PromptInputActionAddAttachments is a MENU ITEM and was
+  placed outside its ActionMenu; Base UI threw invariant 36 and React
+  unmounted everything. Found with the real browser over CDP, fixed to the
+  element's own contract. Also: the Base UI render pattern where asChild was
+  assumed, orientation instead of direction on the panel group, favicon
+  served, and the headline token count no longer re-counts cache reads every
+  turn (4295.9M was a lie; fresh input is the honest number).
+
 ## 0.5.9
 
 - All nine of the owner's orders: /board removed (the chat is the only page,
