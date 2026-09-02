@@ -2,7 +2,7 @@
 // shadcn/ui (resizable, tabs, badge, button, scroll-area) + AI Elements
 // (conversation, message, reasoning, tool, task, file-tree, image,
 // prompt-input, web-preview). The core stays Claude Code.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Conversation, ConversationContent, ConversationEmptyState, ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
@@ -39,6 +39,50 @@ type CdpTab = { title: string; url: string; devtools: string }
 
 const kb = (n: number) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'
 const age = (m: number) => (m < 60 ? `${m}m` : `${Math.round(m / 60)}h`) + ' ago'
+
+const MsgBlock = memo(function MsgBlock({ m, rich }: { m: Msg; rich: boolean }) {
+  return (
+    <div>
+      {m.reasoning && (
+        <Reasoning className="mb-0.5" isStreaming={false} defaultOpen={false}>
+          <ReasoningTrigger /><ReasoningContent>{m.reasoning}</ReasoningContent>
+        </Reasoning>
+      )}
+      {(m.text || m.images?.length) && (
+        <Message from={m.role}>
+          <MessageContent>
+            {m.text && (rich ? <MessageResponse>{m.text}</MessageResponse> : <span className="whitespace-pre-wrap break-words">{m.text}</span>)}
+            <Pictures images={m.images} />
+          </MessageContent>
+        </Message>
+      )}
+    </div>
+  )
+}, (a, b) => a.m.text === b.m.text && a.rich === b.rich && a.m.reasoning === b.m.reasoning && (a.m.images?.length ?? 0) === (b.m.images?.length ?? 0))
+
+const ToolsBlock = memo(function ToolsBlock({ tools }: { tools: { name: string; input: unknown }[] }) {
+  return (
+    <Task defaultOpen={false} className="my-0.5">
+      <TaskTrigger title={'⚙ ' + tools.length + ' tool call' + (tools.length > 1 ? 's' : '') + ' — ' + [...new Set(tools.map((t) => t.name))].join(', ')} />
+      <TaskContent>
+        {tools.map((t, k) => (
+          <Tool key={k} className="my-0.5">
+            <ToolHeader type="dynamic-tool" state="output-available" toolName={t.name} />
+            <ToolContent><ToolInput input={t.input} /></ToolContent>
+          </Tool>
+        ))}
+      </TaskContent>
+    </Task>
+  )
+}, (a, b) => a.tools.length === b.tools.length && a.tools[0]?.name === b.tools[0]?.name)
+
+// ⛔ THE RAIL MUST NOT REBUILD BECAUSE THE CHAT MOVED. The lead's transcript
+// grows every few seconds; every poll re-rendered the pane and the tree was
+// torn down mid-click — the rig caught a click landing on a row that had just
+// been replaced, and a human gets the same twitch under the cursor.
+const WorkspaceTree = memo(function WorkspaceTree({ ws, onOpen }: { ws: WsNode; onOpen: (p: string) => void }) {
+  return <FileTree className="border-0 bg-transparent" onSelect={onOpen}>{renderWs(ws, '')}</FileTree>
+}, (a, b) => JSON.stringify(a.ws) === JSON.stringify(b.ws))
 
 function renderWs(n: WsNode, prefix: string): React.ReactNode {
   return (<>
@@ -81,8 +125,7 @@ export default function App() {
   const [pane, setPane] = useState<Pane | null>(null)
   const [note, setNote] = useState('')
   const [commands, setCommands] = useState<string[]>([])
-  const [cdp, setCdp] = useState<{ tabs: CdpTab[]; why?: string }>({ tabs: [] })
-  const [cdpSel, setCdpSel] = useState(0)
+  const [screen, setScreen] = useState<{ src: string | null; url: string; why: string }>({ src: null, url: '', why: 'no browser to show for this desk yet' })
   const [view, setView] = useState('chat')
   const [file, setFile] = useState<{ path: string; kind: string; content?: string; size?: number } | null>(null)
 
@@ -100,17 +143,33 @@ export default function App() {
     setDesks(o.desks); setCanSend(o.canSend)
     setSel((s) => s ?? o.desks[0]?.key ?? null)
   }, [])
+  // ⛔ THIS WAS A PLAIN OBJECT, recreated every render, so the diff guard
+  // never engaged and the re-parse froze the thread anyway. A ref survives.
+  const lastPayload = useRef('')
   const poll = useCallback(async () => {
     if (!sel) return
-    setPane(await (await fetch('/api/transcript?key=' + encodeURIComponent(sel))).json())
+    const text = await (await fetch('/api/transcript?key=' + encodeURIComponent(sel))).text()
+    // ⛔ 80 markdown documents re-parsed every 2.5s froze the main thread for
+    // seconds at a time. An unchanged payload must cost nothing.
+    if (text === lastPayload.current) return
+    lastPayload.current = text
+    setPane(JSON.parse(text))
   }, [sel])
   useEffect(() => { office(); const t = setInterval(office, 10000); return () => clearInterval(t) }, [office])
   useEffect(() => { poll(); const t = setInterval(poll, 2500); return () => clearInterval(t) }, [poll])
   useEffect(() => { fetch('/api/commands').then((r) => r.json()).then((j) => setCommands(j.commands ?? [])) }, [])
   useEffect(() => {
     if (!sel || view !== 'computer') return
-    const go = async () => { setCdp(await (await fetch('/api/computer?key=' + encodeURIComponent(sel))).json()); }
-    go(); const t = setInterval(go, 8000); return () => clearInterval(t)
+    let alive = true
+    const go = async () => {
+      const r = await fetch('/api/screen?key=' + encodeURIComponent(sel))
+      if (!alive) return
+      if (r.status !== 200) { setScreen({ src: null, url: '', why: 'no headed browser answering for this desk right now' }); return }
+      const blob = await r.blob()
+      if (!alive) return
+      setScreen((old) => { if (old.src) URL.revokeObjectURL(old.src); return { src: URL.createObjectURL(blob), url: decodeURIComponent(r.headers.get('x-tab-url') ?? ''), why: '' } })
+    }
+    go(); const t = setInterval(go, 1200); return () => { alive = false; clearInterval(t) }
   }, [sel, view])
 
   const blocks = useMemo(() => toBlocks(pane?.messages ?? []), [pane])
@@ -186,35 +245,9 @@ export default function App() {
             <Conversation className="flex-1">
               <ConversationContent className="mx-auto w-full max-w-3xl gap-2">
                 {blocks.length === 0 && <ConversationEmptyState title="Nothing yet" description="This desk has no conversation in its current session." />}
-                {blocks.map((b, i) => b.kind === 'msg' ? (
-                  <div key={i}>
-                    {b.m.reasoning && (
-                      <Reasoning className="mb-0.5" isStreaming={false} defaultOpen={false}>
-                        <ReasoningTrigger /><ReasoningContent>{b.m.reasoning}</ReasoningContent>
-                      </Reasoning>
-                    )}
-                    {(b.m.text || b.m.images?.length) && (
-                      <Message from={b.m.role}>
-                        <MessageContent>
-                          {b.m.text && <MessageResponse>{b.m.text}</MessageResponse>}
-                          <Pictures images={b.m.images} />
-                        </MessageContent>
-                      </Message>
-                    )}
-                  </div>
-                ) : (
-                  <Task key={i} defaultOpen={false} className="my-0.5">
-                    <TaskTrigger title={'⚙ ' + b.tools.length + ' tool call' + (b.tools.length > 1 ? 's' : '') + ' — ' + [...new Set(b.tools.map((t) => t.name))].join(', ')} />
-                    <TaskContent>
-                      {b.tools.map((t, k) => (
-                        <Tool key={k} className="my-0.5">
-                          <ToolHeader type="dynamic-tool" state="output-available" toolName={t.name} />
-                          <ToolContent><ToolInput input={t.input} /></ToolContent>
-                        </Tool>
-                      ))}
-                    </TaskContent>
-                  </Task>
-                ))}
+                {(() => { const tail = blocks.slice(-60); return tail.map((b, i) => b.kind === 'msg'
+                  ? <MsgBlock key={'m' + i} m={b.m} rich={i >= tail.length - 15} />
+                  : <ToolsBlock key={'t' + i} tools={b.tools} />) })()}
               </ConversationContent>
               <ConversationScrollButton />
             </Conversation>
@@ -252,22 +285,24 @@ export default function App() {
           </TabsContent>
 
           <TabsContent value="computer" className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
-            {/* item 8: the desk's HEADED browser, through its own CDP DevTools page */}
-            {cdp.tabs.length ? (
-              <WebPreview className="flex-1" defaultUrl={cdp.tabs[cdpSel]?.devtools ?? ''}>
+            {/* The desk's HEADED browser, MIRRORED. Display only, owner's
+                ruling: the agent keeps driving; the board shows the pixels. */}
+            {screen.src ? (
+              <WebPreview className="min-h-0 flex-1">
                 <WebPreviewNavigation>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="h-8 max-w-72 truncate text-xs">{cdp.tabs[cdpSel]?.title || 'tab'}</Button>} />
-                    <DropdownMenuContent>
-                      {cdp.tabs.map((t, i) => <DropdownMenuItem key={i} onSelect={() => setCdpSel(i)}>{t.title || t.url}</DropdownMenuItem>)}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <WebPreviewUrl readOnly value={cdp.tabs[cdpSel]?.url ?? ''} />
+                  <WebPreviewUrl readOnly value={screen.url} />
+                  <span className="text-[11px] text-muted-foreground">display only · ~1 fps</span>
                 </WebPreviewNavigation>
-                <WebPreviewBody src={cdp.tabs[cdpSel]?.devtools ?? ''} />
+                {/* ⛔ WebPreviewBody IS an iframe; handing it a render prop
+                    left an empty frame where the mirror belonged while the
+                    screen endpoint served frames nobody displayed. The nav is
+                    the element's; the pixels get a plain container. */}
+                <div className="flex min-h-0 flex-1 items-start justify-center overflow-auto bg-black/40 p-2">
+                  <img src={screen.src} alt="desk browser display" className="h-auto max-w-full rounded-md" />
+                </div>
               </WebPreview>
             ) : (
-              <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">{cdp.why ?? 'no browser to show for this desk'}</div>
+              <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">{screen.why}</div>
             )}
           </TabsContent>
         </Tabs>
@@ -275,7 +310,7 @@ export default function App() {
       <ResizableHandle className="hidden w-0 bg-transparent md:block" />
 
       {/* item 4: one rail, a menu to switch what it shows */}
-      <ResizablePanel defaultSize="22%" minSize="14%" maxSize="34%" className="hidden bg-card md:block">
+      <ResizablePanel data-rail="files" defaultSize="22%" minSize="14%" maxSize="34%" className="hidden bg-card md:block">
         <Tabs defaultValue="workspace" className="flex h-full flex-col gap-0">
           <TabsList className="m-2">
             <TabsTrigger value="workspace" className="text-xs">workspace</TabsTrigger>
@@ -284,7 +319,7 @@ export default function App() {
           <TabsContent value="workspace" className="min-h-0 flex-1 data-[state=inactive]:hidden">
             <ScrollArea className="h-full px-2 pb-2">
               {pane?.workspace
-                ? <FileTree className="border-0 bg-transparent" onSelect={openFile}>{renderWs(pane.workspace, '')}</FileTree>
+                ? <WorkspaceTree ws={pane.workspace} onOpen={openFile} />
                 : <div className="px-2 py-2 text-xs text-muted-foreground">…</div>}
             </ScrollArea>
           </TabsContent>
@@ -302,7 +337,7 @@ export default function App() {
       <Dialog open={!!file} onOpenChange={(o) => !o && setFile(null)}>
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">
           <DialogHeader><DialogTitle className="truncate font-mono text-sm">{file?.path}</DialogTitle></DialogHeader>
-          <ScrollArea className="min-h-0 flex-1">
+          <ScrollArea className="max-h-[70vh] min-h-0 flex-1 overflow-auto">
             {file?.kind === 'imageurl' && <img src={file.content} alt={file.path} className="h-auto max-w-full rounded-md" />}
             {file?.kind === 'markdown' && <MessageResponse>{file.content ?? ''}</MessageResponse>}
             {file?.kind === 'text' && <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">{file.content}</pre>}

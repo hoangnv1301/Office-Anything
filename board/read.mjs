@@ -15,38 +15,23 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { rosterSafe } from '../lib/desk.mjs'
+import { newestSession, readTail } from './transcript.mjs'
 
 // Claude Code's own slug: the absolute cwd with / and spaces flattened to -.
 export const slugFor = (absPath) => absPath.replace(/[/ ]/g, '-')
 
 export function transcriptStats(projectDir) {
-  // Newest transcript = the live session. Older ones are history; their count
-  // is reported, their contents are not re-read on every page load.
   try {
     const files = readdirSync(projectDir).filter((f) => f.endsWith('.jsonl'))
-      .map((f) => ({ f, at: statSync(join(projectDir, f)).mtimeMs }))
-      .sort((a, b) => b.at - a.at)
     if (!files.length) return null
-    const newest = files[0]
-    let turns = 0, input = 0, output = 0, cacheRead = 0, model = null
-    for (const line of readFileSync(join(projectDir, newest.f), 'utf8').split('\n')) {
-      if (!line.includes('"usage"')) continue
-      try {
-        const j = JSON.parse(line)
-        const u = j?.message?.usage
-        if (!u) continue
-        turns += 1
-        input += u.input_tokens ?? 0
-        output += u.output_tokens ?? 0
-        cacheRead += u.cache_read_input_tokens ?? 0
-        if (j.message?.model) model = j.message.model
-      } catch { /* a torn line mid-write is normal in a live transcript */ }
-    }
-    return { sessions: files.length, lastActiveMs: newest.at, model, turns, input, output, cacheRead }
+    const t = newestSession(projectDir)
+    if (!t) return null
+    const tail = readTail(t)
+    if (!tail) return null
+    return { sessions: files.length, ...tail.stats }
   } catch { return null }
 }
 
-// Files under ONE session's scratchpad: the folder of exactly that session.
 export function filesUnder(dir) {
   const files = []
   const walk = (d, prefix = '') => {

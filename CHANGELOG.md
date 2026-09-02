@@ -3,6 +3,17 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.5.13
+
+- The board walked end to end by its own rig: nine functions, hit-tested
+  input, thresholds, three clean runs. What the walk found and fixed: the
+  server re-read whole transcripts on every poll (now incremental: 30ms warm,
+  was seconds, unit-tested against the full parse) · WebPreviewBody is an
+  iframe and had swallowed the mirror · the Computer tab now MIRRORS a desk's
+  headed browser, display only · a file dialog that outlived its welcome ·
+  the rail rebuilt whenever the chat moved. Plus a zero-dep CDP client with a
+  tested frame codec, and markdown restored minus the heavy plugins.
+
 ## 0.5.12
 
 - html/body/#root carry height 100%; the panes fill the viewport instead of

@@ -81,3 +81,46 @@ export function chatFrom(jsonlText, { limit = 80 } = {}) {
   }
   return out.slice(-limit)
 }
+
+
+// ⛔ THE SERVER WAS RE-READING EVERY TRANSCRIPT IN FULL, SYNCHRONOUSLY, ON
+// EVERY POLL. The lead's file is 62 MB; nine desks, a 2.5s poll, one thread:
+// the event loop saturated and page fetches queued behind it until the UI
+// looked frozen. Every number the first walkthrough measured (83s to first
+// render) was this. The reader below stats first and reads ONLY the bytes
+// appended since last time; an unchanged file costs one stat.
+const tailCache = new Map() // path -> { size, mtimeMs, carry, messages, stats }
+
+export function readTail(path, { limit = 80 } = {}) {
+  let st
+  try { st = statSync(path) } catch { return null }
+  const c = tailCache.get(path)
+  if (c && c.size === st.size && c.mtimeMs === st.mtimeMs) return c
+  let from = 0, carry = '', messages = [], stats = { turns: 0, input: 0, output: 0, cacheRead: 0, model: null }
+  if (c && st.size > c.size) { from = c.size; carry = c.carry; messages = c.messages.slice(); stats = { ...c.stats } }
+  const fd = openSync(path, 'r')
+  try {
+    const len = st.size - from
+    const buf = Buffer.alloc(Math.min(len, 64 * 1024 * 1024))
+    readSync(fd, buf, 0, buf.length, from)
+    const text = carry + buf.toString('utf8')
+    const nl = text.lastIndexOf('\n')
+    carry = nl >= 0 ? text.slice(nl + 1) : text
+    const body = nl >= 0 ? text.slice(0, nl) : ''
+    for (const m of chatFrom(body, { limit: Infinity })) messages.push(m)
+    for (const line of body.split('\n')) {
+      if (!line.includes('"usage"')) continue
+      try {
+        const j = JSON.parse(line); const u = j?.message?.usage
+        if (!u) continue
+        stats.turns += 1; stats.input += u.input_tokens ?? 0; stats.output += u.output_tokens ?? 0
+        stats.cacheRead += u.cache_read_input_tokens ?? 0
+        if (j.message?.model) stats.model = j.message.model
+      } catch {}
+    }
+  } finally { closeSync(fd) }
+  if (messages.length > limit) messages = messages.slice(-limit)
+  const entry = { size: st.size, mtimeMs: st.mtimeMs, carry, messages, stats: { ...stats, lastActiveMs: st.mtimeMs } }
+  tailCache.set(path, entry)
+  return entry
+}

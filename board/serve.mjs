@@ -15,10 +15,11 @@ import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { gatherOffice, slugFor } from './read.mjs'
-import { newestSession, chatFrom } from './transcript.mjs'
+import { newestSession, chatFrom, readTail } from './transcript.mjs'
 import { transcriptStats, worktop, filesUnder, treeOf } from './read.mjs'
 import { basename } from 'node:path'
 import { send, orcaAvailable, normalizeTitle } from './send.mjs'
+import { screenshotOf } from '../lib/cdp.mjs'
 import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
 import { rosterSafe } from '../lib/desk.mjs'
 import { collect } from '../checks/run.mjs'
@@ -27,6 +28,14 @@ import { isMain } from '../lib/is-main.mjs'
 // The chat's session list: every desk plus the LEAD, whose desk is the repo
 // root. key = the cwd slug, which is how Claude Code files both the
 // transcript and the scratchpad.
+export function chatRosterCheap(root) {
+  const { desks } = rosterSafe(join(root, 'desks'))
+  return [
+    { key: slugFor(root), label: 'team-lead', desk: 'team-lead' },
+    ...desks.map((d) => ({ key: slugFor(join(root, 'desks', d.name)), label: d.name, desk: d.name, port: d.port })),
+  ]
+}
+
 export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
   const { desks } = rosterSafe(join(root, 'desks'))
   const rows = [
@@ -152,9 +161,22 @@ export function makeServer(root) {
         scan(join(fileURLToPath(new URL('../commands/', import.meta.url))))
         return json(res, 200, { commands: [...names].sort() })
       }
+      if (url.pathname === '/api/screen') {
+        const key = url.searchParams.get('key') ?? ''
+        const row = chatRosterCheap(root).find((r) => r.key === key)
+        if (!row?.port) { res.writeHead(204); return res.end() }
+        if (row.port === 9222) { res.writeHead(403); return res.end() } // v1's LIVE account browser. Never.
+        return screenshotOf(row.port)
+          .then((shot) => {
+            if (!shot) { res.writeHead(204); return res.end() }
+            res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'no-store', 'x-tab-title': encodeURIComponent(shot.title ?? ''), 'x-tab-url': encodeURIComponent(shot.url ?? '') })
+            res.end(shot.jpeg)
+          })
+          .catch(() => { res.writeHead(204); res.end() })
+      }
       if (url.pathname === '/api/computer') {
         const key = url.searchParams.get('key') ?? ''
-        const row = chatRoster(root).find((r) => r.key === key)
+        const row = chatRosterCheap(root).find((r) => r.key === key)
         if (!row?.port) return json(res, 200, { tabs: [], why: row ? 'this desk declares no browser port' : 'unknown desk' })
         // ⛔ 9222 IS v1'S LIVE ALIBABA CHROME, serving real buyers. Never.
         if (row.port === 9222) return json(res, 200, { tabs: [], why: 'port 9222 is the LIVE account browser and is never touched from here' })
@@ -177,8 +199,9 @@ export function makeServer(root) {
         if (!/^[A-Za-z0-9-]+$/.test(key)) return json(res, 400, { why: 'bad key' })
         const t = newestSession(join(homedir(), '.claude', 'projects', key))
         if (!t) return json(res, 200, { label: key, model: null, count: 0, messages: [] })
-        const messages = chatFrom(readFileSync(t, 'utf8'))
-        const row = chatRoster(root).find((r) => r.key === key)
+        const tail = readTail(t)
+        const messages = tail?.messages ?? []
+        const row = chatRosterCheap(root).find((r) => r.key === key)
         const label = row?.label ?? key
         // the session's WORKING folder: the desk's own tree, or the repo root
         // for the lead, whose desk IS the root
@@ -191,7 +214,7 @@ export function makeServer(root) {
         const sessionId = basename(t, '.jsonl')
         const folder = filesUnder(join('/private/tmp', 'claude-' + process.getuid(), key, sessionId, 'scratchpad'))
           .map((x) => ({ name: x.name, size: x.size, ageMin: Math.round((now - x.at) / 60000) }))
-        return json(res, 200, { label, model: messages.findLast?.((m) => m.model)?.model ?? null, count: messages.length, messages, folder, workspace })
+        return json(res, 200, { label, model: tail?.stats?.model ?? null, count: messages.length, messages, folder, workspace })
       }
       if (url.pathname === '/api/send' && req.method === 'POST') {
         let body = ''
