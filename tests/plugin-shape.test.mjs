@@ -82,11 +82,16 @@ test('⛔ EVERY command points at a guarded entry point, not at the parts', () =
   // it because it checked desk-hire.md and desk-fire.md by name. A guard with a hardcoded
   // list does not cover the member added after it was written, which is the same fault as
   // a hardcoded column width: correct until somebody adds one more thing.
+  // ⛔ THIS PATTERN WAS /\b(hire|fire)\(/ AND REFUSED THE THIRD KIND OF COMMAND.
+  // desk-board.md's guarded entry is a script, board/serve.mjs, not a lib function.
+  // The registry of acceptable entries is now stated once, here: a guarded lib
+  // call, or running a shipped entry script under board/ or checks/.
+  const ENTRY = /\b(hire|fire)\(|node (board|checks)\/[a-z-]+\.mjs/
   for (const f of readdirSync(join(ROOT, 'commands'))) {
     const text = readFileSync(join(ROOT, 'commands', f), 'utf8')
-    assert.match(text, /\b(hire|fire)\(/,
-      `commands/${f} never tells the model to call hire() or fire(). A model following it ` +
-      `assembles a desk by hand and skips every guard inside those functions.`)
+    assert.match(text, ENTRY,
+      `commands/${f} names no guarded entry (a lib call, or a shipped script under ` +
+      `board/ or checks/). A model following it hand-rolls the path and skips every guard.`)
   }
 })
 
@@ -99,7 +104,11 @@ test('⛔ and each command warns against the manual path it replaces', () => {
 })
 
 test('⛔ a command may not name an export that does not exist', async () => {
-  const libs = { hire: await import('../lib/hire.mjs'), desk: await import('../lib/desk.mjs'), fire: await import('../lib/fire.mjs') }
+  const libs = {
+    hire: await import('../lib/hire.mjs'), desk: await import('../lib/desk.mjs'),
+    fire: await import('../lib/fire.mjs'), run: await import('../checks/run.mjs'),
+    board: await import('../board/serve.mjs'),
+  }
   const known = new Set(Object.values(libs).flatMap(m => Object.keys(m)))
   for (const f of readdirSync(join(ROOT, 'commands'))) {
     const text = readFileSync(join(ROOT, 'commands', f), 'utf8')

@@ -3,6 +3,25 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.4.0
+
+- **The board.** `/desk-board` serves the office on one read-only localhost
+  page: every desk's kind, live status, model, turns, token usage, last
+  activity and worktop (the session's native Claude Code scratchpad), plus the
+  full checks board. Owner's ruling overturned "no UI, no server"; what
+  survives is that doctrine's reason, now stated on the page itself: the board
+  cannot know something `checks/run.mjs` does not. Loopback only, stateless,
+  no dollars — a hand-synced price table would be wrong by the next model.
+- **The command guard refused the new kind of command, and the guard was
+  fixed, not dodged.** Its pattern hardcoded `hire()|fire()` as the only
+  guarded entries — the third occurrence of "a hand-written list does not
+  cover the member added after it". The registry of acceptable entries is now
+  stated once: a guarded lib call, or a shipped entry script.
+- **CONTRIBUTING gains the rule for where a test belongs**: delete the
+  business nouns — if the rule still means something it is the plugin's, if
+  not it stays home.
+- 103 → 110 tests.
+
 ## 0.3.0
 
 Found by the first production repo to adopt the contract: seven desks, 2,500 tests,

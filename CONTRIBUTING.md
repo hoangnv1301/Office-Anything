@@ -39,6 +39,22 @@ chore: the stated test count moved with the new regression tests
 - **A command**: a flat `.md` in `commands/`. The filename IS the slash
   command. Add it to the README; a test holds both directions.
 
+## Where a test belongs
+
+**Delete the business nouns. If the rule still means something, it is the
+plugin's; if not, it stays home.**
+
+| belongs to | the rule is about | example |
+|---|---|---|
+| the plugin | ANY office: the contract, kinds, walls, ratchets | "a knowledge desk has no way to send" |
+| an adopting repo's root | THIS office, across its desks | "the Artisan price workbooks live only in the design desk" |
+| one desk | that desk alone | "the closet proposal paginates at 12 rows" |
+
+When a repo test's rule generalizes, it becomes a plugin CHECK and the repo
+test retires to its archive. The specific file lists, channel names and
+numbers never move into the plugin: a check that knows one business's nouns
+fails every other office for existing.
+
 ## Before a PR
 
 ```

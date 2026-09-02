@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 103 tests
+node --test "tests/**/*.test.mjs"    # 110 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -20,6 +20,7 @@ the directory and reports one failing test with a buried MODULE_NOT_FOUND.
 | `hooks/` | **blocks.** A PreToolUse gate that refuses the tool call outright |
 | `commands/` | flat `.md` files. **The filename IS the slash command** |
 | `tests/` | one file per thing it tests |
+| `board/` | the office on one read-only page. Knows nothing `checks/run.mjs` does not |
 
 ⛔ **`checks/` and `hooks/` are not the same job and must not be merged.** A check reports
 after the fact, if somebody runs it. A hook stops the action. The check exists so you can
@@ -221,8 +222,11 @@ requires every command file to be documented and every documented command to exi
   Do not add an empty directory to look more like a plugin.
 - **No `agents/`.** Desks ARE the agents, and `hire` writes them into the USER's project.
   The plugin produces agents; it does not ship any.
-- **No UI, no server, no database.** If you are reaching for one, ask what it would tell
-  somebody that `node checks/run.mjs` does not.
+- **No database, no login, no cloud.** `board/` exists by owner's ruling
+  (2026-09-02), overturning the earlier "no UI, no server". What survives from
+  that doctrine is its reason: the board must never know something
+  `node checks/run.mjs` does not, so it renders `collect()` plus the native
+  sources (desk.json, transcripts, scratchpads), loopback only, stateless.
 
 ## Publishing
 
