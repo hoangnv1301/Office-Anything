@@ -17,6 +17,7 @@ import { gatherOffice, slugFor } from './read.mjs'
 import { render } from './page.mjs'
 import { chatPage } from './chat-page.mjs'
 import { newestSession, chatFrom } from './transcript.mjs'
+import { transcriptStats } from './read.mjs'
 import { send, orcaAvailable, normalizeTitle } from './send.mjs'
 import { readFileSync } from 'node:fs'
 import { rosterSafe } from '../lib/desk.mjs'
@@ -35,6 +36,11 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
   for (const r of rows) {
     const t = newestSession(join(home, '.claude', 'projects', r.key))
     r.activeMin = t ? Math.round((now - (statSafe(t))) / 60000) : null
+    const st = transcriptStats(join(home, '.claude', 'projects', r.key))
+    if (st) {
+      const k = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
+      r.sub += ' · ' + st.turns + ' turns · ' + k(st.input + st.cacheRead) + '/' + k(st.output) + ' tok'
+    }
   }
   return rows
 }
@@ -47,9 +53,15 @@ export function makeServer(root) {
   return createServer((req, res) => {
     const url = new URL(req.url, 'http://x')
     try {
-      if (url.pathname === '/chat') {
+      // ⛔ CHAT IS THE FRONT DOOR, owner's ruling: the core is the desks and
+      // their conversations; the table is the annex at /board.
+      if (url.pathname === '/' || url.pathname === '/chat') {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
         return res.end(chatPage())
+      }
+      if (url.pathname !== '/board' && url.pathname.startsWith('/api/') === false && url.pathname !== '/') {
+        // unknown paths fall through to the table only from /board; anything
+        // else is a 404 rather than a surprise page
       }
       if (url.pathname === '/api/office-chat') {
         return json(res, 200, { canSend: orcaAvailable(), desks: chatRoster(root) })
@@ -80,7 +92,7 @@ export function makeServer(root) {
       const office = gatherOffice(root)
       const checks = collect(root)
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
-      res.end(render(office, checks) + '<p class=m><a href="/chat" style="color:#8b949e">→ the chat view</a></p>')
+      res.end(render(office, checks) + '<p class=m><a href="/" style="color:#8b949e">← back to the chat</a></p>')
     } catch (e) {
       res.writeHead(500, { 'content-type': 'text/plain' })
       res.end('board error: ' + e.message)

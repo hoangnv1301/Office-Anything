@@ -23,11 +23,11 @@ export function chatPage() {
   header .t{font-weight:600}
   header .s{font-size:12px;color:var(--muted)}
   #log{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
-  .msg{max-width:76%;padding:10px 14px;border-radius:12px;white-space:pre-wrap;word-break:break-word;border:1px solid var(--border)}
-  .msg.user{align-self:flex-end;background:var(--user);border-color:transparent}
-  .msg.assistant{align-self:flex-start;background:var(--panel)}
-  .meta{font-size:11px;color:var(--muted);margin-top:6px}
-  .chip{display:inline-block;font-size:11px;background:#27272a;border:1px solid var(--border);border-radius:999px;padding:1px 8px;margin:2px 4px 0 0;color:var(--muted)}
+  .msg{max-width:72%;padding:10px 14px;border-radius:16px;white-space:pre-wrap;word-break:break-word}
+  .msg.user{align-self:flex-end;background:var(--user);border-bottom-right-radius:4px}
+  .msg.assistant{align-self:flex-start;background:var(--panel);border-bottom-left-radius:4px}
+  .chip{display:inline-block;font-size:11px;background:transparent;border-radius:999px;padding:0 6px;margin:4px 2px 0 0;color:var(--muted);opacity:.8}
+  .chip::before{content:'⚙ '}
   form{display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--border)}
   textarea{flex:1;resize:none;background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font:inherit;height:44px}
   button{background:var(--fg);color:var(--bg);border:0;border-radius:10px;padding:0 18px;font-weight:600;cursor:pointer}
@@ -38,7 +38,7 @@ export function chatPage() {
 <aside>
   <h1>🏢 the office</h1>
   <div id="desks"></div>
-  <div style="padding:12px 16px;border-top:1px solid var(--border)"><a href="/">← the board</a></div>
+  <div style="padding:12px 16px;border-top:1px solid var(--border)"><a href="/board">table view · checks</a></div>
 </aside>
 <main>
   <header><span class="t" id="title">…</span><span class="s" id="sub"></span></header>
@@ -71,7 +71,7 @@ async function poll(scroll){
   $('#title').textContent=t.label
   $('#sub').textContent=t.model?t.model+' · '+t.count+' messages shown':'no session yet'
   const log=$('#log'); const stick=scroll||log.scrollTop+log.clientHeight>=log.scrollHeight-80
-  log.innerHTML=t.messages.map(m=>'<div class="msg '+m.role+'">'+esc(m.text)+(m.tools&&m.tools.length?'<div>'+m.tools.map(x=>'<span class="chip">'+esc(x)+'</span>').join('')+'</div>':'')+(m.at?'<div class="meta">'+new Date(m.at).toLocaleTimeString()+'</div>':'')+'</div>').join('')
+  log.innerHTML=t.messages.map(m=>'<div class="msg '+m.role+'">'+esc(m.text)+(m.tools&&m.tools.length?'<div>'+m.tools.map(x=>'<span class="chip">'+esc(x)+'</span>').join('')+'</div>':'')+'</div>').join('')
   if(stick)log.scrollTop=log.scrollHeight
 }
 $('#f').onsubmit=async(e)=>{

@@ -5,7 +5,7 @@
 **A Claude Code plugin for hiring and firing AI agents. Each gets a desk, a browser, and
 limits that are enforced, not suggested.**
 
-<img alt="tests" src="https://img.shields.io/badge/tests-116%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-117%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -177,7 +177,7 @@ The office on one page, served read-only on localhost: every desk with its
 kind, live status, model, turns, token usage and last activity — read from
 desk.json and the desks' own transcripts, never from self-report — plus each
 desk's worktop (its session's native Claude Code scratchpad) and the full
-checks board. Add `/chat` for the conversation view: every desk (the lead included) in a
+checks board. The front page IS the conversation view: every desk (the lead included) in a
 sidebar, its live transcript streaming as chat on the right, and a send box
 that types straight into that desk's terminal where the host supports it.
 Loopback only, stateless, re-gathered per request. It cannot

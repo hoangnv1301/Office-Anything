@@ -3,10 +3,10 @@
 // when it cannot.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { chatFrom } from '../board/transcript.mjs'
+import { chatFrom, newestSession } from '../board/transcript.mjs'
 import { normalizeTitle, send, orcaAvailable } from '../board/send.mjs'
 import { makeServer } from '../board/serve.mjs'
 
@@ -70,4 +70,14 @@ test('the server serves the chat shell and the office api', async () => {
   assert.ok(page.includes('the office'), 'the chat shell serves')
   assert.deepEqual(api.desks.map((d) => d.label), ['team-lead', 'billing'], 'the lead sits in the list beside its desks')
   assert.equal(typeof api.canSend, 'boolean')
+})
+
+test('the newest HUMAN session wins over a newer robot one', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'oa-pick-'))
+  writeFileSync(join(dir, 'human.jsonl'), JSON.stringify({ type: 'user', entrypoint: 'cli', message: { content: 'hi' } }) + '\n')
+  writeFileSync(join(dir, 'robot.jsonl'), JSON.stringify({ type: 'user', entrypoint: 'sdk-py', message: { content: 'beep' } }) + '\n')
+  const past = new Date(Date.now() - 60000)
+  // the robot is NEWER, and must still lose to the human session
+  utimesSync(join(dir, 'human.jsonl'), past, past)
+  assert.ok(newestSession(dir).endsWith('human.jsonl'))
 })

@@ -10,10 +10,10 @@ Get the board up and in front of the user, in this order:
    `nohup node board/serve.mjs --port 7719 > /tmp/office-board.log 2>&1 &`
    (run from the plugin directory; pass the repo path as the last argument when
    the user's repo is not the cwd)
-3. Open it in their browser: `open http://127.0.0.1:7719/chat`
+3. Open it in their browser: `open http://127.0.0.1:7719`
 4. Tell them both views and stop — do not keep polling the page:
-   - http://127.0.0.1:7719/chat — every desk with its live conversation, send box included
-   - http://127.0.0.1:7719 — the table view: usage, worktops, and every check
+   - http://127.0.0.1:7719 — every desk with its live conversation, send box included
+   - http://127.0.0.1:7719/board — the table view: usage, worktops, and every check
 
 ⛔ Use `board/serve.mjs`. Do not work around it with a hand-rolled server or a
 rendered copy of the page: the board's one guarantee is that it cannot know

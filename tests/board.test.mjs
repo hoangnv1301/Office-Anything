@@ -83,7 +83,10 @@ test('the server answers on loopback with the office it was pointed at', async (
   const srv = makeServer(root)
   await new Promise((res) => srv.listen(0, '127.0.0.1', res))
   const { port } = srv.address()
-  const body = await (await fetch(`http://127.0.0.1:${port}`)).text()
+  // ⛔ THE FRONT DOOR IS THE CHAT (owner's ruling); the table lives at /board.
+  const front = await (await fetch(`http://127.0.0.1:${port}/`)).text()
+  const table = await (await fetch(`http://127.0.0.1:${port}/board`)).text()
   srv.close()
-  assert.ok(body.includes('billing'), 'the page lists the pointed-at office, not the cwd')
+  assert.ok(front.includes('the office'), 'the front door serves the chat shell')
+  assert.ok(table.includes('billing'), 'the table lists the pointed-at office, not the cwd')
 })
