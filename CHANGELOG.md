@@ -3,6 +3,30 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.3.0
+
+Found by the first production repo to adopt the contract: seven desks, 2,500 tests,
+five live customer channels. Every item below is a fault that deployment surfaced.
+
+- ⛔ **The CLI audited whatever directory you were standing in.** `collect(root)`
+  always took a root; the CLI never passed one, so `node checks/run.mjs <repo>`
+  printed a clean board about your cwd. A bad path now refuses with exit 7 instead
+  of answering about the wrong repo.
+- **New check, `desk-literals`.** The adopting repo measured 67 of 145 root test
+  files naming a live desk as a code literal; every desk it retired turned some of
+  those into rot. A ratchet: pinned counts must EQUAL measured counts, both
+  directions, so the number only moves down and improvements must be banked.
+- **New check, `commit-convention`.** Conventional Commits (`feat:`, `fix:`,
+  `chore:`, ...) audited from the commit that adds `conventions.json`, forward.
+  One grammar, used twice: the history check and a `.githooks/commit-msg` gate.
+  This repo adopted it in the same commit, so the gate covers its author.
+- **The meta files a stranger looks for:** CONTRIBUTING.md (the convention and the
+  release drill), SECURITY.md (no network, no secrets read, findings name locations
+  never values), and CI that runs the suite and the checks on every push, because a
+  green badge that only ran on the maintainer's machine is a stated number nobody
+  measured.
+- 87 → 103 tests.
+
 ## 0.2.4
 
 - **A check could exist and never run.** `checks/run.mjs` registers each check by hand, so a
