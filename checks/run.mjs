@@ -20,6 +20,7 @@ import { report as sendWall } from './send-wall.mjs'
 import { report as unfinished } from './unfinished.mjs'
 import { report as strayWrites } from './stray-writes.mjs'
 import { report as statedNumbers } from './stated-numbers.mjs'
+import { report as deskLiterals } from './desk-literals.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 export const CHECKS = [
@@ -30,6 +31,7 @@ export const CHECKS = [
   { name: 'unfinished', run: unfinished, answers: 'is a desk still wearing the stubs it was hired with' },
   { name: 'stray-writes', run: strayWrites, answers: 'did a desk leave anything outside its own folder' },
   { name: 'stated-numbers', run: statedNumbers, answers: 'does every number this project states about itself match reality' },
+  { name: 'desk-literals', run: deskLiterals, answers: 'can a desk be added or removed without editing a root test' },
 ]
 
 export function collect(root = process.cwd(), checks = CHECKS) {
