@@ -3,6 +3,12 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.5.1
+
+- `/desk-board` is now one word to a working dashboard: it reuses a board
+  that is already up, starts one detached if not, and opens the chat view in
+  the browser itself instead of printing a URL to copy.
+
 ## 0.5.0
 
 - **The chat view.** `/chat` on the board: every desk in a sidebar, the lead
