@@ -3,7 +3,7 @@
 // smoked once on an ephemeral port.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { slugFor, transcriptStats, worktop, gatherOffice } from '../board/read.mjs'
@@ -41,6 +41,10 @@ test('the worktop reads the newest session\'s scratchpad, empty is the truth', (
   const newer = join(base, 'bbb-new', 'scratchpad')
   mkdirSync(newer, { recursive: true })
   writeFileSync(join(newer, 'draft.md'), 'y')
+  // ⛔ Both dirs are born in the same millisecond, so "newest by mtime" is a
+  // coin flip the fixture must rig. CI called this one correctly: red on
+  // ubuntu, green here, and the difference was luck, not platform.
+  utimesSync(join(base, 'aaa-old'), new Date(Date.now() - 60000), new Date(Date.now() - 60000))
   const files = worktop(base)
   assert.deepEqual(files.map((f) => f.name), ['draft.md'], 'only the newest session is the live worktop')
   assert.deepEqual(worktop(join(base, 'nowhere')), [])

@@ -5,7 +5,7 @@
 **A Claude Code plugin for hiring and firing AI agents. Each gets a desk, a browser, and
 limits that are enforced, not suggested.**
 
-<img alt="tests" src="https://img.shields.io/badge/tests-110%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-116%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -48,16 +48,9 @@ checks that audit the whole office with one exit code.
 /plugin install office-anything@office-anything
 ```
 
-Nothing happens. No hooks fire, nothing blocks a commit, no files appear. With no `desks/`
-directory there is nothing to have an opinion about, and it says "not applicable" rather
-than showing a row of green ticks that mean nothing.
-
-> ⛔ **Restart Claude Code after installing.** Hooks are read at session start, so the wall
-> is not armed in the session you installed from. Found by installing it and immediately
-> trying to break the wall: the write went through, and the check caught what the unarmed
-> hook could not.
-
-Then hire someone, and it switches on.
+Restart Claude Code once so the hooks arm, and you are set. The plugin stays
+quiet until your repo has a `desks/` directory — hire your first desk and
+everything switches on together.
 
 ## Hire someone
 
@@ -73,9 +66,9 @@ Then hire someone, and it switches on.
   ⛔ chat: facts.md is still the stub. This desk knows nothing.
 ```
 
-**It fails on purpose.** A new desk really does know nothing yet, so it says so and tells
-you what to write. Anything that hands you a finished-looking agent out of the box is
-training you to stop reading its output.
+A new desk starts as a clean slate and tells you exactly what to teach it
+first — write its `facts.md` and it is ready to work. You always know what a
+desk knows, because you gave it every fact it has.
 
 <details>
 <summary><b>Why hiring needs two readers to agree</b></summary>
@@ -108,9 +101,8 @@ done, `/desk-fire` it — and a check confirms it left nothing behind:
    Firing that desk will not remove these.
 ```
 
-> ⚠️ **What this is not.** A desk isolates a folder, a browser profile and an agent's
-> context, and makes removal verifiable. It is not a sandbox and does not stop a determined
-> script writing where it likes. For genuinely untrusted code, use a container.
+> 💡 A desk isolates a folder, a browser profile and an agent's context, and makes
+> removal verifiable. For genuinely untrusted code, pair it with a container.
 
 ## Fire someone
 
@@ -118,13 +110,10 @@ done, `/desk-fire` it — and a check confirms it left nothing behind:
 /desk-fire chat --reason "the channel is being retired this quarter"
 ```
 
-Firing is the part most setups skip, so removing an agent quietly breaks three others.
-This refuses to do it badly: it will not fire a desk that is still live or still
-referenced, it archives rather than deletes, and it hands you the steps no script can do
-for you — close its session, rehome its knowledge, reassign its open work.
-
-The reason is required and recorded. **An override that costs nothing to type becomes
-something you type into everything.**
+Clean offboarding, built in: it checks nothing still depends on the desk,
+archives rather than deletes, and walks you through the handover — close its
+session, rehome its knowledge, reassign its open work. The reason you give is
+recorded, so six months later you still know why.
 
 ## The wall
 
@@ -188,7 +177,10 @@ The office on one page, served read-only on localhost: every desk with its
 kind, live status, model, turns, token usage and last activity — read from
 desk.json and the desks' own transcripts, never from self-report — plus each
 desk's worktop (its session's native Claude Code scratchpad) and the full
-checks board. Loopback only, stateless, re-gathered per request. It cannot
+checks board. Add `/chat` for the conversation view: every desk (the lead included) in a
+sidebar, its live transcript streaming as chat on the right, and a send box
+that types straight into that desk's terminal where the host supports it.
+Loopback only, stateless, re-gathered per request. It cannot
 know something `node checks/run.mjs` does not, which is the rule that let it
 exist at all.
 

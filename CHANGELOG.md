@@ -3,6 +3,23 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.5.0
+
+- **The chat view.** `/chat` on the board: every desk in a sidebar, the lead
+  included, with its live transcript rendered as a conversation and refreshed
+  as it moves. A send box types straight into the desk's real terminal through
+  the orca CLI where that host has it; anywhere else the board says read-only
+  in plain words instead of pretending.
+- **The README speaks guidance now.** Install is two lines and a friendly
+  note; the war stories moved to where they belong (CLAUDE.md, the changelog,
+  the code). Owner's ruling: positive and guiding, warnings only where they
+  change what you do.
+- **CI caught a real flake on its first week.** The worktop fixture created
+  two directories in the same millisecond and trusted mtime to order them:
+  green locally by luck, red on ubuntu by the same luck. The fixture rigs its
+  clocks now.
+- 110 → 116 tests.
+
 ## 0.4.0
 
 - **The board.** `/desk-board` serves the office on one read-only localhost
