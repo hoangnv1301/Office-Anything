@@ -1,0 +1,16 @@
+# The suite and the checks, on every push and PR. A green badge that only ran
+# on the maintainer's machine is a stated number nobody measured.
+name: test
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # commit-convention audits history
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node --test "tests/**/*.test.mjs"
+      - run: node checks/run.mjs

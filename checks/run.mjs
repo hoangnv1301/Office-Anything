@@ -21,6 +21,7 @@ import { report as unfinished } from './unfinished.mjs'
 import { report as strayWrites } from './stray-writes.mjs'
 import { report as statedNumbers } from './stated-numbers.mjs'
 import { report as deskLiterals } from './desk-literals.mjs'
+import { report as commitConvention } from './commit-convention.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 export const CHECKS = [
@@ -32,6 +33,7 @@ export const CHECKS = [
   { name: 'stray-writes', run: strayWrites, answers: 'did a desk leave anything outside its own folder' },
   { name: 'stated-numbers', run: statedNumbers, answers: 'does every number this project states about itself match reality' },
   { name: 'desk-literals', run: deskLiterals, answers: 'can a desk be added or removed without editing a root test' },
+  { name: 'commit-convention', run: commitConvention, answers: 'does every commit since adoption say what kind of change it is' },
 ]
 
 export function collect(root = process.cwd(), checks = CHECKS) {

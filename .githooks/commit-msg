@@ -1,0 +1,14 @@
+#!/bin/sh
+# ⛔ THE CONVENTION IS CHECKED WHERE THE COMMIT HAPPENS, with the SAME grammar
+# the check ships. Two copies of a regex is two conventions.
+node --input-type=module -e "
+import { checkSubject } from './checks/commit-convention.mjs'
+import { readFileSync } from 'node:fs'
+const subject = readFileSync(process.argv[1], 'utf8').split('\n')[0]
+if (!checkSubject(subject)) {
+  console.error('⛔ commit-msg: \"' + subject + '\"')
+  console.error('   Subjects are typed: feat|fix|chore|docs|test|refactor|perf|build|ci|style|revert(scope)?: ...')
+  console.error('   The WHY still goes in the body, in full sentences.')
+  process.exit(1)
+}
+" "$1"
