@@ -17,7 +17,8 @@ import { gatherOffice, slugFor } from './read.mjs'
 import { render } from './page.mjs'
 import { chatPage } from './chat-page.mjs'
 import { newestSession, chatFrom } from './transcript.mjs'
-import { transcriptStats, worktop } from './read.mjs'
+import { transcriptStats, worktop, filesUnder } from './read.mjs'
+import { basename } from 'node:path'
 import { send, orcaAvailable, normalizeTitle } from './send.mjs'
 import { readFileSync } from 'node:fs'
 import { rosterSafe } from '../lib/desk.mjs'
@@ -74,7 +75,11 @@ export function makeServer(root) {
         const messages = chatFrom(readFileSync(t, 'utf8'))
         const label = chatRoster(root).find((r) => r.key === key)?.label ?? key
         const now = Date.now()
-        const folder = worktop(join('/private/tmp', 'claude-' + process.getuid(), key))
+        // ⛔ THE FOLDER OF *THAT* SESSION, tied by session id to the transcript
+        // being shown. "Newest tmp dir" repeated the robot bug on the tmp side:
+        // an SDK run's empty scratchpad out-mtimed the lead's working one.
+        const sessionId = basename(t, '.jsonl')
+        const folder = filesUnder(join('/private/tmp', 'claude-' + process.getuid(), key, sessionId, 'scratchpad'))
           .map((x) => ({ name: x.name, size: x.size, ageMin: Math.round((now - x.at) / 60000) }))
         return json(res, 200, { label, model: messages.findLast?.((m) => m.model)?.model ?? null, count: messages.length, messages, folder })
       }

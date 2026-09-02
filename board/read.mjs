@@ -46,6 +46,19 @@ export function transcriptStats(projectDir) {
   } catch { return null }
 }
 
+// Files under ONE session's scratchpad: the folder of exactly that session.
+export function filesUnder(dir) {
+  const files = []
+  const walk = (d, prefix = '') => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      if (e.isDirectory()) walk(join(d, e.name), prefix + e.name + '/')
+      else { const st = statSync(join(d, e.name)); files.push({ name: prefix + e.name, size: st.size, at: st.mtimeMs }) }
+    }
+  }
+  try { walk(dir) } catch { return [] }
+  return files.sort((a, b) => b.at - a.at)
+}
+
 export function worktop(scratchBase) {
   try {
     const sessions = readdirSync(scratchBase, { withFileTypes: true })

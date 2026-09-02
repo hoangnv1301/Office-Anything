@@ -3,6 +3,12 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.5.4
+
+- The folder rail is tied to the SAME session as the conversation, by session
+  id. Newest-tmp-dir repeated the robot bug on the tmp side: an SDK run's
+  empty scratchpad out-mtimed the lead's working one.
+
 ## 0.5.3
 
 - The chat answers at /, the table at /board; sidebar rows carry turns and
