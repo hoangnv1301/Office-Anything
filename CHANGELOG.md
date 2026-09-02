@@ -3,6 +3,11 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.5.11
+
+- react-resizable-panels v4 reads bare numbers as PIXELS: the desk rail was
+  an 18px sliver. Sizes are percent strings now.
+
 ## 0.5.10
 
 - The white page: PromptInputActionAddAttachments is a MENU ITEM and was

@@ -155,7 +155,7 @@ export default function App() {
   return (
     <ResizablePanelGroup orientation="horizontal" className="h-screen bg-background text-foreground">
       {/* item 3+7: panes told apart by TONE, resizable with bounds */}
-      <ResizablePanel defaultSize={18} minSize={12} maxSize={28} className="hidden bg-sidebar md:block">
+      <ResizablePanel defaultSize="18%" minSize="12%" maxSize="28%" className="hidden bg-sidebar md:block">
         <div className="flex h-full flex-col">
           <div className="px-4 py-3 font-semibold">🏢 the office</div>
           <ScrollArea className="min-h-0 flex-1">{deskList}</ScrollArea>
@@ -163,7 +163,7 @@ export default function App() {
       </ResizablePanel>
       <ResizableHandle className="hidden w-0 bg-transparent md:block" />
 
-      <ResizablePanel defaultSize={60} minSize={40}>
+      <ResizablePanel defaultSize="60%" minSize="40%">
         <Tabs value={view} onValueChange={setView} className="flex h-full flex-col gap-0">
           <header className="flex items-center gap-2 px-4 py-2 md:px-6">
             <Sheet>
@@ -275,7 +275,7 @@ export default function App() {
       <ResizableHandle className="hidden w-0 bg-transparent md:block" />
 
       {/* item 4: one rail, a menu to switch what it shows */}
-      <ResizablePanel defaultSize={22} minSize={14} maxSize={34} className="hidden bg-card md:block">
+      <ResizablePanel defaultSize="22%" minSize="14%" maxSize="34%" className="hidden bg-card md:block">
         <Tabs defaultValue="workspace" className="flex h-full flex-col gap-0">
           <TabsList className="m-2">
             <TabsTrigger value="workspace" className="text-xs">workspace</TabsTrigger>
