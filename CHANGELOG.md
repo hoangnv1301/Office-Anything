@@ -3,6 +3,14 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.5.7
+
+- Messages render markdown through the registry renderer, minus its two heavy
+  plugins (code highlighting and mermaid): markdown yes, 400 grammars no.
+- The rail shows the session's WORKING folder as a FileTree above the
+  scratchpad: the desk's own tree, and the repo root for the lead, whose desk
+  IS the root. Bounded in depth and entries on purpose.
+
 ## 0.5.6
 
 - Every AI Element with corresponding data is on the page: thinking blocks

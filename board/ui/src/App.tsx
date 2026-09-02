@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   Conversation, ConversationContent, ConversationEmptyState, ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
-import { Message, MessageContent } from '@/components/ai-elements/message'
+import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
 import { Tool, ToolHeader, ToolContent, ToolInput } from '@/components/ai-elements/tool'
 import { FileTree, FileTreeFolder, FileTreeFile } from '@/components/ai-elements/file-tree'
@@ -19,10 +19,23 @@ import { Separator } from '@/components/ui/separator'
 
 type Desk = { key: string; label: string; sub: string; activeMin: number | null }
 type Msg = { role: 'user' | 'assistant'; text: string; tools?: { name: string; input: unknown }[]; reasoning?: string | null }
-type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[] }
+type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean; shallow?: boolean }
+type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null }
 
 const kb = (n: number) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'
 const age = (m: number) => (m < 60 ? `${m}m` : `${Math.round(m / 60)}h`) + ' ago'
+
+function renderWs(n: WsNode, prefix: string): React.ReactNode {
+  return (<>
+    {Object.entries(n.dirs).map(([d, c]) => (
+      <FileTreeFolder key={prefix + d} name={d} path={prefix + d}>{renderWs(c, prefix + d + '/')}</FileTreeFolder>
+    ))}
+    {n.files.map((f) => (
+      <FileTreeFile key={prefix + f.name} name={f.name} path={prefix + f.name} title={kb(f.size)} />
+    ))}
+    {n.truncated && <div className="px-2 py-1 text-[10px] text-muted-foreground">…more, bounded on purpose</div>}
+  </>)
+}
 
 export default function App() {
   const [desks, setDesks] = useState<Desk[]>([])
@@ -101,7 +114,7 @@ export default function App() {
                 )}
                 {(m.text || m.role === 'user') && (
                   <Message from={m.role}>
-                    <MessageContent><span className="whitespace-pre-wrap break-words">{m.text}</span></MessageContent>
+                    <MessageContent><MessageResponse>{m.text}</MessageResponse></MessageContent>
                   </Message>
                 )}
                 {m.tools?.map((t, k) => (
@@ -130,10 +143,17 @@ export default function App() {
         </div>
       </main>
 
-      <aside className="w-64 min-w-64 border-l bg-sidebar">
-        <div className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">session folder</div>
+      <aside className="flex w-64 min-w-64 flex-col border-l bg-sidebar">
+        <div className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">workspace</div>
         <Separator />
-        <ScrollArea className="h-full px-2 py-2">
+        <ScrollArea className="min-h-0 flex-1 px-2 py-2">
+          {pane?.workspace
+            ? <FileTree className="border-0 bg-transparent">{renderWs(pane.workspace, '')}</FileTree>
+            : <div className="px-2 py-2 text-xs text-muted-foreground">…</div>}
+        </ScrollArea>
+        <div className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">session scratchpad</div>
+        <Separator />
+        <ScrollArea className="min-h-0 flex-1 px-2 py-2">
           {pane?.folder?.length
             ? <FileTree className="border-0 bg-transparent">
                 {(() => {

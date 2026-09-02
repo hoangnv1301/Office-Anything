@@ -16,7 +16,7 @@ import { join } from 'node:path'
 import { gatherOffice, slugFor } from './read.mjs'
 import { render } from './page.mjs'
 import { newestSession, chatFrom } from './transcript.mjs'
-import { transcriptStats, worktop, filesUnder } from './read.mjs'
+import { transcriptStats, worktop, filesUnder, treeOf } from './read.mjs'
 import { basename } from 'node:path'
 import { send, orcaAvailable, normalizeTitle } from './send.mjs'
 import { readFileSync } from 'node:fs'
@@ -87,7 +87,12 @@ export function makeServer(root) {
         const t = newestSession(join(homedir(), '.claude', 'projects', key))
         if (!t) return json(res, 200, { label: key, model: null, count: 0, messages: [] })
         const messages = chatFrom(readFileSync(t, 'utf8'))
-        const label = chatRoster(root).find((r) => r.key === key)?.label ?? key
+        const row = chatRoster(root).find((r) => r.key === key)
+        const label = row?.label ?? key
+        // the session's WORKING folder: the desk's own tree, or the repo root
+        // for the lead, whose desk IS the root
+        const deskDir = row ? (row.desk === 'team-lead' ? root : join(root, 'desks', row.desk)) : null
+        const workspace = deskDir ? treeOf(deskDir) : null
         const now = Date.now()
         // ⛔ THE FOLDER OF *THAT* SESSION, tied by session id to the transcript
         // being shown. "Newest tmp dir" repeated the robot bug on the tmp side:
@@ -95,7 +100,7 @@ export function makeServer(root) {
         const sessionId = basename(t, '.jsonl')
         const folder = filesUnder(join('/private/tmp', 'claude-' + process.getuid(), key, sessionId, 'scratchpad'))
           .map((x) => ({ name: x.name, size: x.size, ageMin: Math.round((now - x.at) / 60000) }))
-        return json(res, 200, { label, model: messages.findLast?.((m) => m.model)?.model ?? null, count: messages.length, messages, folder })
+        return json(res, 200, { label, model: messages.findLast?.((m) => m.model)?.model ?? null, count: messages.length, messages, folder, workspace })
       }
       if (url.pathname === '/api/send' && req.method === 'POST') {
         let body = ''

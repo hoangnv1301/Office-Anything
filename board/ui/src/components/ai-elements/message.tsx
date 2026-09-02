@@ -336,3 +336,21 @@ export const MessageToolbar = ({
     {children}
   </div>
 );
+
+// ⛔ RESTORED, WITH THE FINER CUT (2026-09-02): the first trim removed markdown
+// entirely, and raw **asterisks** reached the screen. The heavy part was never
+// markdown — it was the code plugin (shiki, 400 grammars) and mermaid. So:
+// the registry's own Streamdown renderer, WITHOUT those two plugins. Code
+// fences fall back to a plain <pre>, which is what a transcript deserves.
+import { Streamdown } from "streamdown";
+import { cjk } from "@streamdown/cjk";
+
+export type MessageResponseProps = ComponentProps<typeof Streamdown>;
+
+export const MessageResponse = ({ className, ...props }: MessageResponseProps) => (
+  <Streamdown
+    className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
+    plugins={{ cjk }}
+    {...props}
+  />
+);

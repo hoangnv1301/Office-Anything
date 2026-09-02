@@ -78,6 +78,30 @@ export function worktop(scratchBase) {
   } catch { return [] } // no session, or tmp swept at boot: an empty worktop is the truth
 }
 
+// A bounded tree of a session's WORKING folder (its cwd), for the rail.
+// .git and node_modules are nobody's reading; everything else shows, dotfiles
+// included, because desks genuinely live in .claude/ and friends. Bounded in
+// depth and entry count so a big repo cannot flood the page.
+export function treeOf(dir, { depth = 3, maxEntries = 400 } = {}) {
+  let budget = maxEntries
+  const walk = (d, left) => {
+    const node = { dirs: {}, files: [] }
+    if (left < 0 || budget <= 0) return node
+    let entries = []
+    try { entries = readdirSync(d, { withFileTypes: true }) } catch { return node }
+    entries.sort((a, b) => (b.isDirectory() ? 1 : 0) - (a.isDirectory() ? 1 : 0) || a.name.localeCompare(b.name))
+    for (const e of entries) {
+      if (budget <= 0) { node.truncated = true; break }
+      if (e.name === '.git' || e.name === 'node_modules') continue
+      budget--
+      if (e.isDirectory()) node.dirs[e.name] = left > 0 ? walk(join(d, e.name), left - 1) : { dirs: {}, files: [], shallow: true }
+      else { let size = 0; try { size = statSync(join(d, e.name)).size } catch {} ; node.files.push({ name: e.name, size }) }
+    }
+    return node
+  }
+  return walk(dir, depth)
+}
+
 export function gatherOffice(root, {
   home = homedir(),
   tmp = '/private/tmp',
