@@ -8,3 +8,5 @@ node_modules/
 # ⛔ bk/ is the local archive, never history. Owner ruling 2026-09-02: retired
 # things stay on DISK for the archaeologist, not in every clone.
 bk/
+
+board/ui/node_modules/

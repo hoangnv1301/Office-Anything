@@ -3,6 +3,15 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.5.5
+
+- The chat is the REAL components now: shadcn/ui plus AI Elements
+  (Conversation, Message, PromptInput) from their registries, composed in one
+  App.tsx that only wires our /api data. Built once by the maintainer, shipped
+  as 440 KB of static files; users still build nothing. The registry's
+  markdown pipeline (streamdown/shiki, 400 grammars, 14 MB) was trimmed out
+  with the reason written in the component.
+
 ## 0.5.4
 
 - The folder rail is tied to the SAME session as the conversation, by session

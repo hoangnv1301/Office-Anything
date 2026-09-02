@@ -15,7 +15,6 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { gatherOffice, slugFor } from './read.mjs'
 import { render } from './page.mjs'
-import { chatPage } from './chat-page.mjs'
 import { newestSession, chatFrom } from './transcript.mjs'
 import { transcriptStats, worktop, filesUnder } from './read.mjs'
 import { basename } from 'node:path'
@@ -54,11 +53,25 @@ export function makeServer(root) {
   return createServer((req, res) => {
     const url = new URL(req.url, 'http://x')
     try {
-      // ⛔ CHAT IS THE FRONT DOOR, owner's ruling: the core is the desks and
-      // their conversations; the table is the annex at /board.
+      // ⛔ CHAT IS THE FRONT DOOR, owner's ruling — and it is the REAL
+      // component build (shadcn/ui + AI Elements), compiled once by the
+      // maintainer and shipped as static files in board/ui/dist. Users build
+      // nothing; this server only hands the files over.
       if (url.pathname === '/' || url.pathname === '/chat') {
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
-        return res.end(chatPage())
+        try {
+          res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+          return res.end(readFileSync(new URL('./ui/dist/index.html', import.meta.url)))
+        } catch {
+          res.writeHead(503, { 'content-type': 'text/plain' })
+          return res.end('board UI not built: run `npm run build` in board/ui (maintainers only; releases ship it prebuilt)')
+        }
+      }
+      if (url.pathname.startsWith('/assets/') && !url.pathname.includes('..')) {
+        try {
+          const type = url.pathname.endsWith('.js') ? 'text/javascript' : url.pathname.endsWith('.css') ? 'text/css' : url.pathname.endsWith('.svg') ? 'image/svg+xml' : 'application/octet-stream'
+          res.writeHead(200, { 'content-type': type + '; charset=utf-8', 'cache-control': 'max-age=3600' })
+          return res.end(readFileSync(new URL('./ui/dist' + url.pathname, import.meta.url)))
+        } catch { res.writeHead(404); return res.end() }
       }
       if (url.pathname !== '/board' && url.pathname.startsWith('/api/') === false && url.pathname !== '/') {
         // unknown paths fall through to the table only from /board; anything
