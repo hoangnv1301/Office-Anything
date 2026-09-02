@@ -26,6 +26,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type Desk = { key: string; label: string; sub: string; activeMin: number | null }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string }
@@ -81,6 +82,16 @@ export default function App() {
   const [cdp, setCdp] = useState<{ tabs: CdpTab[]; why?: string }>({ tabs: [] })
   const [cdpSel, setCdpSel] = useState(0)
   const [view, setView] = useState('chat')
+  const [file, setFile] = useState<{ path: string; kind: string; content?: string; size?: number } | null>(null)
+
+  const openFile = useCallback(async (path: string) => {
+    if (!sel) return
+    const q = '/api/wsfile?key=' + encodeURIComponent(sel) + '&path=' + encodeURIComponent(path)
+    const r = await fetch(q)
+    const type = r.headers.get('content-type') ?? ''
+    if (type.startsWith('image/')) { setFile({ path, kind: 'imageurl', content: q }); return }
+    setFile({ path, ...(await r.json()) })
+  }, [sel])
 
   const office = useCallback(async () => {
     const o = await (await fetch('/api/office-chat')).json()
@@ -259,7 +270,7 @@ export default function App() {
           <TabsContent value="workspace" className="min-h-0 flex-1 data-[state=inactive]:hidden">
             <ScrollArea className="h-full px-2 pb-2">
               {pane?.workspace
-                ? <FileTree className="border-0 bg-transparent">{renderWs(pane.workspace, '')}</FileTree>
+                ? <FileTree className="border-0 bg-transparent" onSelect={openFile}>{renderWs(pane.workspace, '')}</FileTree>
                 : <div className="px-2 py-2 text-xs text-muted-foreground">…</div>}
             </ScrollArea>
           </TabsContent>
@@ -274,6 +285,17 @@ export default function App() {
           </TabsContent>
         </Tabs>
       </ResizablePanel>
+      <Dialog open={!!file} onOpenChange={(o) => !o && setFile(null)}>
+        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">
+          <DialogHeader><DialogTitle className="truncate font-mono text-sm">{file?.path}</DialogTitle></DialogHeader>
+          <ScrollArea className="min-h-0 flex-1">
+            {file?.kind === 'imageurl' && <img src={file.content} alt={file.path} className="h-auto max-w-full rounded-md" />}
+            {file?.kind === 'markdown' && <MessageResponse>{file.content ?? ''}</MessageResponse>}
+            {file?.kind === 'text' && <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">{file.content}</pre>}
+            {(file?.kind === 'binary' || file?.kind === 'big') && <div className="p-4 text-sm text-muted-foreground">{file.kind === 'big' ? 'Too large to open here' : 'Binary file'} ({kb(file.size ?? 0)})</div>}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </ResizablePanelGroup>
   )
 }

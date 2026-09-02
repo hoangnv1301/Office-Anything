@@ -78,6 +78,27 @@ export function makeServer(root) {
         // unknown paths fall through to the table only from /board; anything
         // else is a 404 rather than a surprise page
       }
+      if (url.pathname === '/api/wsfile') {
+        // Open a file FROM THE TREE THE PAGE IS SHOWING — never outside it.
+        const key = url.searchParams.get('key') ?? ''
+        const rel = url.searchParams.get('path') ?? ''
+        const row = chatRoster(root).find((r) => r.key === key)
+        if (!row || rel.includes('..')) { res.writeHead(403); return res.end() }
+        const base = row.desk === 'team-lead' ? root : join(root, 'desks', row.desk)
+        const p = join(base, rel)
+        if (!p.startsWith(base)) { res.writeHead(403); return res.end() }
+        try {
+          const buf = readFileSync(p)
+          const ext = (rel.match(/\.([a-z0-9]+)$/i) ?? [])[1]?.toLowerCase() ?? ''
+          if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+            const type = ext === 'svg' ? 'image/svg+xml' : ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/jpeg'
+            res.writeHead(200, { 'content-type': type }); return res.end(buf)
+          }
+          if (buf.length > 2_000_000) return json(res, 200, { kind: 'big', size: buf.length })
+          if (buf.includes(0)) return json(res, 200, { kind: 'binary', size: buf.length })
+          return json(res, 200, { kind: ext === 'md' ? 'markdown' : 'text', content: buf.toString('utf8') })
+        } catch { res.writeHead(404); return res.end() }
+      }
       if (url.pathname === '/api/imgfile') {
         // Images the transcript references by PATH (terminal pastes land in the
         // OS temp tree). Loopback page, but still: temp locations only, image
