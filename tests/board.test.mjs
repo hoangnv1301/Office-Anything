@@ -7,7 +7,6 @@ import { mkdtempSync, mkdirSync, writeFileSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { slugFor, transcriptStats, worktop, gatherOffice } from '../board/read.mjs'
-import { render } from '../board/page.mjs'
 import { makeServer } from '../board/serve.mjs'
 
 test('the slug is Claude Code\'s own: slashes and spaces flatten to dashes', () => {
@@ -65,28 +64,16 @@ test('gatherOffice walks the roster and survives a machine with no transcripts',
   assert.deepEqual(o.desks[0].worktop, [])
 })
 
-test('render is pure, escapes, and shows an unreadable desk as a loud row', () => {
-  const html = render({
-    root: '/x', generatedAt: 0,
-    desks: [{ name: 'b<b>', kind: 'knowledge', port: 1, live: true, stats: null, idleMin: null, worktop: [] }],
-    broken: [{ desk: 'oops', why: 'not valid JSON' }],
-  }, { rows: [{ name: 'send-wall', code: 4, applicable: true, why: 'a finding' }] })
-  assert.ok(html.includes('b&lt;b&gt;'), 'desk names are escaped')
-  assert.ok(html.includes('LIVE'))
-  assert.ok(html.includes('oops'))
-  assert.ok(html.includes('send-wall'))
-  assert.ok(!html.includes('<b>'.repeat(2)))
-})
 
 test('the server answers on loopback with the office it was pointed at', async () => {
   const root = office()
   const srv = makeServer(root)
   await new Promise((res) => srv.listen(0, '127.0.0.1', res))
   const { port } = srv.address()
-  // ⛔ THE FRONT DOOR IS THE CHAT (owner's ruling); the table lives at /board.
+  // ⛔ THE CHAT IS THE ONLY PAGE (owner's ruling); /board is gone, honestly 404.
   const front = await (await fetch(`http://127.0.0.1:${port}/`)).text()
-  const table = await (await fetch(`http://127.0.0.1:${port}/board`)).text()
+  const gone = await fetch(`http://127.0.0.1:${port}/board`)
   srv.close()
-  assert.ok(front.includes('the office'), 'the front door serves the chat shell')
-  assert.ok(table.includes('billing'), 'the table lists the pointed-at office, not the cwd')
+  assert.ok(front.includes('root'), 'the front door serves the app shell')
+  assert.equal(gone.status, 404, 'a removed page says so rather than serving a surprise')
 })

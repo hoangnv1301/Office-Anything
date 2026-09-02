@@ -30,6 +30,23 @@ export function newestSession(projectDir) {
   } catch { return null }
 }
 
+const IMG_PATH = /\[Image(?: #\d+)?: source: (\/[^\]]+?\.(?:png|jpe?g|gif|webp))\]/gi
+
+const imagesOf = (content) => {
+  const out = []
+  if (Array.isArray(content)) {
+    for (const b of content) {
+      if (b.type === 'image' && b.source?.type === 'base64' && typeof b.source.data === 'string' && b.source.data.length < 8_000_000) {
+        out.push({ kind: 'b64', mediaType: b.source.media_type ?? 'image/png', data: b.source.data })
+      }
+    }
+  }
+  const text = typeof content === 'string' ? content
+    : Array.isArray(content) ? content.filter((b) => b.type === 'text').map((b) => b.text).join('\n') : ''
+  for (const m of text.matchAll(IMG_PATH)) out.push({ kind: 'path', path: m[1] })
+  return out
+}
+
 const textOf = (content) => {
   if (typeof content === 'string') return content
   if (!Array.isArray(content)) return ''
@@ -47,7 +64,8 @@ export function chatFrom(jsonlText, { limit = 80 } = {}) {
       const text = textOf(m.content)
       // tool results come back as user-typed entries; they are plumbing, not chat
       const isToolResult = Array.isArray(m.content) && m.content.some((b) => b.type === 'tool_result')
-      if (text.trim() && !isToolResult) out.push({ role: 'user', text: text.slice(0, 4000), at: j.timestamp ?? null })
+      const images = imagesOf(m.content)
+      if ((text.trim() || images.length) && !isToolResult) out.push({ role: 'user', text: text.slice(0, 4000), images, at: j.timestamp ?? null })
     } else if (j.type === 'assistant' && m) {
       const text = textOf(m.content)
       // every part of the native record the UI has an element for: text,
@@ -57,7 +75,7 @@ export function chatFrom(jsonlText, { limit = 80 } = {}) {
         .map((b) => ({ name: b.name, input: b.input ?? {} }))
       const reasoning = arr.filter((b) => b.type === 'thinking').map((b) => b.thinking ?? '').join('\n').slice(0, 4000)
       if (text.trim() || tools.length || reasoning.trim()) {
-        out.push({ role: 'assistant', text: text.slice(0, 4000), tools, reasoning: reasoning.trim() || null, at: j.timestamp ?? null, model: m.model ?? null })
+        out.push({ role: 'assistant', text: text.slice(0, 4000), tools, images: imagesOf(m.content), reasoning: reasoning.trim() || null, at: j.timestamp ?? null, model: m.model ?? null })
       }
     }
   }

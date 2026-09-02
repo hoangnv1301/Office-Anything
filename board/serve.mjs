@@ -12,14 +12,14 @@ import { createServer } from 'node:http'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { homedir } from 'node:os'
+import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { gatherOffice, slugFor } from './read.mjs'
-import { render } from './page.mjs'
 import { newestSession, chatFrom } from './transcript.mjs'
 import { transcriptStats, worktop, filesUnder, treeOf } from './read.mjs'
 import { basename } from 'node:path'
 import { send, orcaAvailable, normalizeTitle } from './send.mjs'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
 import { rosterSafe } from '../lib/desk.mjs'
 import { collect } from '../checks/run.mjs'
 import { isMain } from '../lib/is-main.mjs'
@@ -31,7 +31,7 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
   const { desks } = rosterSafe(join(root, 'desks'))
   const rows = [
     { key: slugFor(root), label: 'team-lead', sub: 'the repo root · this machine\'s lead session', desk: 'team-lead' },
-    ...desks.map((d) => ({ key: slugFor(join(root, 'desks', d.name)), label: d.name, sub: d.kind + (d.live ? ' · LIVE' : ''), desk: d.name })),
+    ...desks.map((d) => ({ key: slugFor(join(root, 'desks', d.name)), label: d.name, sub: d.kind + (d.live ? ' · LIVE' : ''), desk: d.name, port: d.port, kind: d.kind })),
   ]
   for (const r of rows) {
     const t = newestSession(join(home, '.claude', 'projects', r.key))
@@ -78,6 +78,70 @@ export function makeServer(root) {
         // unknown paths fall through to the table only from /board; anything
         // else is a 404 rather than a surprise page
       }
+      if (url.pathname === '/api/imgfile') {
+        // Images the transcript references by PATH (terminal pastes land in the
+        // OS temp tree). Loopback page, but still: temp locations only, image
+        // extensions only, size-capped, no traversal.
+        const p = url.searchParams.get('p') ?? ''
+        const okRoot = p.startsWith('/var/folders/') || p.startsWith('/private/tmp/') || p.startsWith('/tmp/')
+        const ext = (p.match(/\.(png|jpe?g|gif|webp)$/i) ?? [])[1]?.toLowerCase()
+        if (!okRoot || !ext || p.includes('..')) { res.writeHead(403); return res.end() }
+        try {
+          const buf = readFileSync(p)
+          if (buf.length > 12_000_000) { res.writeHead(413); return res.end() }
+          const type = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/jpeg'
+          res.writeHead(200, { 'content-type': type, 'cache-control': 'max-age=3600' })
+          return res.end(buf)
+        } catch { res.writeHead(404); return res.end() }
+      }
+      if (url.pathname === '/api/upload' && req.method === 'POST') {
+        let body = ''
+        req.on('data', (c) => { body += c; if (body.length > 16_000_000) req.destroy() })
+        req.on('end', () => {
+          try {
+            const { key, name, data } = JSON.parse(body)
+            if (!/^[A-Za-z0-9-]+$/.test(key ?? '') || !/^[\w.-]{1,120}$/.test(name ?? '')) return json(res, 400, { ok: false, why: 'bad key or name' })
+            const t = newestSession(join(homedir(), '.claude', 'projects', key))
+            if (!t) return json(res, 404, { ok: false, why: 'no session for that desk' })
+            const dir = join('/private/tmp', 'claude-' + process.getuid(), key, basename(t, '.jsonl'), 'scratchpad', 'uploads')
+            mkdirSync(dir, { recursive: true })
+            const p = join(dir, Date.now() + '-' + name)
+            writeFileSync(p, Buffer.from(String(data).replace(/^data:[^,]*,/, ''), 'base64'))
+            return json(res, 200, { ok: true, path: p })
+          } catch (e) { return json(res, 500, { ok: false, why: e.message }) }
+        })
+        return
+      }
+      if (url.pathname === '/api/commands') {
+        // The desk's real slash commands, from the same places Claude Code
+        // reads them: the repo's and the user's .claude, and this plugin's own.
+        const names = new Set()
+        const scan = (d, suffix) => {
+          try { for (const f of readdirSync(d)) if (f.endsWith('.md')) names.add('/' + f.replace(/\.md$/, '') + (suffix ?? '')) } catch {}
+        }
+        scan(join(root, '.claude', 'commands'))
+        try { for (const f of readdirSync(join(root, '.claude', 'skills'))) names.add('/' + f) } catch {}
+        scan(join(homedir(), '.claude', 'commands'))
+        scan(join(fileURLToPath(new URL('../commands/', import.meta.url))))
+        return json(res, 200, { commands: [...names].sort() })
+      }
+      if (url.pathname === '/api/computer') {
+        const key = url.searchParams.get('key') ?? ''
+        const row = chatRoster(root).find((r) => r.key === key)
+        if (!row?.port) return json(res, 200, { tabs: [], why: row ? 'this desk declares no browser port' : 'unknown desk' })
+        // ⛔ 9222 IS v1'S LIVE ALIBABA CHROME, serving real buyers. Never.
+        if (row.port === 9222) return json(res, 200, { tabs: [], why: 'port 9222 is the LIVE account browser and is never touched from here' })
+        return fetch('http://127.0.0.1:' + row.port + '/json/list')
+          .then((r) => r.json())
+          .then((tabs) => json(res, 200, {
+            port: row.port,
+            tabs: tabs.filter((t) => t.type === 'page').map((t) => ({
+              title: t.title, url: t.url,
+              devtools: t.devtoolsFrontendUrl?.startsWith('/') ? 'http://127.0.0.1:' + row.port + t.devtoolsFrontendUrl : t.devtoolsFrontendUrl,
+            })),
+          }))
+          .catch(() => json(res, 200, { tabs: [], why: 'no headed Chrome answering on port ' + row.port + ' right now' }))
+      }
       if (url.pathname === '/api/office-chat') {
         return json(res, 200, { canSend: orcaAvailable(), desks: chatRoster(root) })
       }
@@ -116,10 +180,8 @@ export function makeServer(root) {
         })
         return
       }
-      const office = gatherOffice(root)
-      const checks = collect(root)
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
-      res.end(render(office, checks) + '<p class=m><a href="/" style="color:#8b949e">← back to the chat</a></p>')
+      res.writeHead(404, { 'content-type': 'text/plain' })
+      res.end('nothing here. The office lives at /')
     } catch (e) {
       res.writeHead(500, { 'content-type': 'text/plain' })
       res.end('board error: ' + e.message)

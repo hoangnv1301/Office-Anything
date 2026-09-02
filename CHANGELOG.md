@@ -3,6 +3,18 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.5.9
+
+- All nine of the owner's orders: /board removed (the chat is the only page,
+  404 elsewhere) · panes told apart by tone, not gray lines · three resizable
+  panes with min/max · the rail is a tabs menu (workspace / scratchpad) · runs
+  of tool calls fold into one Task, expandable · the prompt is the full
+  element (image attachments upload into the desk's scratchpad and the PATH
+  is typed into the terminal, a /commands menu lists the desk's real slash
+  commands) · a Computer tab shows the desk's HEADED browser through its own
+  CDP DevTools page (9222, the live account browser, is refused by name) ·
+  images in transcripts render, base64 and pasted-path both.
+
 ## 0.5.8
 
 - The workspace tree walks breadth-first with a per-directory cap: one fat

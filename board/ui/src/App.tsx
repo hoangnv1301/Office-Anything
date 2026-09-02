@@ -1,26 +1,38 @@
-// THE OFFICE, on AI Elements + shadcn/ui. This file is DATA WIRING ONLY:
-// every visible widget is a registry component. The core stays Claude Code —
-// /api reads desk.json, transcripts and scratchpads; this just shows them.
-import { useCallback, useEffect, useState } from 'react'
+// THE OFFICE. Data wiring over registry components, nothing hand-rolled:
+// shadcn/ui (resizable, tabs, badge, button, scroll-area) + AI Elements
+// (conversation, message, reasoning, tool, task, file-tree, image,
+// prompt-input, web-preview). The core stays Claude Code.
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Conversation, ConversationContent, ConversationEmptyState, ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
 import { Tool, ToolHeader, ToolContent, ToolInput } from '@/components/ai-elements/tool'
+import { Task, TaskTrigger, TaskContent } from '@/components/ai-elements/task'
 import { FileTree, FileTreeFolder, FileTreeFile } from '@/components/ai-elements/file-tree'
+import { Image as AIImage } from '@/components/ai-elements/image'
 import {
   PromptInput, PromptInputBody, PromptInputTextarea, PromptInputFooter, PromptInputSubmit,
+  PromptInputTools, PromptInputActionAddAttachments, PromptInputHeader,
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
+import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai-elements/web-preview'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 type Desk = { key: string; label: string; sub: string; activeMin: number | null }
-type Msg = { role: 'user' | 'assistant'; text: string; tools?: { name: string; input: unknown }[]; reasoning?: string | null }
-type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean; shallow?: boolean }
+type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string }
+type Msg = { role: 'user' | 'assistant'; text: string; tools?: { name: string; input: unknown }[]; images?: Img[]; reasoning?: string | null }
+type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
 type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null }
+type CdpTab = { title: string; url: string; devtools: string }
 
 const kb = (n: number) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'
 const age = (m: number) => (m < 60 ? `${m}m` : `${Math.round(m / 60)}h`) + ' ago'
@@ -30,11 +42,33 @@ function renderWs(n: WsNode, prefix: string): React.ReactNode {
     {Object.entries(n.dirs).map(([d, c]) => (
       <FileTreeFolder key={prefix + d} name={d} path={prefix + d}>{renderWs(c, prefix + d + '/')}</FileTreeFolder>
     ))}
-    {n.files.map((f) => (
-      <FileTreeFile key={prefix + f.name} name={f.name} path={prefix + f.name} title={kb(f.size)} />
-    ))}
-    {n.truncated && <div className="px-2 py-1 text-[10px] text-muted-foreground">…more, bounded on purpose</div>}
+    {n.files.map((f) => <FileTreeFile key={prefix + f.name} name={f.name} path={prefix + f.name} title={kb(f.size)} />)}
+    {n.truncated && <div className="px-2 py-1 text-[10px] text-muted-foreground">…bounded on purpose</div>}
   </>)
+}
+
+const Pictures = ({ images }: { images?: Img[] }) => !images?.length ? null : (
+  <span className="mt-1 flex flex-wrap gap-2">
+    {images.map((im, i) => im.kind === 'b64'
+      ? <AIImage key={i} base64={im.data} uint8Array={new Uint8Array()} mediaType={im.mediaType} alt="pasted image" className="max-h-72" />
+      : <img key={i} src={'/api/imgfile?p=' + encodeURIComponent(im.path)} alt={im.path.split('/').pop()} className="h-auto max-h-72 max-w-full overflow-hidden rounded-md" />)}
+  </span>
+)
+
+// item 5: a run of tool calls folds into ONE Task, expandable to the full list
+type Block = { kind: 'msg'; m: Msg } | { kind: 'tools'; tools: { name: string; input: unknown }[] }
+function toBlocks(messages: Msg[]): Block[] {
+  const out: Block[] = []
+  for (const m of messages) {
+    if (m.role === 'assistant' && m.reasoning) out.push({ kind: 'msg', m: { ...m, tools: [], text: '', images: [] } })
+    if (m.text?.trim() || m.images?.length || m.role === 'user') out.push({ kind: 'msg', m: { ...m, reasoning: null, tools: [] } })
+    if (m.tools?.length) {
+      const last = out[out.length - 1]
+      if (last?.kind === 'tools') last.tools.push(...m.tools)
+      else out.push({ kind: 'tools', tools: [...m.tools] })
+    }
+  }
+  return out
 }
 
 export default function App() {
@@ -43,25 +77,46 @@ export default function App() {
   const [sel, setSel] = useState<string | null>(null)
   const [pane, setPane] = useState<Pane | null>(null)
   const [note, setNote] = useState('')
+  const [commands, setCommands] = useState<string[]>([])
+  const [cdp, setCdp] = useState<{ tabs: CdpTab[]; why?: string }>({ tabs: [] })
+  const [cdpSel, setCdpSel] = useState(0)
+  const [view, setView] = useState('chat')
 
   const office = useCallback(async () => {
     const o = await (await fetch('/api/office-chat')).json()
     setDesks(o.desks); setCanSend(o.canSend)
     setSel((s) => s ?? o.desks[0]?.key ?? null)
   }, [])
-
   const poll = useCallback(async () => {
     if (!sel) return
     setPane(await (await fetch('/api/transcript?key=' + encodeURIComponent(sel))).json())
   }, [sel])
-
   useEffect(() => { office(); const t = setInterval(office, 10000); return () => clearInterval(t) }, [office])
   useEffect(() => { poll(); const t = setInterval(poll, 2500); return () => clearInterval(t) }, [poll])
+  useEffect(() => { fetch('/api/commands').then((r) => r.json()).then((j) => setCommands(j.commands ?? [])) }, [])
+  useEffect(() => {
+    if (!sel || view !== 'computer') return
+    const go = async () => { setCdp(await (await fetch('/api/computer?key=' + encodeURIComponent(sel))).json()); }
+    go(); const t = setInterval(go, 8000); return () => clearInterval(t)
+  }, [sel, view])
+
+  const blocks = useMemo(() => toBlocks(pane?.messages ?? []), [pane])
 
   const onSubmit = useCallback(async (m: PromptInputMessage, e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const text = m.text?.trim()
-    if (!text || !canSend || !sel) return
+    if (!canSend || !sel) return
+    let text = m.text?.trim() ?? ''
+    // attachments land in the desk's own scratchpad; the terminal gets the path,
+    // exactly as a paste into the CLI would
+    for (const f of m.files ?? []) {
+      const r = await (await fetch('/api/upload', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ key: sel, name: f.filename ?? 'file', data: f.url }),
+      })).json()
+      if (r.ok) text += (text ? '\n' : '') + r.path
+      else setNote('⛔ ' + r.why)
+    }
+    if (!text) return
     const r = await (await fetch('/api/send', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ key: sel, text }),
@@ -71,115 +126,154 @@ export default function App() {
   }, [canSend, sel, poll])
 
   return (
-    <div className="dark flex h-screen bg-background text-foreground">
-      <aside className="flex w-72 min-w-72 flex-col border-r bg-sidebar">
-        <div className="px-4 py-3 font-semibold">🏢 the office</div>
-        <Separator />
-        <ScrollArea className="flex-1">
-          {desks.map((d) => (
-            <button key={d.key} onClick={() => setSel(d.key)}
-              className={'flex w-full flex-col gap-0.5 px-4 py-2.5 text-left hover:bg-accent ' + (sel === d.key ? 'bg-accent' : '')}>
-              <span className="flex items-center gap-2 text-sm font-medium">
-                <span className={'size-2 rounded-full ' + (d.activeMin != null && d.activeMin < 10 ? 'bg-emerald-500' : 'bg-muted-foreground/30')} />
-                {d.label}
-                {d.sub.includes('LIVE') && <Badge className="h-4 px-1.5 text-[10px]">LIVE</Badge>}
-              </span>
-              <span className="truncate pl-4 text-xs text-muted-foreground">{d.sub.replace(' · LIVE', '')}</span>
-            </button>
-          ))}
-        </ScrollArea>
-        <Separator />
-        <a href="/board" className="px-4 py-2.5 text-xs text-muted-foreground hover:underline">table view · checks →</a>
-      </aside>
-
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-baseline gap-2 border-b px-6 py-3">
-          <span className="font-semibold">{pane?.label ?? '…'}</span>
-          {pane?.model && <Badge variant="secondary" className="text-[11px]">{pane.model}</Badge>}
-          <span className="text-xs text-muted-foreground">{pane ? pane.count + ' messages' : ''}</span>
-        </header>
-
-        <Conversation className="flex-1">
-          <ConversationContent className="mx-auto w-full max-w-3xl gap-2">
-            {(!pane || pane.messages.length === 0) && (
-              <ConversationEmptyState title="Nothing yet" description="This desk has no conversation in its current session." />
-            )}
-            {pane?.messages.map((m, i) => (
-              <div key={i}>
-                {m.reasoning && (
-                  <Reasoning className="mb-0.5" isStreaming={false} defaultOpen={false}>
-                    <ReasoningTrigger />
-                    <ReasoningContent>{m.reasoning}</ReasoningContent>
-                  </Reasoning>
-                )}
-                {(m.text || m.role === 'user') && (
-                  <Message from={m.role}>
-                    <MessageContent><MessageResponse>{m.text}</MessageResponse></MessageContent>
-                  </Message>
-                )}
-                {m.tools?.map((t, k) => (
-                  <Tool key={k} className="my-0.5 mb-0.5">
-                    <ToolHeader type="dynamic-tool" state="output-available" toolName={t.name} />
-                    <ToolContent><ToolInput input={t.input} /></ToolContent>
-                  </Tool>
-                ))}
-              </div>
+    <ResizablePanelGroup direction="horizontal" className="h-screen bg-background text-foreground">
+      {/* item 3+7: panes told apart by TONE, resizable with bounds */}
+      <ResizablePanel defaultSize={18} minSize={12} maxSize={28} className="bg-sidebar">
+        <div className="flex h-full flex-col">
+          <div className="px-4 py-3 font-semibold">🏢 the office</div>
+          <ScrollArea className="min-h-0 flex-1">
+            {desks.map((d) => (
+              <Button key={d.key} variant={sel === d.key ? 'secondary' : 'ghost'} onClick={() => setSel(d.key)}
+                className="h-auto w-full justify-start rounded-none px-4 py-2.5">
+                <span className="flex w-full flex-col items-start gap-0.5 overflow-hidden">
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <span className={'size-2 rounded-full ' + (d.activeMin != null && d.activeMin < 10 ? 'bg-emerald-500' : 'bg-muted-foreground/30')} />
+                    {d.label}
+                    {d.sub.includes('LIVE') && <Badge className="h-4 px-1.5 text-[10px]">LIVE</Badge>}
+                  </span>
+                  <span className="w-full truncate pl-4 text-left text-xs font-normal text-muted-foreground">{d.sub.replace(' · LIVE', '')}</span>
+                </span>
+              </Button>
             ))}
-          </ConversationContent>
-          <ConversationScrollButton />
-        </Conversation>
-
-        {note && <div className="px-6 pb-1 text-xs text-destructive">{note}</div>}
-        <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-          <PromptInput onSubmit={onSubmit}>
-            <PromptInputBody>
-              <PromptInputTextarea placeholder={canSend ? "Type into this desk's live terminal…" : 'Read-only on this host (no orca CLI)'} disabled={!canSend} />
-            </PromptInputBody>
-            <PromptInputFooter>
-              <span className="text-[11px] text-muted-foreground">{canSend ? 'sends with Enter, straight into the live terminal' : ''}</span>
-              <PromptInputSubmit disabled={!canSend} />
-            </PromptInputFooter>
-          </PromptInput>
+          </ScrollArea>
         </div>
-      </main>
+      </ResizablePanel>
+      <ResizableHandle className="w-0 bg-transparent" />
 
-      <aside className="flex w-64 min-w-64 flex-col border-l bg-sidebar">
-        <div className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">workspace</div>
-        <Separator />
-        <ScrollArea className="min-h-0 flex-1 px-2 py-2">
-          {pane?.workspace
-            ? <FileTree className="border-0 bg-transparent">{renderWs(pane.workspace, '')}</FileTree>
-            : <div className="px-2 py-2 text-xs text-muted-foreground">…</div>}
-        </ScrollArea>
-        <div className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">session scratchpad</div>
-        <Separator />
-        <ScrollArea className="min-h-0 flex-1 px-2 py-2">
-          {pane?.folder?.length
-            ? <FileTree className="border-0 bg-transparent">
-                {(() => {
-                  type Node = { files: [string, { size: number; ageMin: number }][]; dirs: Record<string, Node> }
-                  const root: Node = { files: [], dirs: {} }
-                  for (const f of pane.folder) {
-                    const parts = f.name.split('/')
-                    let n = root
-                    for (const d of parts.slice(0, -1)) n = (n.dirs[d] ??= { files: [], dirs: {} })
-                    n.files.push([parts[parts.length - 1], f])
-                  }
-                  const renderNode = (n: Node, prefix: string): React.ReactNode => (<>
-                    {Object.entries(n.dirs).map(([d, c]) => (
-                      <FileTreeFolder key={prefix + d} name={d} path={prefix + d}>{renderNode(c, prefix + d + '/')}</FileTreeFolder>
-                    ))}
-                    {n.files.map(([name, f]) => (
-                      <FileTreeFile key={prefix + name} path={prefix + name}
-                        name={name} title={kb(f.size) + ' · ' + age(f.ageMin)} />
-                    ))}
-                  </>)
-                  return renderNode(root, '')
-                })()}
-              </FileTree>
-            : <div className="px-2 py-2 text-xs text-muted-foreground">empty — the scratchpad starts clean each session</div>}
-        </ScrollArea>
-      </aside>
-    </div>
+      <ResizablePanel defaultSize={60} minSize={40}>
+        <Tabs value={view} onValueChange={setView} className="flex h-full flex-col gap-0">
+          <header className="flex items-center gap-2 px-6 py-2">
+            <span className="font-semibold">{pane?.label ?? '…'}</span>
+            {pane?.model && <Badge variant="secondary" className="text-[11px]">{pane.model}</Badge>}
+            <span className="text-xs text-muted-foreground">{pane ? pane.count + ' messages' : ''}</span>
+            <TabsList className="ml-auto h-8">
+              <TabsTrigger value="chat" className="text-xs">Chat</TabsTrigger>
+              <TabsTrigger value="computer" className="text-xs">Computer</TabsTrigger>
+            </TabsList>
+          </header>
+
+          <TabsContent value="chat" className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
+            <Conversation className="flex-1">
+              <ConversationContent className="mx-auto w-full max-w-3xl gap-2">
+                {blocks.length === 0 && <ConversationEmptyState title="Nothing yet" description="This desk has no conversation in its current session." />}
+                {blocks.map((b, i) => b.kind === 'msg' ? (
+                  <div key={i}>
+                    {b.m.reasoning && (
+                      <Reasoning className="mb-0.5" isStreaming={false} defaultOpen={false}>
+                        <ReasoningTrigger /><ReasoningContent>{b.m.reasoning}</ReasoningContent>
+                      </Reasoning>
+                    )}
+                    {(b.m.text || b.m.images?.length) && (
+                      <Message from={b.m.role}>
+                        <MessageContent>
+                          {b.m.text && <MessageResponse>{b.m.text}</MessageResponse>}
+                          <Pictures images={b.m.images} />
+                        </MessageContent>
+                      </Message>
+                    )}
+                  </div>
+                ) : (
+                  <Task key={i} defaultOpen={false} className="my-0.5">
+                    <TaskTrigger title={'⚙ ' + b.tools.length + ' tool call' + (b.tools.length > 1 ? 's' : '') + ' — ' + [...new Set(b.tools.map((t) => t.name))].join(', ')} />
+                    <TaskContent>
+                      {b.tools.map((t, k) => (
+                        <Tool key={k} className="my-0.5">
+                          <ToolHeader type="dynamic-tool" state="output-available" toolName={t.name} />
+                          <ToolContent><ToolInput input={t.input} /></ToolContent>
+                        </Tool>
+                      ))}
+                    </TaskContent>
+                  </Task>
+                ))}
+              </ConversationContent>
+              <ConversationScrollButton />
+            </Conversation>
+
+            {note && <div className="px-6 pb-1 text-xs text-destructive">{note}</div>}
+            <div className="mx-auto w-full max-w-3xl px-4 pb-4">
+              <PromptInput onSubmit={onSubmit} accept="image/*" multiple globalDrop>
+                <PromptInputBody>
+                  <PromptInputHeader />
+                  <PromptInputTextarea placeholder={canSend ? "Message this desk's live terminal — / for commands, drop images anywhere" : 'Read-only on this host (no orca CLI)'} disabled={!canSend} />
+                </PromptInputBody>
+                <PromptInputFooter>
+                  <PromptInputTools>
+                    <PromptInputActionAddAttachments />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-8 text-xs">/ commands</Button></DropdownMenuTrigger>
+                      <DropdownMenuContent className="max-h-72 overflow-y-auto">
+                        {commands.map((c) => (
+                          <DropdownMenuItem key={c} onSelect={() => {
+                            const ta = document.querySelector('textarea'); if (ta) { ta.value = c + ' '; ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus() }
+                          }}>{c}</DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </PromptInputTools>
+                  <PromptInputSubmit disabled={!canSend} />
+                </PromptInputFooter>
+              </PromptInput>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="computer" className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
+            {/* item 8: the desk's HEADED browser, through its own CDP DevTools page */}
+            {cdp.tabs.length ? (
+              <WebPreview className="flex-1" defaultUrl={cdp.tabs[cdpSel]?.devtools ?? ''}>
+                <WebPreviewNavigation>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-8 max-w-72 truncate text-xs">{cdp.tabs[cdpSel]?.title || 'tab'}</Button></DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {cdp.tabs.map((t, i) => <DropdownMenuItem key={i} onSelect={() => setCdpSel(i)}>{t.title || t.url}</DropdownMenuItem>)}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <WebPreviewUrl readOnly value={cdp.tabs[cdpSel]?.url ?? ''} />
+                </WebPreviewNavigation>
+                <WebPreviewBody src={cdp.tabs[cdpSel]?.devtools ?? ''} />
+              </WebPreview>
+            ) : (
+              <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">{cdp.why ?? 'no browser to show for this desk'}</div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </ResizablePanel>
+      <ResizableHandle className="w-0 bg-transparent" />
+
+      {/* item 4: one rail, a menu to switch what it shows */}
+      <ResizablePanel defaultSize={22} minSize={14} maxSize={34} className="bg-card">
+        <Tabs defaultValue="workspace" className="flex h-full flex-col gap-0">
+          <TabsList className="m-2">
+            <TabsTrigger value="workspace" className="text-xs">workspace</TabsTrigger>
+            <TabsTrigger value="scratchpad" className="text-xs">scratchpad</TabsTrigger>
+          </TabsList>
+          <TabsContent value="workspace" className="min-h-0 flex-1 data-[state=inactive]:hidden">
+            <ScrollArea className="h-full px-2 pb-2">
+              {pane?.workspace
+                ? <FileTree className="border-0 bg-transparent">{renderWs(pane.workspace, '')}</FileTree>
+                : <div className="px-2 py-2 text-xs text-muted-foreground">…</div>}
+            </ScrollArea>
+          </TabsContent>
+          <TabsContent value="scratchpad" className="min-h-0 flex-1 data-[state=inactive]:hidden">
+            <ScrollArea className="h-full px-2 pb-2">
+              {pane?.folder?.length
+                ? <FileTree className="border-0 bg-transparent">
+                    {pane.folder.map((f) => <FileTreeFile key={f.name} name={f.name} path={f.name} title={kb(f.size) + ' · ' + age(f.ageMin)} />)}
+                  </FileTree>
+                : <div className="px-2 py-2 text-xs text-muted-foreground">empty — the scratchpad starts clean each session</div>}
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
+      </ResizablePanel>
+    </ResizablePanelGroup>
   )
 }
