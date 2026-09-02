@@ -126,6 +126,31 @@ And hiring refuses to guess. `"quotes prices to customers"` mentions both custom
 internal figures, so it stops and asks rather than picking one. Counting keywords is not a
 way to decide who may talk to a customer.
 
+## The checks
+
+One command audits any repo that carries desks, from anywhere:
+
+```bash
+node checks/run.mjs ~/code/some-repo    # every check, one exit code
+```
+
+| check | answers |
+|---|---|
+| `desk-readable` | can every desk be read, and does any port get claimed twice |
+| `send-wall` | can a desk that should not reach a customer, reach one |
+| `unfinished` | is a desk still wearing the stubs it was hired with |
+| `stray-writes` | did a desk leave anything outside its own folder |
+| `stated-numbers` | does every number this project states about itself match reality |
+| `desk-literals` | can a desk be added or removed without editing a root test |
+| `commit-convention` | does every commit since adoption say what kind of change it is |
+
+Exit 0 clean, 4 finding, 7 UNKNOWN — and an empty walk is UNKNOWN, never clean.
+A repo opts into the last two with one committed file each: pin your counts in
+`tests/desk-literals.json`, and adopt typed commits (`feat:`, `fix:`,
+`chore:`, ...) by committing `conventions.json` with
+`{"commits": "conventional"}`. Both gates start at the adopting commit and
+leave history alone.
+
 ## This is not another dashboard
 
 No UI, no server, no database, nothing to log into. It is also not another agent framework:
@@ -143,7 +168,9 @@ If you already use Claude Code, this is additive. Nothing here reimplements any 
 
 ## Changelog
 
-Every release and what it fixed: [CHANGELOG.md](CHANGELOG.md).
+Every release and what it fixed: [CHANGELOG.md](CHANGELOG.md) · how to contribute,
+and the commit convention: [CONTRIBUTING.md](CONTRIBUTING.md) · what this touches
+and how to report: [SECURITY.md](SECURITY.md).
 
 ## Star history
 
