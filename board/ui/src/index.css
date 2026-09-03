@@ -129,3 +129,19 @@
     }
 }
 html, body, #root { height: 100%; }
+
+/* Markdown readability, owner's ruling 2026-09-03: the rendered markdown was
+   riding muted grays and got lost against the dark ground. Lift body text to
+   full foreground and use the SAME blue family as the workspace folder icons
+   (blue-400/500) for structure: headings, links, code, markers. */
+.md-blue { color: var(--foreground); }
+.md-blue :is(h1, h2, h3, h4, h5, h6) { color: #60a5fa; font-weight: 600; }
+.md-blue a { color: #60a5fa; text-decoration: underline; text-underline-offset: 2px; }
+.md-blue strong { color: var(--foreground); font-weight: 650; }
+.md-blue code { color: #93c5fd; background: oklch(0.985 0 0 / 8%); border-radius: 0.3rem; padding: 0.1rem 0.3rem; }
+.md-blue pre { background: oklch(0.985 0 0 / 6%); border: 1px solid oklch(0.985 0 0 / 10%); }
+.md-blue pre code { color: var(--foreground); background: transparent; padding: 0; }
+.md-blue li::marker { color: #60a5fa; }
+.md-blue blockquote { border-left: 2px solid #3b82f6; color: var(--foreground); }
+.md-blue table th { color: #60a5fa; }
+.md-blue hr { border-color: oklch(0.985 0 0 / 15%); }

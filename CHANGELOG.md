@@ -3,6 +3,14 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.7.5
+
+- Markdown stopped whispering. Rendered markdown rode muted grays and got
+  lost on the dark ground; body text is full foreground now, and structure
+  (headings, links, inline code, list markers, quote bars) uses the same
+  blue family as the workspace folder icons, so chat and rail read as one
+  surface.
+
 ## 0.7.4
 
 - The phone got the screen back. A hidden ResizablePanel still OWNS its

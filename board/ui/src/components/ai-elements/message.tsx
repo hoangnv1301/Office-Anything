@@ -349,7 +349,7 @@ export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
 export const MessageResponse = ({ className, ...props }: MessageResponseProps) => (
   <Streamdown
-    className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
+    className={cn("md-blue size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
     plugins={{ cjk }}
     {...props}
   />
