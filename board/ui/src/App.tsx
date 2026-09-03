@@ -146,15 +146,7 @@ export default function App() {
   const hireDesc = useRef<HTMLInputElement>(null)
   const hireKind = useRef('channel')
 
-  const doHire = useCallback(async () => {
-    setHireWhy('')
-    const r = await (await fetch('/api/hire', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: hireName.current?.value?.trim(), kind: hireKind.current, description: hireDesc.current?.value ?? '' }),
-    })).json()
-    if (r?.ok === false) { setHireWhy(r.why); return }   // the refusal IS the product; show it verbatim
-    setHireOpen(false); office()
-  }, [office])
+
 
   const openFile = useCallback(async (path: string) => {
     if (!sel) return
@@ -182,6 +174,18 @@ export default function App() {
     lastPayload.current = text
     setPane(JSON.parse(text))
   }, [sel])
+
+  // moved BELOW office/poll: referencing office above its const was a TDZ
+  // crash the minifier renamed into "Cannot access 'O' before initialization"
+  const doHire = useCallback(async () => {
+    setHireWhy('')
+    const r = await (await fetch('/api/hire', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: hireName.current?.value?.trim(), kind: hireKind.current, description: hireDesc.current?.value ?? '' }),
+    })).json()
+    if (r?.ok === false) { setHireWhy(r.why); return }   // the refusal IS the product; show it verbatim
+    setHireOpen(false); office()
+  }, [office])
   useEffect(() => { office(); const t = setInterval(office, 10000); return () => clearInterval(t) }, [office])
   useEffect(() => { poll(); const t = setInterval(poll, 2500); return () => clearInterval(t) }, [poll])
   useEffect(() => { fetch('/api/commands').then((r) => r.json()).then((j) => setCommands(j.commands ?? [])) }, [])
