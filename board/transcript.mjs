@@ -111,6 +111,28 @@ export function chatFrom(jsonlText, { limit = 80 } = {}) {
   return out.slice(-limit)
 }
 
+// ⛔ A DESK ASKING A QUESTION IS A DESK BLOCKED ON A HUMAN, and nothing on the
+// old board said so. The ask is already in the transcript as a tool call with
+// its options; pending means it is the LAST word said — anything after it is
+// the answer having arrived.
+export function pendingAsk(messages) {
+  const last = messages[messages.length - 1]
+  if (!last || last.role !== 'assistant' || !last.tools?.length) return null
+  const q = last.tools.find((t) => t.name === 'AskUserQuestion')
+  if (q && Array.isArray(q.input?.questions)) {
+    return {
+      type: 'question',
+      questions: q.input.questions.map((x) => ({
+        question: x.question, header: x.header, multiSelect: !!x.multiSelect,
+        options: (x.options ?? []).map((o) => ({ label: o.label, description: o.description ?? '' })),
+      })),
+    }
+  }
+  const plan = last.tools.find((t) => t.name === 'ExitPlanMode')
+  if (plan) return { type: 'plan', plan: String(plan.input?.plan ?? '').slice(0, 4000) }
+  return null
+}
+
 
 // ⛔ THE SERVER WAS RE-READING EVERY TRANSCRIPT IN FULL, SYNCHRONOUSLY, ON
 // EVERY POLL. The lead's file is 62 MB; nine desks, a 2.5s poll, one thread:

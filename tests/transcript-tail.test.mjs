@@ -82,3 +82,24 @@ test('subagents are the OTHER recent transcripts, labeled by their task', async 
   assert.match(agents[0].label, /Review the diff/)
   assert.equal(agents[0].turns, 1)
 })
+
+test('⛔ a question as the LAST word marks the desk blocked; an answer unblocks it', async () => {
+  const { pendingAsk } = await import('../board/transcript.mjs')
+  const ask = {
+    role: 'assistant', text: '',
+    tools: [{ name: 'AskUserQuestion', input: { questions: [{ question: 'Ship it?', header: 'Deploy', options: [{ label: 'Yes' }, { label: 'Hold', description: 'wait for QA' }] }] } }],
+  }
+  const p = pendingAsk([{ role: 'user', text: 'deploy?' }, ask])
+  assert.equal(p.type, 'question')
+  assert.equal(p.questions[0].options.length, 2)
+  assert.equal(p.questions[0].options[1].description, 'wait for QA')
+  assert.equal(pendingAsk([ask, { role: 'user', text: 'Yes' }]), null, 'anything after the ask means answered')
+  assert.equal(pendingAsk([{ role: 'assistant', text: 'plain reply', tools: [] }]), null)
+})
+
+test('a pending plan approval is surfaced with its plan text', async () => {
+  const { pendingAsk } = await import('../board/transcript.mjs')
+  const p = pendingAsk([{ role: 'assistant', text: '', tools: [{ name: 'ExitPlanMode', input: { plan: '1. do the thing' } }] }])
+  assert.equal(p.type, 'plan')
+  assert.match(p.plan, /do the thing/)
+})

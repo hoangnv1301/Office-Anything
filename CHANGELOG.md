@@ -3,6 +3,27 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.7.0
+
+Rollup of the 0.6.x local deliveries plus the blocked-on-you feature.
+
+- ⛔ A DESK WAITING ON A HUMAN NOW SAYS SO. A pending AskUserQuestion or plan
+  approval flips the desk to an amber "waiting" badge, and the question
+  renders with its options as buttons — a click types the answer into the
+  desk's real terminal. Found while building it: trimmed desk toolsets do not
+  carry AskUserQuestion, so today this mostly serves the lead and full-toolset
+  sessions; documented, not implied away. The release decision you are
+  reading was answered through this exact feature.
+- Live subagents under their desk in the sidebar (sidechain transcripts,
+  labeled by task, pulsing while fresh).
+- The usage menu: tokens AND dollars per line, cache read 0.1x and write
+  1.25x input rate, as-of date on every figure, unknown model = tokens only.
+  One owner for the arithmetic, tested to the cent.
+- The Computer opens BESIDE the chat, resizable. System traffic renders as
+  events, not as the owner speaking XML. Pasted-image markers become chips.
+  The + button hires through hire() with the two-reader refusal on screen.
+  Lucide icons, slim sidebar, mobile header fixed.
+
 ## 0.6.3
 
 - Live SUBAGENTS in the sidebar: recently-active sidechain transcripts under

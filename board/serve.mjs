@@ -15,7 +15,7 @@ import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { gatherOffice, slugFor } from './read.mjs'
-import { newestSession, chatFrom, readTail } from './transcript.mjs'
+import { newestSession, chatFrom, readTail, pendingAsk } from './transcript.mjs'
 import { subagentsOf } from './read.mjs'
 import { transcriptStats, worktop, filesUnder, treeOf } from './read.mjs'
 import { basename } from 'node:path'
@@ -53,6 +53,7 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
     r.activeMin = t ? Math.round((now - (statSafe(t))) / 60000) : null
     r.agents = t ? subagentsOf(dir, t) : []
     const st = transcriptStats(join(home, '.claude', 'projects', r.key))
+    try { const tp = t ? readTail(t) : null; r.waiting = !!(tp && pendingAsk(tp.messages)) } catch { r.waiting = false }
     if (st) {
       const k = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
       r.sub += ' · ' + st.turns + ' turns · ' + k(st.input + st.cacheRead) + '/' + k(st.output) + ' tok'
@@ -222,7 +223,7 @@ export function makeServer(root) {
         const folder = filesUnder(join('/private/tmp', 'claude-' + process.getuid(), key, sessionId, 'scratchpad'))
           .map((x) => ({ name: x.name, size: x.size, ageMin: Math.round((now - x.at) / 60000) }))
         const usage = tail ? { ...tail.stats, cost: costOf({ model: tail.stats.model, input: tail.stats.input, output: tail.stats.output, cacheRead: tail.stats.cacheRead, cacheWrite: tail.stats.cacheWrite ?? 0 }) } : null
-        return json(res, 200, { label, model: tail?.stats?.model ?? null, count: messages.length, messages, folder, workspace, usage })
+        return json(res, 200, { label, model: tail?.stats?.model ?? null, count: messages.length, messages, folder, workspace, usage, pending: pendingAsk(messages) })
       }
       if (url.pathname === '/api/hire' && req.method === 'POST') {
         // ⛔ THE GUARDED ENTRY, NEVER THE PARTS. hire() owns the name rules,

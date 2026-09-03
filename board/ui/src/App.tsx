@@ -19,7 +19,7 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai-elements/web-preview'
-import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, Bot, DollarSign } from 'lucide-react'
+import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, DollarSign, CircleHelp } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Button } from '@/components/ui/button'
@@ -34,12 +34,13 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/s
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-type Desk = { key: string; label: string; sub: string; activeMin: number | null; agents?: { label: string; activeMin: number; turns: number }[] }
+type Desk = { key: string; label: string; sub: string; activeMin: number | null; waiting?: boolean; agents?: { label: string; activeMin: number; turns: number }[] }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string } | { kind: 'marker'; label: string }
 export type Msg = { role: 'user' | 'assistant' | 'system'; text: string; label?: string; tools?: { name: string; input: unknown }[]; images?: Img[]; reasoning?: string | null }
 type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
 type Usage = { turns: number; input: number; output: number; cacheRead: number; cacheWrite: number; model: string | null; sessions?: number; cost: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number; asOf: string } | null }
-type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null; usage?: Usage | null }
+type PendingAsk = { type: 'question'; questions: { question: string; header?: string; multiSelect?: boolean; options: { label: string; description?: string }[] }[] } | { type: 'plan'; plan: string }
+type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null; usage?: Usage | null; pending?: PendingAsk | null }
 type CdpTab = { title: string; url: string; devtools: string }
 
 const kb = (n: number) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'
@@ -217,6 +218,7 @@ export default function App() {
           <span className="truncate">{d.label.replace('-customer-service', '')}</span>
           {d.sub.includes('LIVE') && <Badge className="h-4 flex-none px-1 text-[9px]">LIVE</Badge>}
           {(d.agents?.length ?? 0) > 0 && <Badge variant="secondary" className="h-4 flex-none px-1 text-[9px]">◇ {d.agents!.length}</Badge>}
+          {d.waiting && <Badge className="h-4 flex-none gap-0.5 bg-amber-500 px-1 text-[9px] text-black"><CircleHelp className="size-2.5" /> waiting</Badge>}
         </span>
         {d.agents?.map((a, i) => (
           <span key={i} title={a.label} className="flex w-full items-center gap-1.5 overflow-hidden pl-3.5 text-[10px] font-normal text-muted-foreground">
@@ -254,6 +256,16 @@ export default function App() {
     document.addEventListener('keydown', h, true)
     return () => document.removeEventListener('keydown', h, true)
   }, [sel])
+
+  const answer = useCallback(async (text: string) => {
+    if (!canSend || !sel) return
+    const r = await (await fetch('/api/send', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ key: sel, text }),
+    })).json()
+    setNote(r.ok ? '' : '⛔ ' + r.why)
+    if (r.ok) setTimeout(poll, 900)
+  }, [canSend, sel, poll])
 
   const onSubmit = useCallback(async (m: PromptInputMessage, e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -351,6 +363,36 @@ export default function App() {
               <ConversationScrollButton />
             </Conversation>
 
+            {pane?.pending && (
+              <div className="mx-auto w-full max-w-3xl px-4 pb-2">
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+                  <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-amber-500">
+                    <CircleHelp className="size-3.5" />
+                    {pane.pending.type === 'question' ? 'This desk is waiting on YOUR answer' : 'This desk is waiting for plan approval'}
+                  </div>
+                  {pane.pending.type === 'question' ? pane.pending.questions.map((q, i) => (
+                    <div key={i} className="mb-1">
+                      <div className="mb-1.5 text-sm">{q.question}</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {q.options.map((o, k) => (
+                          <Button key={k} size="sm" variant="outline" className="h-7 text-xs" title={o.description}
+                            onClick={() => answer(o.label)}>{o.label}</Button>
+                        ))}
+                      </div>
+                      <div className="mt-1 text-[10px] text-muted-foreground">a click types the answer into the desk's terminal · or write your own below{q.multiSelect ? ' · multiple choices allowed: type them comma-separated' : ''}</div>
+                    </div>
+                  )) : (
+                    <div>
+                      <pre className="mb-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-xs">{pane.pending.plan}</pre>
+                      <div className="flex gap-1.5">
+                        <Button size="sm" className="h-7 text-xs" onClick={() => answer('yes, proceed with this plan')}>Approve</Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => answer('no, do not proceed yet — wait for me')}>Hold</Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             {note && <div className="px-6 pb-1 text-xs text-destructive">{note}</div>}
             <div className="mx-auto w-full max-w-3xl px-4 pb-4">
               <PromptInput onSubmit={onSubmit} accept="image/*" multiple globalDrop>
