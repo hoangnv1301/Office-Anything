@@ -113,7 +113,7 @@ const Pictures = ({ images }: { images?: Img[] }) => !images?.length ? null : (
     {images.map((im, i) => im.kind === 'b64'
       ? <AIImage key={i} base64={im.data} uint8Array={new Uint8Array()} mediaType={im.mediaType} alt="pasted image" className="max-h-72" />
       : im.kind === 'path'
-        ? <img key={i} src={'/api/imgfile?p=' + encodeURIComponent(im.path)} alt={im.path.split('/').pop()} className="h-auto max-h-72 max-w-full overflow-hidden rounded-md" />
+        ? <img key={i} src={'api/imgfile?p=' + encodeURIComponent(im.path)} alt={im.path.split('/').pop()} className="h-auto max-h-72 max-w-full overflow-hidden rounded-md" />
         : <Badge key={i} variant="secondary" className="gap-1 font-normal text-muted-foreground"><ImageIcon className="size-3" /> {im.label}</Badge>)}
   </span>
 )
@@ -154,7 +154,7 @@ export default function App() {
 
   const openFile = useCallback(async (path: string) => {
     if (!sel) return
-    const q = '/api/wsfile?key=' + encodeURIComponent(sel) + '&path=' + encodeURIComponent(path)
+    const q = 'api/wsfile?key=' + encodeURIComponent(sel) + '&path=' + encodeURIComponent(path)
     const r = await fetch(q)
     const type = r.headers.get('content-type') ?? ''
     if (type.startsWith('image/')) { setFile({ path, kind: 'imageurl', content: q }); return }
@@ -162,7 +162,7 @@ export default function App() {
   }, [sel])
 
   const office = useCallback(async () => {
-    const o = await (await fetch('/api/office-chat')).json()
+    const o = await (await fetch('api/office-chat')).json()
     setDesks(o.desks); setCanSend(o.canSend)
     setSel((s) => s ?? o.desks[0]?.key ?? null)
   }, [])
@@ -171,7 +171,7 @@ export default function App() {
   const lastPayload = useRef('')
   const poll = useCallback(async () => {
     if (!sel) return
-    const text = await (await fetch('/api/transcript?key=' + encodeURIComponent(sel))).text()
+    const text = await (await fetch('api/transcript?key=' + encodeURIComponent(sel))).text()
     // ⛔ 80 markdown documents re-parsed every 2.5s froze the main thread for
     // seconds at a time. An unchanged payload must cost nothing.
     if (text === lastPayload.current) return
@@ -183,7 +183,7 @@ export default function App() {
   // crash the minifier renamed into "Cannot access 'O' before initialization"
   const doHire = useCallback(async () => {
     setHireWhy('')
-    const r = await (await fetch('/api/hire', {
+    const r = await (await fetch('api/hire', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name: hireName.current?.value?.trim(), kind: hireKind.current, description: hireDesc.current?.value ?? '' }),
     })).json()
@@ -192,12 +192,12 @@ export default function App() {
   }, [office])
   useEffect(() => { office(); const t = setInterval(office, 10000); return () => clearInterval(t) }, [office])
   useEffect(() => { poll(); const t = setInterval(poll, 2500); return () => clearInterval(t) }, [poll])
-  useEffect(() => { fetch('/api/commands').then((r) => r.json()).then((j) => setCommands(j.commands ?? [])) }, [])
+  useEffect(() => { fetch('api/commands').then((r) => r.json()).then((j) => setCommands(j.commands ?? [])) }, [])
   useEffect(() => {
     if (!sel || !showComputer) return
     let alive = true
     const go = async () => {
-      const r = await fetch('/api/screen?key=' + encodeURIComponent(sel))
+      const r = await fetch('api/screen?key=' + encodeURIComponent(sel))
       if (!alive) return
       if (r.status !== 200) { setScreen({ src: null, url: '', why: 'no headed browser answering for this desk right now' }); return }
       const blob = await r.blob()
@@ -264,7 +264,7 @@ export default function App() {
 
   const answer = useCallback(async (text: string) => {
     if (!canSend || !sel) return
-    const r = await (await fetch('/api/send', {
+    const r = await (await fetch('api/send', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ key: sel, text }),
     })).json()
@@ -279,7 +279,7 @@ export default function App() {
     // attachments land in the desk's own scratchpad; the terminal gets the path,
     // exactly as a paste into the CLI would
     for (const f of m.files ?? []) {
-      const r = await (await fetch('/api/upload', {
+      const r = await (await fetch('api/upload', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ key: sel, name: f.filename ?? 'file', data: f.url }),
       })).json()
@@ -287,7 +287,7 @@ export default function App() {
       else setNote('⛔ ' + r.why)
     }
     if (!text) return
-    const r = await (await fetch('/api/send', {
+    const r = await (await fetch('api/send', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ key: sel, text }),
     })).json()

@@ -3,6 +3,14 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.7.3
+
+- The board survives a subpath. Every API call and asset reference is now
+  relative (`api/...`, vite `base: './'`), so a reverse proxy can mount the
+  board at `https://host/office-board/` behind its own auth and strip the
+  prefix. Nothing changes when served at `/`. First deployment: the board
+  published behind an existing app's login via nginx `auth_request`.
+
 ## 0.7.2
 
 - The sidebar shows each desk's EXACT folder name. It had been trimming
