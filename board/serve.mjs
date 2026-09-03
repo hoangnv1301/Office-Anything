@@ -21,7 +21,7 @@ import { basename } from 'node:path'
 import { send, orcaAvailable, normalizeTitle } from './send.mjs'
 import { screenshotOf } from '../lib/cdp.mjs'
 import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
-import { rosterSafe } from '../lib/desk.mjs'
+import { rosterSafe, leadDesk } from '../lib/desk.mjs'
 import { collect } from '../checks/run.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
@@ -30,8 +30,10 @@ import { isMain } from '../lib/is-main.mjs'
 // transcript and the scratchpad.
 export function chatRosterCheap(root) {
   const { desks } = rosterSafe(join(root, 'desks'))
+  let lead = null
+  try { lead = leadDesk(root) } catch { lead = null }
   return [
-    { key: slugFor(root), label: 'team-lead', desk: 'team-lead' },
+    { key: slugFor(root), label: lead?.name ?? 'team-lead', desk: lead?.name ?? 'team-lead', port: lead?.port },
     ...desks.map((d) => ({ key: slugFor(join(root, 'desks', d.name)), label: d.name, desk: d.name, port: d.port })),
   ]
 }

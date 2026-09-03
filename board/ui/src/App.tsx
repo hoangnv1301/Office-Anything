@@ -32,7 +32,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/s
 
 type Desk = { key: string; label: string; sub: string; activeMin: number | null }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string }
-type Msg = { role: 'user' | 'assistant'; text: string; tools?: { name: string; input: unknown }[]; images?: Img[]; reasoning?: string | null }
+export type Msg = { role: 'user' | 'assistant'; text: string; tools?: { name: string; input: unknown }[]; images?: Img[]; reasoning?: string | null }
 type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
 type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null }
 type CdpTab = { title: string; url: string; devtools: string }
@@ -103,8 +103,8 @@ const Pictures = ({ images }: { images?: Img[] }) => !images?.length ? null : (
 )
 
 // item 5: a run of tool calls folds into ONE Task, expandable to the full list
-type Block = { kind: 'msg'; m: Msg } | { kind: 'tools'; tools: { name: string; input: unknown }[] }
-function toBlocks(messages: Msg[]): Block[] {
+export type Block = { kind: 'msg'; m: Msg } | { kind: 'tools'; tools: { name: string; input: unknown }[] }
+export function toBlocks(messages: Msg[]): Block[] {
   const out: Block[] = []
   for (const m of messages) {
     if (m.role === 'assistant' && m.reasoning) out.push({ kind: 'msg', m: { ...m, tools: [], text: '', images: [] } })
@@ -188,6 +188,33 @@ export default function App() {
     </Button>
   ))
 
+  // shell-style history: ArrowUp in an EMPTY box recalls, per desk, surviving
+  // reloads via localStorage. Not full CLI parity — that is written down as
+  // remaining work, not implied away.
+  const histIdx = useRef(-1)
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      const ta = e.target as HTMLTextAreaElement
+      if (ta?.tagName !== 'TEXTAREA' || !sel) return
+      let hist: string[] = []
+      try { hist = JSON.parse(localStorage.getItem('office-hist-' + sel) ?? '[]') } catch { hist = [] }
+      if (e.key === 'ArrowUp' && (ta.value === '' || histIdx.current >= 0)) {
+        if (!hist.length) return
+        histIdx.current = Math.min(histIdx.current + 1, hist.length - 1)
+        ta.value = hist[hist.length - 1 - histIdx.current]
+        ta.dispatchEvent(new Event('input', { bubbles: true }))
+        e.preventDefault()
+      } else if (e.key === 'ArrowDown' && histIdx.current >= 0) {
+        histIdx.current -= 1
+        ta.value = histIdx.current >= 0 ? hist[hist.length - 1 - histIdx.current] : ''
+        ta.dispatchEvent(new Event('input', { bubbles: true }))
+        e.preventDefault()
+      } else if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') histIdx.current = -1
+    }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
+  }, [sel])
+
   const onSubmit = useCallback(async (m: PromptInputMessage, e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!canSend || !sel) return
@@ -208,7 +235,15 @@ export default function App() {
       body: JSON.stringify({ key: sel, text }),
     })).json()
     setNote(r.ok ? '' : '⛔ ' + r.why)
-    if (r.ok) setTimeout(poll, 800)
+    if (r.ok) {
+      try {
+        const k = 'office-hist-' + sel
+        const hist = JSON.parse(localStorage.getItem(k) ?? '[]')
+        hist.push(text); localStorage.setItem(k, JSON.stringify(hist.slice(-50)))
+      } catch { /* history is a convenience, never a failure */ }
+      histIdx.current = -1
+      setTimeout(poll, 800)
+    }
   }, [canSend, sel, poll])
 
   return (

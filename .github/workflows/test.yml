@@ -14,3 +14,4 @@ jobs:
         with: { node-version: 22 }
       - run: node --test "tests/**/*.test.mjs"
       - run: node checks/run.mjs
+      - run: cd board/ui && npm ci && npx vitest run

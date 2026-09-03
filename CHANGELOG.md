@@ -3,6 +3,27 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.6.0
+
+The board grew up. Everything below shipped as 0.5.x local deliveries and is
+rolled into one public release, per the release policy.
+
+- THE CHAT IS THE PRODUCT: real AI Elements end to end (Conversation,
+  Message with markdown, Reasoning, Tool with parameters, FileTree, Image,
+  PromptInput with attachments and shell-style history), resizable tone-
+  separated panes, a session-folder rail, files opening in place.
+- THE COMPUTER TAB MIRRORS a desk's headed browser, display only, through a
+  zero-dependency CDP client with a unit-tested frame codec. Port 9222 is
+  refused by name.
+- THE SERVER READS INCREMENTALLY: 30ms warm where whole 62 MB transcripts
+  were re-read synchronously per poll. Equal-to-full-parse is pinned by tests.
+- THE LEAD HAS A HOME: leadDesk() reads a root desk.json (kind lead), so the
+  desk that runs an office is finally visible to checks and mirrorable.
+- THE RIG: board/ui/e2e.mjs walks nine functions with hit-tested input and
+  thresholds. It found most of the bugs above, plus a Chrome quirk (input
+  dies after CDP-driven reload) it now documents and sidesteps.
+- UI unit tests via vitest (the folding logic), wired into CI.
+
 ## 0.5.13
 
 - The board walked end to end by its own rig: nine functions, hit-tested
