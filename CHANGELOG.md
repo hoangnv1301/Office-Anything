@@ -3,6 +3,19 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.7.4
+
+- The phone got the screen back. A hidden ResizablePanel still OWNS its
+  percent of the row, so two invisible side panes were eating a third of a
+  390px screen and the chat lived in the leftover middle. Below md the
+  panels are now not rendered at all. Found by using the board on an
+  actual phone, minutes after it went up behind auth.
+- The drawer is the whole office now: desks on top, the same
+  workspace/scratchpad rail below, one Tabs tree shared with the desktop
+  panel rather than a second copy.
+- Computer stacks vertically on a phone, same pair, still resizable; its
+  header button is icon-only below sm.
+
 ## 0.7.3
 
 - The board survives a subpath. Every API call and asset reference is now

@@ -149,6 +149,17 @@ export default function App() {
   const hireName = useRef<HTMLInputElement>(null)
   const hireDesc = useRef<HTMLInputElement>(null)
   const hireKind = useRef('channel')
+  // ⛔ A hidden ResizablePanel still OWNS its percent of the row — display:none
+  // hides the pixels but the layout keeps the gutter, and on a phone that was
+  // a third of the screen spent on two invisible panes. So below md the side
+  // panels are not rendered at all, not merely hidden.
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 768px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)')
+    const h = () => setIsDesktop(mq.matches)
+    mq.addEventListener('change', h)
+    return () => mq.removeEventListener('change', h)
+  }, [])
 
 
 
@@ -303,10 +314,36 @@ export default function App() {
     }
   }, [canSend, sel, poll])
 
+  // one rail, two homes: the desktop side panel and the phone's drawer
+  const railTabs = (
+    <Tabs defaultValue="workspace" className="flex h-full flex-col gap-0">
+      <TabsList className="m-2">
+        <TabsTrigger value="workspace" className="text-xs">workspace</TabsTrigger>
+        <TabsTrigger value="scratchpad" className="text-xs">scratchpad</TabsTrigger>
+      </TabsList>
+      <TabsContent value="workspace" className="min-h-0 flex-1 data-[state=inactive]:hidden">
+        <ScrollArea className="h-full px-2 pb-2">
+          {pane?.workspace
+            ? <WorkspaceTree ws={pane.workspace} onOpen={openFile} />
+            : <div className="px-2 py-2 text-xs text-muted-foreground">…</div>}
+        </ScrollArea>
+      </TabsContent>
+      <TabsContent value="scratchpad" className="min-h-0 flex-1 data-[state=inactive]:hidden">
+        <ScrollArea className="h-full px-2 pb-2">
+          {pane?.folder?.length
+            ? <FileTree className="border-0 bg-transparent">
+                {pane.folder.map((f) => <FileTreeFile key={f.name} name={f.name} path={f.name} title={kb(f.size) + ' · ' + age(f.ageMin)} />)}
+              </FileTree>
+            : <div className="px-2 py-2 text-xs text-muted-foreground">empty — the scratchpad starts clean each session</div>}
+        </ScrollArea>
+      </TabsContent>
+    </Tabs>
+  )
+
   return (
     <ResizablePanelGroup orientation="horizontal" className="h-screen bg-background text-foreground">
       {/* item 3+7: panes told apart by TONE, resizable with bounds */}
-      <ResizablePanel defaultSize="13%" minSize="9%" maxSize="24%" className="hidden bg-sidebar md:block">
+      {isDesktop && <ResizablePanel defaultSize="13%" minSize="9%" maxSize="24%" className="bg-sidebar">
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between py-2 pl-4 pr-2 font-semibold">
             <span className="py-1">🏢 the office</span>
@@ -314,19 +351,21 @@ export default function App() {
           </div>
           <ScrollArea className="min-h-0 flex-1">{deskList}</ScrollArea>
         </div>
-      </ResizablePanel>
-      <ResizableHandle className="hidden w-0 bg-transparent md:block" />
+      </ResizablePanel>}
+      {isDesktop && <ResizableHandle className="w-0 bg-transparent" />}
 
-      <ResizablePanel defaultSize="60%" minSize="40%">
+      <ResizablePanel defaultSize={isDesktop ? '60%' : '100%'} minSize="40%">
         <div className="flex h-full flex-col">
           <header className="flex items-center gap-2 px-4 py-2 md:px-6">
             <Sheet>
               <SheetTrigger render={<Button variant="ghost" size="sm" className="md:hidden"><Menu className="size-4" /></Button>} />
-              <SheetContent side="left" className="w-72 p-0">
+              <SheetContent side="left" className="flex w-72 flex-col p-0">
                 <SheetTitle className="flex items-center gap-1.5 px-4 py-3 text-base"><Building2 className="size-4" /> the office
-                  <Button variant="ghost" size="sm" className="ml-auto" title="Hire a desk" onClick={() => setHireOpen(true)}><Plus className="size-4" /></Button>
+                  <Button variant="ghost" size="sm" className="ml-auto mr-7" title="Hire a desk" onClick={() => setHireOpen(true)}><Plus className="size-4" /></Button>
                 </SheetTitle>
-                <ScrollArea className="h-full">{deskList}</ScrollArea>
+                <ScrollArea className="min-h-0 flex-[1.1]">{deskList}</ScrollArea>
+                {/* the phone gets the same rail, in the drawer */}
+                <div className="min-h-0 flex-1 border-t border-border/50">{railTabs}</div>
               </SheetContent>
             </Sheet>
             <span className="min-w-0 truncate whitespace-nowrap font-semibold">{pane?.label ?? '…'}</span>
@@ -356,12 +395,13 @@ export default function App() {
             )}
             <span className="hidden whitespace-nowrap text-xs text-muted-foreground md:inline">{pane ? pane.count + ' messages' : ''}</span>
             <Button variant={showComputer ? 'secondary' : 'ghost'} size="sm" className="ml-auto h-8 text-xs"
-              onClick={() => setShowComputer(v => !v)}><Monitor className="mr-1 size-3.5" /> Computer</Button>
+              onClick={() => setShowComputer(v => !v)}><Monitor className="size-3.5 sm:mr-1" /><span className="hidden sm:inline"> Computer</span></Button>
           </header>
 
           {/* ⛔ SIDE BY SIDE, owner's ruling: the mirror opens NEXT TO the
-              conversation, resizable, never instead of it. */}
-          <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+              conversation, resizable, never instead of it. On a phone the
+              same pair stacks vertically — still both visible, still resizable. */}
+          <ResizablePanelGroup orientation={isDesktop ? 'horizontal' : 'vertical'} className="min-h-0 flex-1">
           <ResizablePanel defaultSize={showComputer ? '55%' : '100%'} minSize="30%" className="flex min-h-0 flex-col">
             <Conversation className="flex-1">
               <ConversationContent className="mx-auto w-full max-w-3xl gap-2">
@@ -459,33 +499,12 @@ export default function App() {
           </ResizablePanelGroup>
         </div>
       </ResizablePanel>
-      <ResizableHandle className="hidden w-0 bg-transparent md:block" />
+      {isDesktop && <ResizableHandle className="w-0 bg-transparent" />}
 
       {/* item 4: one rail, a menu to switch what it shows */}
-      <ResizablePanel data-rail="files" defaultSize="22%" minSize="14%" maxSize="34%" className="hidden bg-card md:block">
-        <Tabs defaultValue="workspace" className="flex h-full flex-col gap-0">
-          <TabsList className="m-2">
-            <TabsTrigger value="workspace" className="text-xs">workspace</TabsTrigger>
-            <TabsTrigger value="scratchpad" className="text-xs">scratchpad</TabsTrigger>
-          </TabsList>
-          <TabsContent value="workspace" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-            <ScrollArea className="h-full px-2 pb-2">
-              {pane?.workspace
-                ? <WorkspaceTree ws={pane.workspace} onOpen={openFile} />
-                : <div className="px-2 py-2 text-xs text-muted-foreground">…</div>}
-            </ScrollArea>
-          </TabsContent>
-          <TabsContent value="scratchpad" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-            <ScrollArea className="h-full px-2 pb-2">
-              {pane?.folder?.length
-                ? <FileTree className="border-0 bg-transparent">
-                    {pane.folder.map((f) => <FileTreeFile key={f.name} name={f.name} path={f.name} title={kb(f.size) + ' · ' + age(f.ageMin)} />)}
-                  </FileTree>
-                : <div className="px-2 py-2 text-xs text-muted-foreground">empty — the scratchpad starts clean each session</div>}
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
-      </ResizablePanel>
+      {isDesktop && <ResizablePanel data-rail="files" defaultSize="22%" minSize="14%" maxSize="34%" className="bg-card">
+        {railTabs}
+      </ResizablePanel>}
       <Dialog open={hireOpen} onOpenChange={setHireOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Hire a desk</DialogTitle></DialogHeader>
