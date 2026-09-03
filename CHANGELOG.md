@@ -3,6 +3,14 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.6.1
+
+- The Computer opens BESIDE the chat, resizable, never instead of it.
+- System traffic (task notifications, hooks, cross-session envelopes, local
+  commands) renders as muted collapsible events, not as the owner speaking
+  XML. Pasted-image markers whose bytes never reached the transcript show as
+  a clean chip instead of bracket prose. The mobile header truncates.
+
 ## 0.6.0
 
 The board grew up. Everything below shipped as 0.5.x local deliveries and is

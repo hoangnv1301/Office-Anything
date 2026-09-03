@@ -31,8 +31,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
 
 type Desk = { key: string; label: string; sub: string; activeMin: number | null }
-type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string }
-export type Msg = { role: 'user' | 'assistant'; text: string; tools?: { name: string; input: unknown }[]; images?: Img[]; reasoning?: string | null }
+type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string } | { kind: 'marker'; label: string }
+export type Msg = { role: 'user' | 'assistant' | 'system'; text: string; label?: string; tools?: { name: string; input: unknown }[]; images?: Img[]; reasoning?: string | null }
 type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
 type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null }
 type CdpTab = { title: string; url: string; devtools: string }
@@ -41,6 +41,14 @@ const kb = (n: number) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >=
 const age = (m: number) => (m < 60 ? `${m}m` : `${Math.round(m / 60)}h`) + ' ago'
 
 const MsgBlock = memo(function MsgBlock({ m, rich }: { m: Msg; rich: boolean }) {
+  if (m.role === 'system') {
+    return (
+      <Task defaultOpen={false} className="my-0.5 opacity-75">
+        <TaskTrigger title={'⚑ ' + (m.label ?? 'system')} />
+        <TaskContent><pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs">{m.text}</pre></TaskContent>
+      </Task>
+    )
+  }
   return (
     <div>
       {m.reasoning && (
@@ -98,7 +106,9 @@ const Pictures = ({ images }: { images?: Img[] }) => !images?.length ? null : (
   <span className="mt-1 flex flex-wrap gap-2">
     {images.map((im, i) => im.kind === 'b64'
       ? <AIImage key={i} base64={im.data} uint8Array={new Uint8Array()} mediaType={im.mediaType} alt="pasted image" className="max-h-72" />
-      : <img key={i} src={'/api/imgfile?p=' + encodeURIComponent(im.path)} alt={im.path.split('/').pop()} className="h-auto max-h-72 max-w-full overflow-hidden rounded-md" />)}
+      : im.kind === 'path'
+        ? <img key={i} src={'/api/imgfile?p=' + encodeURIComponent(im.path)} alt={im.path.split('/').pop()} className="h-auto max-h-72 max-w-full overflow-hidden rounded-md" />
+        : <Badge key={i} variant="secondary" className="font-normal text-muted-foreground">🖼 {im.label}</Badge>)}
   </span>
 )
 
@@ -126,7 +136,7 @@ export default function App() {
   const [note, setNote] = useState('')
   const [commands, setCommands] = useState<string[]>([])
   const [screen, setScreen] = useState<{ src: string | null; url: string; why: string }>({ src: null, url: '', why: 'no browser to show for this desk yet' })
-  const [view, setView] = useState('chat')
+  const [showComputer, setShowComputer] = useState(false)
   const [file, setFile] = useState<{ path: string; kind: string; content?: string; size?: number } | null>(null)
 
   const openFile = useCallback(async (path: string) => {
@@ -159,7 +169,7 @@ export default function App() {
   useEffect(() => { poll(); const t = setInterval(poll, 2500); return () => clearInterval(t) }, [poll])
   useEffect(() => { fetch('/api/commands').then((r) => r.json()).then((j) => setCommands(j.commands ?? [])) }, [])
   useEffect(() => {
-    if (!sel || view !== 'computer') return
+    if (!sel || !showComputer) return
     let alive = true
     const go = async () => {
       const r = await fetch('/api/screen?key=' + encodeURIComponent(sel))
@@ -170,7 +180,7 @@ export default function App() {
       setScreen((old) => { if (old.src) URL.revokeObjectURL(old.src); return { src: URL.createObjectURL(blob), url: decodeURIComponent(r.headers.get('x-tab-url') ?? ''), why: '' } })
     }
     go(); const t = setInterval(go, 1200); return () => { alive = false; clearInterval(t) }
-  }, [sel, view])
+  }, [sel, showComputer])
 
   const blocks = useMemo(() => toBlocks(pane?.messages ?? []), [pane])
 
@@ -258,7 +268,7 @@ export default function App() {
       <ResizableHandle className="hidden w-0 bg-transparent md:block" />
 
       <ResizablePanel defaultSize="60%" minSize="40%">
-        <Tabs value={view} onValueChange={setView} className="flex h-full flex-col gap-0">
+        <div className="flex h-full flex-col">
           <header className="flex items-center gap-2 px-4 py-2 md:px-6">
             <Sheet>
               <SheetTrigger render={<Button variant="ghost" size="sm" className="md:hidden">☰</Button>} />
@@ -267,16 +277,17 @@ export default function App() {
                 <ScrollArea className="h-full">{deskList}</ScrollArea>
               </SheetContent>
             </Sheet>
-            <span className="font-semibold">{pane?.label ?? '…'}</span>
-            {pane?.model && <Badge variant="secondary" className="text-[11px]">{pane.model}</Badge>}
-            <span className="text-xs text-muted-foreground">{pane ? pane.count + ' messages' : ''}</span>
-            <TabsList className="ml-auto h-8">
-              <TabsTrigger value="chat" className="text-xs">Chat</TabsTrigger>
-              <TabsTrigger value="computer" className="text-xs">Computer</TabsTrigger>
-            </TabsList>
+            <span className="min-w-0 truncate whitespace-nowrap font-semibold">{pane?.label ?? '…'}</span>
+            {pane?.model && <Badge variant="secondary" className="hidden whitespace-nowrap text-[11px] sm:inline-flex">{pane.model}</Badge>}
+            <span className="hidden whitespace-nowrap text-xs text-muted-foreground md:inline">{pane ? pane.count + ' messages' : ''}</span>
+            <Button variant={showComputer ? 'secondary' : 'ghost'} size="sm" className="ml-auto h-8 text-xs"
+              onClick={() => setShowComputer(v => !v)}>🖥 Computer</Button>
           </header>
 
-          <TabsContent value="chat" className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
+          {/* ⛔ SIDE BY SIDE, owner's ruling: the mirror opens NEXT TO the
+              conversation, resizable, never instead of it. */}
+          <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+          <ResizablePanel defaultSize={showComputer ? '55%' : '100%'} minSize="30%" className="flex min-h-0 flex-col">
             <Conversation className="flex-1">
               <ConversationContent className="mx-auto w-full max-w-3xl gap-2">
                 {blocks.length === 0 && <ConversationEmptyState title="Nothing yet" description="This desk has no conversation in its current session." />}
@@ -317,11 +328,10 @@ export default function App() {
                 </PromptInputFooter>
               </PromptInput>
             </div>
-          </TabsContent>
-
-          <TabsContent value="computer" className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
-            {/* The desk's HEADED browser, MIRRORED. Display only, owner's
-                ruling: the agent keeps driving; the board shows the pixels. */}
+          </ResizablePanel>
+          {showComputer && <ResizableHandle className="w-0 bg-transparent" />}
+          {showComputer && (
+          <ResizablePanel defaultSize="45%" minSize="25%" className="flex min-h-0 flex-col bg-black/20">
             {screen.src ? (
               <WebPreview className="min-h-0 flex-1">
                 <WebPreviewNavigation>
@@ -339,8 +349,10 @@ export default function App() {
             ) : (
               <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">{screen.why}</div>
             )}
-          </TabsContent>
-        </Tabs>
+          </ResizablePanel>
+          )}
+          </ResizablePanelGroup>
+        </div>
       </ResizablePanel>
       <ResizableHandle className="hidden w-0 bg-transparent md:block" />
 

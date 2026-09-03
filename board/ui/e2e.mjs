@@ -112,18 +112,18 @@ const switched = await until(`document.querySelector('header')?.innerText.includ
 check('desk switch updates pane', switched.ok, switched.ms + 'ms')
 
 // 7. computer tab answers (stream or an honest why)
-await mouseClick(`[...document.querySelectorAll('[role=tab]')].find(t=>t.textContent==='Computer')`)
+await mouseClick(`[...document.querySelectorAll('button')].find(b=>/Computer/.test(b.textContent))`)
 // ⛔ STRICT: the default placeholder text must not count as a pass. If the
 // desk's screen endpoint answers 200, only a LOADED mirror image passes.
 const screenUp = (await fetch('http://127.0.0.1:7719/api/screen?key=' + encodeURIComponent(await evalJs(`window.__selKey ?? ''`) || '-Volumes-Extreme-SSD-external-workspace-alibaba-store-diagnost-ai-alibaba-claude-runbook-v2-desks-design'))).status === 200
 const computer = screenUp
-  ? await until(`(()=>{const img=document.querySelector('img[alt="desk browser display"]'); return img&&img.complete&&img.naturalWidth>0 ? 'mirror' : false})()`, 12000)
+  ? await until(`(()=>{const img=document.querySelector('img[alt="desk browser display"]'); const chat=document.querySelectorAll('[class*=is-user],[class*=is-assistant]').length>0; return img&&img.complete&&img.naturalWidth>0&&chat ? 'mirror-beside-chat' : false})()`, 12000)
   : await until(`/no headed browser|no browser to show/.test(document.body.innerText)`, 6000)
-check('computer tab shows the MIRROR when a browser is up', computer.ok, String(computer.v ?? 'why') + ' ' + computer.ms + 'ms')
+check('computer opens BESIDE the chat with a live mirror', computer.ok, String(computer.v ?? 'why') + ' ' + computer.ms + 'ms')
 await shot('computer')
 
 // 8. back to lead + chat for the closing screenshot
-await mouseClick(`[...document.querySelectorAll('[role=tab]')].find(t=>t.textContent==='Chat')`)
+
 await mouseClick(`[...document.querySelectorAll('button')].find(b=>/team-lead/.test(b.textContent))`)
 await new Promise(r => setTimeout(r, 3000))
 await shot('final')

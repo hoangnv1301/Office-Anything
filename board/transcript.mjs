@@ -31,6 +31,29 @@ export function newestSession(projectDir) {
 }
 
 const IMG_PATH = /\[Image(?: #\d+)?: source: (\/[^\]]+?\.(?:png|jpe?g|gif|webp))\]/gi
+const IMG_MARKER = /\[Image: original (\d+x\d+)[^\]]*\]/g
+
+// ⛔ SYSTEM TRAFFIC IS NOT A PERSON TALKING. Task notifications, hook
+// feedback, cross-session envelopes and local-command output arrive typed as
+// "user" in the transcript, and rendering them as user bubbles made the chat
+// read like the owner types in XML. Classified here, once.
+const SYSTEM_SHAPES = [
+  /^\s*\[SYSTEM NOTIFICATION/i, /^\s*<task-notification>/i, /^\s*<system-reminder>/i,
+  /^\s*<local-command/i, /^\s*<command-name>/i, /^\s*Stop hook feedback/i,
+  /^\s*<cross-session-message/i, /^\s*\[Request interrupted/i, /^\s*Caveat: /i,
+]
+export const isSystemText = (t) => SYSTEM_SHAPES.some((r) => r.test(t))
+const systemLabel = (t) => {
+  if (/task-notification|SYSTEM NOTIFICATION/i.test(t)) return 'background task'
+  if (/cross-session-message/i.test(t)) {
+    const m = /from-name="([^"]+)"/.exec(t)
+    return 'message from ' + (m?.[1] ?? 'another session')
+  }
+  if (/Stop hook/i.test(t)) return 'stop hook'
+  if (/local-command|command-name/i.test(t)) return 'local command'
+  if (/system-reminder/i.test(t)) return 'system reminder'
+  return 'system'
+}
 
 const imagesOf = (content) => {
   const out = []
@@ -44,6 +67,8 @@ const imagesOf = (content) => {
   const text = typeof content === 'string' ? content
     : Array.isArray(content) ? content.filter((b) => b.type === 'text').map((b) => b.text).join('\n') : ''
   for (const m of text.matchAll(IMG_PATH)) out.push({ kind: 'path', path: m[1] })
+  // a pasted image whose bytes never reached the transcript: show a chip, not bracket prose
+  for (const m of text.matchAll(IMG_MARKER)) out.push({ kind: 'marker', label: 'image · ' + m[1] })
   return out
 }
 
@@ -65,7 +90,11 @@ export function chatFrom(jsonlText, { limit = 80 } = {}) {
       // tool results come back as user-typed entries; they are plumbing, not chat
       const isToolResult = Array.isArray(m.content) && m.content.some((b) => b.type === 'tool_result')
       const images = imagesOf(m.content)
-      if ((text.trim() || images.length) && !isToolResult) out.push({ role: 'user', text: text.slice(0, 4000), images, at: j.timestamp ?? null })
+      const clean = text.replace(IMG_MARKER, '').trim()
+      if (!isToolResult && (clean || images.length)) {
+        if (isSystemText(text)) out.push({ role: 'system', label: systemLabel(text), text: text.slice(0, 2500), at: j.timestamp ?? null })
+        else out.push({ role: 'user', text: clean.slice(0, 4000), images, at: j.timestamp ?? null })
+      }
     } else if (j.type === 'assistant' && m) {
       const text = textOf(m.content)
       // every part of the native record the UI has an element for: text,
