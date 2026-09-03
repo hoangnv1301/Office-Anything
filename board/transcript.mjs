@@ -41,6 +41,9 @@ const SYSTEM_SHAPES = [
   /^\s*\[SYSTEM NOTIFICATION/i, /^\s*<task-notification>/i, /^\s*<system-reminder>/i,
   /^\s*<local-command/i, /^\s*<command-name>/i, /^\s*Stop hook feedback/i,
   /^\s*<cross-session-message/i, /^\s*\[Request interrupted/i, /^\s*Caveat: /i,
+  // a Skill invocation injects its whole instruction body as a user turn;
+  // rendered as chat it reads like the owner pasted a manual
+  /^\s*Base directory for this skill:/i, /^\s*<command-message>/i,
 ]
 export const isSystemText = (t) => SYSTEM_SHAPES.some((r) => r.test(t))
 const systemLabel = (t) => {
@@ -48,6 +51,10 @@ const systemLabel = (t) => {
   if (/cross-session-message/i.test(t)) {
     const m = /from-name="([^"]+)"/.exec(t)
     return 'message from ' + (m?.[1] ?? 'another session')
+  }
+  if (/^\s*Base directory for this skill:/i.test(t)) {
+    const m = /skills\/([A-Za-z0-9_-]+)/.exec(t)
+    return 'skill loaded · ' + (m?.[1] ?? 'unknown')
   }
   if (/Stop hook/i.test(t)) return 'stop hook'
   if (/local-command|command-name/i.test(t)) {
