@@ -124,7 +124,10 @@ export function jobsOf(scratchBase, { now = Date.now() } = {}) {
 // .git and node_modules are nobody's reading; everything else shows, dotfiles
 // included, because desks genuinely live in .claude/ and friends. Bounded in
 // depth and entry count so a big repo cannot flood the page.
-export function treeOf(dir, { depth = 3, maxEntries = 500, perDir = 50 } = {}) {
+// depth 5 / 1500 entries: at depth 3 the tree cut .claude/skills/<name>/
+// off at the knees and an expanded folder showed NOTHING (owner hit it on
+// .claude/skills/browser). bk/ is the attic and is nobody's workspace.
+export function treeOf(dir, { depth = 5, maxEntries = 1500, perDir = 50 } = {}) {
   let budget = maxEntries
   const root = { dirs: {}, files: [] }
   const queue = [{ d: dir, node: root, level: 0 }]
@@ -135,7 +138,7 @@ export function treeOf(dir, { depth = 3, maxEntries = 500, perDir = 50 } = {}) {
     entries.sort((a, b) => (b.isDirectory() ? 1 : 0) - (a.isDirectory() ? 1 : 0) || a.name.localeCompare(b.name))
     let taken = 0
     for (const e of entries) {
-      if (e.name === '.git' || e.name === 'node_modules') continue
+      if (e.name === '.git' || e.name === 'node_modules' || e.name === 'bk') continue
       if (taken >= perDir || budget <= 0) { node.truncated = true; break }
       taken++; budget--
       if (e.isDirectory()) {

@@ -122,6 +122,37 @@ export function makeServer(root) {
 <div style="font-size:22px;font-weight:600;margin-top:8px">${who}</div>
 <div style="color:#8a8a8a;margin-top:6px;font-size:14px">browser ready · watched from the office board</div></div></body>`)
       }
+      if (url.pathname === '/api/hooks') {
+        // every hook that can actually fire on this desk, from the three
+        // places Claude Code reads them: the desk's project settings, the
+        // user's settings, and each installed plugin's hooks.json
+        const key = url.searchParams.get('key') ?? ''
+        const row = chatRosterCheap(root).find((r) => r.key === key)
+        if (!row) return json(res, 404, { hooks: [] })
+        const deskDir = row.key === slugFor(root) ? root : join(root, 'desks', row.desk)
+        const out = []
+        const collect = (file, source) => {
+          try {
+            const h = JSON.parse(readFileSync(file, 'utf8')).hooks ?? {}
+            for (const [event, arr] of Object.entries(h)) for (const m of arr ?? []) {
+              for (const hk of m.hooks ?? []) out.push({ source, event, matcher: m.matcher ?? '*', command: String(hk.command ?? hk.type ?? '').slice(0, 200) })
+            }
+          } catch {}
+        }
+        collect(join(deskDir, '.claude', 'settings.json'), 'project')
+        collect(join(deskDir, '.claude', 'settings.local.json'), 'project (local)')
+        collect(join(homedir(), '.claude', 'settings.json'), 'user')
+        try {
+          const cache = join(homedir(), '.claude', 'plugins', 'cache')
+          for (const mkt of readdirSync(cache)) for (const plug of readdirSync(join(cache, mkt))) {
+            try {
+              const vers = readdirSync(join(cache, mkt, plug)).sort().reverse()
+              if (vers.length) collect(join(cache, mkt, plug, vers[0], 'hooks', 'hooks.json'), 'plugin: ' + plug)
+            } catch {}
+          }
+        } catch {}
+        return json(res, 200, { hooks: out })
+      }
       if (url.pathname === '/api/events') {
         // PUSH, NOT POLL: the transcript directory is watched and every write
         // becomes one SSE tick, so the client refetches the moment Claude

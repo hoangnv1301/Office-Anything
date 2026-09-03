@@ -35,6 +35,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Shimmer } from '@/components/ai-elements/shimmer'
+import { QueueList, QueueItem, QueueItemIndicator, QueueItemContent, QueueItemDescription } from '@/components/ai-elements/queue'
 
 type Desk = { key: string; label: string; sub: string; activeMin: number | null; online?: boolean | null; busy?: boolean | null; waiting?: boolean; agents?: { kind?: string; label: string; activeMin: number; turns: number }[]; jobs?: { id: string; ageSec: number; size: number }[] }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string } | { kind: 'marker'; label: string }
@@ -299,6 +300,12 @@ export default function App() {
   }, [sel])
   // the WHOLE browser, not one tab: the strip lists every page the desk has
   // open and a click picks which one the mirror shows
+  const [hooks, setHooks] = useState<{ source: string; event: string; matcher: string; command: string }[] | null>(null)
+  useEffect(() => {
+    if (!sel) return
+    setHooks(null)
+    fetch('api/hooks?key=' + encodeURIComponent(sel)).then((r) => r.json()).then((j) => setHooks(j.hooks ?? [])).catch(() => setHooks([]))
+  }, [sel])
   const [tabs, setTabs] = useState<{ id: string; title: string; url: string }[]>([])
   const [curTab, setCurTab] = useState<string | null>(null)
   useEffect(() => { setTabs([]); setCurTab(null) }, [sel])
@@ -438,7 +445,27 @@ export default function App() {
       <TabsList className="m-2">
         <TabsTrigger value="workspace" className="text-xs">workspace</TabsTrigger>
         <TabsTrigger value="scratchpad" className="text-xs">scratchpad</TabsTrigger>
+        <TabsTrigger value="hooks" className="text-xs">hooks</TabsTrigger>
       </TabsList>
+      <TabsContent value="hooks" className="min-h-0 flex-1 data-[state=inactive]:hidden">
+        <ScrollArea className="h-full px-2 pb-2">
+          {hooks === null
+            ? <div className="px-2 py-2 text-xs text-muted-foreground">…</div>
+            : hooks.length === 0
+              ? <div className="px-2 py-2 text-xs text-muted-foreground">no hooks configured for this desk</div>
+              : [...new Set(hooks.map((h) => h.event))].map((event) => (
+                  <div key={event} className="mb-2">
+                    <div className="px-1 py-1 text-[10px] font-medium uppercase tracking-wide text-blue-400">{event}</div>
+                    {hooks.filter((h) => h.event === event).map((h, i) => (
+                      <div key={i} className="px-1 py-0.5 text-[11px]" title={h.command}>
+                        <div className="truncate font-mono">{h.command.split('/').pop()}</div>
+                        <div className="truncate text-muted-foreground">{h.matcher !== '*' ? h.matcher + ' · ' : ''}{h.source}</div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+        </ScrollArea>
+      </TabsContent>
       <TabsContent value="workspace" className="min-h-0 flex-1 data-[state=inactive]:hidden">
         <ScrollArea className="h-full px-2 pb-2">
           {pane?.workspace
@@ -539,14 +566,17 @@ export default function App() {
                 {(() => { const tail = blocks.slice(-60); return tail.map((b, i) => b.kind === 'msg'
                   ? <MsgBlock key={'m' + i} m={b.m} rich />
                   : <ToolsBlock key={'t' + i} tools={b.tools} />) })()}
-                {outbox.map((x, i) => (
-                  <div key={'ob' + i} className="opacity-70">
-                    <Message from="user"><MessageContent><span className="whitespace-pre-wrap break-words">{x.text}</span></MessageContent></Message>
-                    <div className="text-right text-[10px] text-muted-foreground">
-                      {desks.find((d) => d.key === sel)?.busy ? 'queued' : 'delivering…'}
-                    </div>
-                  </div>
-                ))}
+                {outbox.length > 0 && (
+                  <QueueList className="ml-auto w-fit max-w-[85%]">
+                    {outbox.map((x, i) => (
+                      <QueueItem key={'ob' + i} className="flex-row items-baseline gap-2">
+                        <QueueItemIndicator className="animate-pulse border-sky-400" />
+                        <QueueItemContent className="line-clamp-2">{x.text}</QueueItemContent>
+                        <QueueItemDescription className="ml-2 flex-none">{desks.find((d) => d.key === sel)?.busy ? 'queued' : 'delivering…'}</QueueItemDescription>
+                      </QueueItem>
+                    ))}
+                  </QueueList>
+                )}
                 {desks.find((d) => d.key === sel)?.busy && (
                   <div className="py-1 text-sm"><Shimmer>{'✳ working… ' + (pane?.turn?.elapsedSec != null
                     ? '(' + (pane.turn.elapsedSec >= 60 ? Math.floor(pane.turn.elapsedSec / 60) + 'm ' + (pane.turn.elapsedSec % 60) + 's' : pane.turn.elapsedSec + 's')

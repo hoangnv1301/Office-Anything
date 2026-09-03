@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.12
+
+- A hooks tab in the rail: every hook that can actually fire on the desk,
+  from the three places Claude Code reads them (project settings, user
+  settings, each installed plugin), grouped by event with matcher and
+  source. Gates stop being invisible.
+- The workspace tree reaches depth 5 and 1500 entries; at depth 3 an
+  expanded .claude/skills/<name>/ folder showed NOTHING. bk/ is the attic
+  and left the tree.
+- The outbox rides the registry's Queue element instead of hand-rolled
+  bubbles.
+
 ## 0.7.11
 
 - PUSH, NOT POLL. /api/events watches the transcript directory and ticks
