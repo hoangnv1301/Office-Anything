@@ -48,7 +48,9 @@ checks that audit the whole office with one exit code.
 /plugin install office-anything@office-anything
 ```
 
-Restart Claude Code once so the hooks arm, and you are set. The plugin stays
+Restart Claude Code once so the hooks arm, and you are set. (In
+non-interactive `claude -p` runs, slash commands may not resolve — ask for
+the skill by name instead: "use your office-anything desk-hire skill".) The plugin stays
 quiet until your repo has a `desks/` directory — hire your first desk and
 everything switches on together.
 
