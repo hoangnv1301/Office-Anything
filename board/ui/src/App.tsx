@@ -464,9 +464,10 @@ export default function App() {
                 </TestResultsHeader>
                 <TestResultsContent>
                   {checks.rows.map((r) => (
-                    <Test key={r.name} name={r.name} status={r.code === 0 ? 'passed' : r.code === 4 ? 'failed' : 'skipped'} className="px-2 py-1 text-xs">
-                      <TestStatus /><TestName />
-                      {r.why && <span className="ml-auto truncate text-[10px] text-muted-foreground" title={r.why}>{r.why}</span>}
+                    <Test key={r.name} name={r.name} status={r.code === 0 ? 'passed' : r.code === 4 ? 'failed' : 'skipped'}
+                      className="grid grid-cols-[auto_minmax(7rem,max-content)_1fr] items-baseline gap-x-2 px-2 py-1 text-left text-xs">
+                      <TestStatus /><TestName className="whitespace-nowrap text-left" />
+                      <span className="truncate text-left text-[10px] text-muted-foreground" title={r.why}>{r.why}</span>
                     </Test>
                   ))}
                 </TestResultsContent>
