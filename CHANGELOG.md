@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.11
+
+- PUSH, NOT POLL. /api/events watches the transcript directory and ticks
+  over SSE the moment Claude writes; the client refetches on the tick and
+  keeps a slow 4s poll only as the net for a dropped stream. Receiving
+  latency fell from a polling beat to roughly the debounce (~150ms).
+- Sending got faster too: the orca terminal list that every send paid a
+  few hundred ms for is cached 3s for the real runner only — a cached
+  mock would poison the next test's world, so injected runners bypass it.
+- Both command surfaces read like the CLI: two left-aligned columns, the
+  name never hidden, the description truncating with a hover title. The
+  outbox caption is one word.
+
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 

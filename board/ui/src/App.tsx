@@ -280,7 +280,15 @@ export default function App() {
     setHireOpen(false); office()
   }, [office])
   useEffect(() => { office(); const t = setInterval(office, 5000); return () => clearInterval(t) }, [office])
-  useEffect(() => { poll(); const t = setInterval(poll, 1200); return () => clearInterval(t) }, [poll])
+  // push first, poll as the net: the server watches the transcript and ticks
+  // over SSE the moment Claude writes; the interval only covers a dropped stream
+  useEffect(() => { poll(); const t = setInterval(poll, 4000); return () => clearInterval(t) }, [poll])
+  useEffect(() => {
+    if (!sel) return
+    const es = new EventSource('api/events?key=' + encodeURIComponent(sel))
+    es.onmessage = () => poll()
+    return () => es.close()
+  }, [sel, poll])
   useEffect(() => { fetch('api/commands').then((r) => r.json()).then((j) => setCommands(j.detail ?? (j.commands ?? []).map((n: string) => ({ name: n, desc: '' })))) }, [])
   // switching desks must not leave the LAST desk's pixels or words on
   // screen — a few seconds of the wrong desk reads as the wrong truth
@@ -535,7 +543,7 @@ export default function App() {
                   <div key={'ob' + i} className="opacity-70">
                     <Message from="user"><MessageContent><span className="whitespace-pre-wrap break-words">{x.text}</span></MessageContent></Message>
                     <div className="text-right text-[10px] text-muted-foreground">
-                      {desks.find((d) => d.key === sel)?.busy ? 'queued — the desk is mid-turn, it reads this next' : 'delivering…'}
+                      {desks.find((d) => d.key === sel)?.busy ? 'queued' : 'delivering…'}
                     </div>
                   </div>
                 ))}
@@ -586,12 +594,15 @@ export default function App() {
                   <PromptInputHeader />
                   {slashQ && (
                     <div className="max-h-56 overflow-y-auto px-1 pt-1">
+                      {/* two honest columns, CLI-style: the NAME gets the room
+                          it needs and never hides; the description takes the
+                          rest and fades with a truncate, left-aligned */}
                       {commands.filter((c) => c.name.startsWith(slashQ)).slice(0, 12).map((c, i) => (
                         <button key={c.name} type="button" onClick={() => pickCommand(c.name)}
-                          className={'flex w-full items-baseline gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent ' + (i === 0 ? 'bg-accent/50' : '')}>
-                          <span className="flex-none font-mono">{c.name}</span>
-                          <span className="truncate text-muted-foreground">{c.desc}</span>
-                          {i === 0 && <span className="ml-auto flex-none text-[9px] text-muted-foreground">tab</span>}
+                          className={'grid w-full grid-cols-[minmax(9rem,max-content)_1fr_auto] items-baseline gap-x-3 rounded-md px-2 py-1 text-left text-xs hover:bg-accent ' + (i === 0 ? 'bg-accent/50' : '')}>
+                          <span className="whitespace-nowrap text-left font-mono">{c.name}</span>
+                          <span className="truncate text-left text-muted-foreground" title={c.desc}>{c.desc}</span>
+                          <span className="text-[9px] text-muted-foreground">{i === 0 ? 'tab' : ''}</span>
                         </button>
                       ))}
                       {commands.filter((c) => c.name.startsWith(slashQ)).length === 0 && (
@@ -621,11 +632,12 @@ export default function App() {
                       <ImageIcon className="size-4" /></Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="h-8 text-xs">/ commands</Button>} />
-                      <DropdownMenuContent className="max-h-72 overflow-y-auto">
+                      <DropdownMenuContent className="max-h-72 w-[30rem] max-w-[92vw] overflow-y-auto">
                         {commands.map((c) => (
-                          <DropdownMenuItem key={c.name} onSelect={() => pickCommand(c.name)}>
-                            <span className="font-mono">{c.name}</span>
-                            {c.desc && <span className="ml-2 truncate text-[11px] text-muted-foreground">{c.desc}</span>}
+                          <DropdownMenuItem key={c.name} onSelect={() => pickCommand(c.name)}
+                            className="grid grid-cols-[minmax(9rem,max-content)_1fr] items-baseline gap-x-3">
+                            <span className="whitespace-nowrap text-left font-mono">{c.name}</span>
+                            <span className="truncate text-left text-[11px] text-muted-foreground" title={c.desc}>{c.desc}</span>
                           </DropdownMenuItem>
                         ))}
                       </DropdownMenuContent>

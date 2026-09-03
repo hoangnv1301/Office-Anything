@@ -36,7 +36,7 @@ function liveTitles() {
   return termCache.titles
 }
 import { screenshotOf } from '../lib/cdp.mjs'
-import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, watch } from 'node:fs'
 import { rosterSafe, leadDesk } from '../lib/desk.mjs'
 import { hire } from '../lib/hire.mjs'
 import { costOf } from '../lib/rates.mjs'
@@ -121,6 +121,30 @@ export function makeServer(root) {
 <div style="text-align:center"><div style="font-size:44px">🏢</div>
 <div style="font-size:22px;font-weight:600;margin-top:8px">${who}</div>
 <div style="color:#8a8a8a;margin-top:6px;font-size:14px">browser ready · watched from the office board</div></div></body>`)
+      }
+      if (url.pathname === '/api/events') {
+        // PUSH, NOT POLL: the transcript directory is watched and every write
+        // becomes one SSE tick, so the client refetches the moment Claude
+        // writes instead of on a polling beat. Polling stays as the fallback.
+        const key = url.searchParams.get('key') ?? ''
+        if (!/^[A-Za-z0-9-]+$/.test(key)) { res.writeHead(400); return res.end() }
+        res.writeHead(200, {
+          'content-type': 'text/event-stream', 'cache-control': 'no-store',
+          connection: 'keep-alive', 'x-accel-buffering': 'no',
+        })
+        res.write(':ok\n\n')
+        let timer = null
+        let watcher = null
+        try {
+          watcher = watch(join(homedir(), '.claude', 'projects', key), () => {
+            // debounced: a burst of appends becomes one tick
+            if (timer) return
+            timer = setTimeout(() => { timer = null; try { res.write('data: tick\n\n') } catch {} }, 120)
+          })
+        } catch { /* no directory yet: heartbeats only, the client keeps polling */ }
+        const beat = setInterval(() => { try { res.write(':beat\n\n') } catch {} }, 25000)
+        req.on('close', () => { clearInterval(beat); if (timer) clearTimeout(timer); try { watcher?.close() } catch {} })
+        return
       }
       if (url.pathname === '/api/tabs') {
         // every page the desk's browser has open, for the mirror's tab strip

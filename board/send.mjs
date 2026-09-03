@@ -16,9 +16,19 @@ export function orcaAvailable(run = execFileSync) {
   try { run('orca', ['--version'], { encoding: 'utf8', stdio: 'pipe' }); return true } catch { return false }
 }
 
+// one `orca terminal list` is a few hundred ms of every send; the roster
+// barely moves, so the REAL runner gets a 3s cache. Injected runners (tests)
+// bypass it: a cached mock would poison the next test's world.
+let listCache = { at: 0, terminals: null }
 export function terminalFor(desk, run = execFileSync, dir = null) {
-  const out = run('orca', ['terminal', 'list', '--json'], { encoding: 'utf8', stdio: 'pipe' })
-  const terminals = JSON.parse(out)?.result?.terminals ?? []
+  let terminals
+  if (run === execFileSync && listCache.terminals && Date.now() - listCache.at < 3000) {
+    terminals = listCache.terminals
+  } else {
+    const out = run('orca', ['terminal', 'list', '--json'], { encoding: 'utf8', stdio: 'pipe' })
+    terminals = JSON.parse(out)?.result?.terminals ?? []
+    if (run === execFileSync) listCache = { at: Date.now(), terminals }
+  }
   const hit = terminals.find((t) => normalizeTitle(t.title) === desk)
   if (hit) return hit.handle
   // The LEAD's tab is titled with its task summary, never "team-lead", so a
