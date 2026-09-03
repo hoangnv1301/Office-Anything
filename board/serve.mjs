@@ -277,7 +277,8 @@ export function makeServer(root) {
             const row = chatRoster(root).find((r) => r.key === key)
             if (!row) return json(res, 404, { ok: false, why: 'unknown desk' })
             if (!text || typeof text !== 'string' || text.length > 8000) return json(res, 400, { ok: false, why: 'no text, or too long' })
-            return json(res, 200, send(row.desk, text))
+            const deskDir = row.key === slugFor(root) ? root : join(root, 'desks', row.desk)
+            return json(res, 200, send(row.desk, text, undefined, deskDir))
           } catch (e) { return json(res, 500, { ok: false, why: e.message }) }
         })
         return

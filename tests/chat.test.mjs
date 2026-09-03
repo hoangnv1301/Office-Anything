@@ -85,6 +85,24 @@ test('send refuses a desk with no live terminal rather than typing anywhere', ()
   assert.match(r.why, /no live terminal/)
 })
 
+test('the LEAD is found by its working directory when no tab bears its name', () => {
+  const sent = []
+  const run = (cmd, args) => {
+    if (args.includes('--version')) return ''
+    if (args.includes('list')) return JSON.stringify({ result: { terminals: [
+      { handle: 'H_V1', title: '✳ some task summary', worktreePath: '/work/v1-repo', writable: true, lastOutputAt: 900 },
+      { handle: 'H_LEAD', title: '✳ another task summary', worktreePath: '/work/office', writable: true, lastOutputAt: 500 },
+      { handle: 'H_DESK', title: '✳ design', worktreePath: '/work/office/desks/design', writable: true, lastOutputAt: 100 },
+    ] } })
+    sent.push(args); return ''
+  }
+  const r = send('team-lead', 'hi', run, '/work/office')
+  assert.equal(r.ok, true)
+  assert.equal(r.handle, 'H_LEAD', 'exact worktreePath equality, so v1\'s terminal at a different path is unreachable by construction')
+  const miss = send('team-lead', 'hi', run, '/work/nowhere')
+  assert.equal(miss.ok, false, 'no title and no directory match refuses, never types anywhere')
+})
+
 test('the server serves the chat shell and the office api', async () => {
   const root = mkdtempSync(join(tmpdir(), 'oa-chat-'))
   mkdirSync(join(root, 'desks', 'billing'), { recursive: true })

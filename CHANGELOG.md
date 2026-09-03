@@ -3,6 +3,15 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.7.9
+
+- Messaging the LEAD works. Its tab is titled with the task summary, never
+  "team-lead", so the title matcher could not find it and send refused.
+  Fallback: exact worktreePath equality from orca's own listing, newest
+  output wins a tie - which also makes the v1 repo's terminal, at a
+  different path, unreachable by construction. Proven by typing into the
+  lead's own live terminal through the board.
+
 ## 0.7.8
 
 - Tool calls show their RESULTS. Each tool_result attaches its output text

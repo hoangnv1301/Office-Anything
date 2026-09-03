@@ -16,17 +16,27 @@ export function orcaAvailable(run = execFileSync) {
   try { run('orca', ['--version'], { encoding: 'utf8', stdio: 'pipe' }); return true } catch { return false }
 }
 
-export function terminalFor(desk, run = execFileSync) {
+export function terminalFor(desk, run = execFileSync, dir = null) {
   const out = run('orca', ['terminal', 'list', '--json'], { encoding: 'utf8', stdio: 'pipe' })
   const terminals = JSON.parse(out)?.result?.terminals ?? []
   const hit = terminals.find((t) => normalizeTitle(t.title) === desk)
-  return hit?.handle ?? null
+  if (hit) return hit.handle
+  // The LEAD's tab is titled with its task summary, never "team-lead", so a
+  // title match cannot find it. The terminal's own working directory can:
+  // exact worktreePath equality, which also makes v1's terminal (a different
+  // path) unreachable by construction. Newest output wins a tie.
+  if (dir) {
+    const byDir = terminals.filter((t) => t.worktreePath === dir && t.writable !== false)
+      .sort((a, b) => (b.lastOutputAt ?? 0) - (a.lastOutputAt ?? 0))
+    if (byDir[0]) return byDir[0].handle
+  }
+  return null
 }
 
-export function send(desk, text, run = execFileSync) {
+export function send(desk, text, run = execFileSync, dir = null) {
   if (!orcaAvailable(run)) return { ok: false, why: 'no orca CLI on this host; the board is read-only here' }
-  const handle = terminalFor(desk, run)
-  if (!handle) return { ok: false, why: `no live terminal is titled "${desk}"` }
+  const handle = terminalFor(desk, run, dir)
+  if (!handle) return { ok: false, why: `no live terminal is titled "${desk}" or working in its folder` }
   run('orca', ['terminal', 'send', '--terminal', handle, '--text', text, '--enter', '--json'], { encoding: 'utf8', stdio: 'pipe' })
   return { ok: true, handle }
 }
