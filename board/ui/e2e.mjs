@@ -13,6 +13,12 @@ const THRESH_MS = 6000
 // fresh tab per run gets a fresh target where real input works, and the tab
 // is closed on the way out.
 const page = await (await fetch('http://127.0.0.1:9229/json/new?' + encodeURIComponent('http://127.0.0.1:7719/'), { method: 'PUT' })).json()
+// ⛔ AN UNFOCUSED WINDOW BREAKS DIALOG SEMANTICS: with another Chrome holding
+// macOS focus, Base UI's focus trap never engages, so Escape and outside-press
+// dismissal silently die while everything else "works". Three checks went red
+// the moment five desk browsers were relaunched and stole focus. Activate the
+// tab, bring it to front, and give the page one real click before measuring.
+await fetch('http://127.0.0.1:9229/json/activate/' + page.id)
 await new Promise(r => setTimeout(r, 4500))
 const ws = new WebSocket(page.webSocketDebuggerUrl, { maxPayload: 64 * 1024 * 1024 })
 // ⛔ THE FIRST VERSION SLEPT A FIXED 150ms AND READ WHATEVER HAD ARRIVED.
@@ -57,6 +63,11 @@ const results = []
 const check = (name, ok, detail) => { results.push({ name, ok, detail }); console.log((ok ? ' ok  ' : ' ⛔  ') + name + '  ' + (detail ?? '')) }
 
 await call('Page.enable')
+await call('Page.bringToFront')
+// one real click on empty header space, so the WINDOW owns focus before any
+// focus-dependent behavior is measured
+await call('Input.dispatchMouseEvent', { type: 'mousePressed', x: 700, y: 15, button: 'left', clickCount: 1, pointerType: 'mouse' })
+await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 700, y: 15, button: 'left', clickCount: 1, pointerType: 'mouse' })
 
 // 1. chat renders within threshold
 const chat = await until(`document.querySelectorAll('[class*=is-user],[class*=is-assistant]').length > 0`)

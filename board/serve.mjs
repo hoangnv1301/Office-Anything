@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { gatherOffice, slugFor } from './read.mjs'
 import { newestSession, chatFrom, readTail, pendingAsk } from './transcript.mjs'
-import { subagentsOf } from './read.mjs'
+import { subagentsOf, jobsOf } from './read.mjs'
 import { transcriptStats, worktop, filesUnder, treeOf } from './read.mjs'
 import { basename } from 'node:path'
 import { send, orcaAvailable, normalizeTitle } from './send.mjs'
@@ -67,14 +67,20 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
     const t = newestSession(dir)
     r.activeMin = t ? Math.round((now - (statSafe(t))) / 60000) : null
     r.agents = t ? subagentsOf(dir, t) : []
+    r.jobs = jobsOf(join('/private/tmp', 'claude-' + process.getuid(), r.key))
     const st = transcriptStats(join(home, '.claude', 'projects', r.key))
-    try { const tp = t ? readTail(t) : null; r.waiting = !!(tp && pendingAsk(tp.messages)) } catch { r.waiting = false }
+    let lastMsg = null
+    try { const tp = t ? readTail(t) : null; r.waiting = !!(tp && pendingAsk(tp.messages)); lastMsg = tp?.messages?.at(-1) ?? null } catch { r.waiting = false }
     const titles = liveTitles()
     r.online = titles ? (titles.has(r.desk) || r.desk === 'team-lead') : null
     // WORKING, from the source that cannot lie about it: Claude Code appends
     // to the transcript every few seconds mid-turn. The tab glyph looked like
     // a spinner and is in fact a permanent marker; mtime is the honest pulse.
-    r.busy = t ? (now - statSafe(t)) < 45000 : null
+    // ⛔ A finished turn ENDS with plain assistant text; mid-turn entries end
+    // with a tool call or a result. Without this, "working" outlived every
+    // turn by the whole mtime window and the owner watched a done desk brew.
+    const endedOnText = lastMsg?.role === 'assistant' && !(lastMsg.tools?.length)
+    r.busy = t ? ((now - statSafe(t)) < 45000 && !endedOnText) : null
     if (st) {
       const k = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
       r.sub += ' · ' + st.turns + ' turns · ' + k(st.input + st.cacheRead) + '/' + k(st.output) + ' tok'
@@ -104,6 +110,28 @@ export function makeServer(root) {
           res.writeHead(503, { 'content-type': 'text/plain' })
           return res.end('board UI not built: run `npm run build` in board/ui (maintainers only; releases ship it prebuilt)')
         }
+      }
+      if (url.pathname === '/hello') {
+        // a desk browser's START page: says whose it is and that it is ready,
+        // so a wall of open Chromes stops reading as "what even runs here"
+        const who = (url.searchParams.get('desk') ?? 'a desk').replace(/[^a-zA-Z0-9 _.-]/g, '').slice(0, 60)
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
+        return res.end(`<!doctype html><meta charset="utf-8"><title>${who} · the office</title>
+<body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0a;color:#fafafa;font-family:system-ui">
+<div style="text-align:center"><div style="font-size:44px">🏢</div>
+<div style="font-size:22px;font-weight:600;margin-top:8px">${who}</div>
+<div style="color:#8a8a8a;margin-top:6px;font-size:14px">browser ready · watched from the office board</div></div></body>`)
+      }
+      if (url.pathname === '/api/tabs') {
+        // every page the desk's browser has open, for the mirror's tab strip
+        const key = url.searchParams.get('key') ?? ''
+        const row = chatRosterCheap(root).find((r) => r.key === key)
+        if (!row?.port || row.port === 9222) { res.writeHead(204); return res.end() }
+        return fetch(`http://127.0.0.1:${row.port}/json/list`).then(async (r2) => {
+          const tabs = (await r2.json()).filter((t) => t.type === 'page')
+            .map((t) => ({ id: t.id, title: t.title, url: t.url }))
+          return json(res, 200, { tabs })
+        }).catch(() => { res.writeHead(204); res.end() })
       }
       if (url.pathname === '/favicon.svg' || url.pathname === '/icons.svg') {
         try {
@@ -180,22 +208,47 @@ export function makeServer(root) {
       if (url.pathname === '/api/commands') {
         // The desk's real slash commands, from the same places Claude Code
         // reads them: the repo's and the user's .claude, and this plugin's own.
-        const names = new Set()
-        const scan = (d, suffix) => {
-          try { for (const f of readdirSync(d)) if (f.endsWith('.md')) names.add('/' + f.replace(/\.md$/, '') + (suffix ?? '')) } catch {}
+        const found = new Map() // name -> description ('' when none)
+        const descOf = (p) => {
+          try { return readFileSync(p, 'utf8').slice(0, 2000).match(/^description:\s*(.+)$/m)?.[1]?.trim().slice(0, 120) ?? '' } catch { return '' }
+        }
+        const names = { add: (n, d = '') => { if (!found.has(n) || d) found.set(n, d || found.get(n) || '') } }
+        const scan = (d) => {
+          try { for (const f of readdirSync(d)) if (f.endsWith('.md')) names.add('/' + f.replace(/\.md$/, ''), descOf(join(d, f))) } catch {}
+        }
+        const scanSkills = (d) => {
+          try { for (const f of readdirSync(d)) names.add('/' + f.replace(/\.md$/, ''), descOf(join(d, f, 'SKILL.md'))) } catch {}
         }
         scan(join(root, '.claude', 'commands'))
-        try { for (const f of readdirSync(join(root, '.claude', 'skills'))) names.add('/' + f) } catch {}
+        scanSkills(join(root, '.claude', 'skills'))
         scan(join(homedir(), '.claude', 'commands'))
+        scanSkills(join(homedir(), '.claude', 'skills'))
         scan(join(fileURLToPath(new URL('../commands/', import.meta.url))))
-        return json(res, 200, { commands: [...names].sort() })
+        // every OTHER installed plugin's commands and skills, from the cache
+        // Claude Code itself loads them from
+        try {
+          const cache = join(homedir(), '.claude', 'plugins', 'cache')
+          for (const mkt of readdirSync(cache)) for (const plug of readdirSync(join(cache, mkt))) {
+            try {
+              const vers = readdirSync(join(cache, mkt, plug)).sort().reverse()
+              if (!vers.length) continue
+              const base = join(cache, mkt, plug, vers[0])
+              scan(join(base, 'commands'))
+              scanSkills(join(base, 'skills'))
+            } catch {}
+          }
+        } catch {}
+        // the CLI's own built-ins, the ones a desk terminal always answers
+        for (const [b, d] of [['/clear', 'start a fresh conversation'], ['/compact', 'compact the context, keep a summary'], ['/config', 'settings'], ['/context', 'what is in the context window'], ['/cost', 'token spend this session'], ['/doctor', 'health-check the install'], ['/effort', 'reasoning effort'], ['/fast', 'toggle fast mode'], ['/help', 'help'], ['/model', 'switch model'], ['/resume', 'resume a past session'], ['/status', 'session status']]) names.add(b, d)
+        const sorted = [...found.keys()].sort()
+        return json(res, 200, { commands: sorted, detail: sorted.map((n) => ({ name: n, desc: found.get(n) || '' })) })
       }
       if (url.pathname === '/api/screen') {
         const key = url.searchParams.get('key') ?? ''
         const row = chatRosterCheap(root).find((r) => r.key === key)
         if (!row?.port) { res.writeHead(204); return res.end() }
         if (row.port === 9222) { res.writeHead(403); return res.end() } // v1's LIVE account browser. Never.
-        return screenshotOf(row.port)
+        return screenshotOf(row.port, { tabId: url.searchParams.get('tab') || null })
           .then((shot) => {
             if (!shot) { res.writeHead(204); return res.end() }
             res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'no-store', 'x-tab-title': encodeURIComponent(shot.title ?? ''), 'x-tab-url': encodeURIComponent(shot.url ?? '') })
@@ -244,7 +297,11 @@ export function makeServer(root) {
         const folder = filesUnder(join('/private/tmp', 'claude-' + process.getuid(), key, sessionId, 'scratchpad'))
           .map((x) => ({ name: x.name, size: x.size, ageMin: Math.round((now - x.at) / 60000) }))
         const usage = tail ? { ...tail.stats, cost: costOf({ model: tail.stats.model, input: tail.stats.input, output: tail.stats.output, cacheRead: tail.stats.cacheRead, cacheWrite: tail.stats.cacheWrite ?? 0 }) } : null
-        return json(res, 200, { label, model: tail?.stats?.model ?? null, count: messages.length, messages, folder, workspace, usage, pending: pendingAsk(messages) })
+        // the CLI status line's numbers: elapsed since the human's message
+        // that started this turn, and the tokens it has produced so far
+        const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+        const turn = { elapsedSec: lastUser?.at ? Math.max(0, Math.round((now - Date.parse(lastUser.at)) / 1000)) : null, output: tail?.stats?.turnOutput ?? 0 }
+        return json(res, 200, { label, model: tail?.stats?.model ?? null, count: messages.length, messages, folder, workspace, usage, turn, pending: pendingAsk(messages) })
       }
       if (url.pathname === '/api/hire' && req.method === 'POST') {
         // ⛔ THE GUARDED ENTRY, NEVER THE PARTS. hire() owns the name rules,

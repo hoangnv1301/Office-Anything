@@ -3,6 +3,46 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.7.10
+
+The owner ran the office from a phone for an evening; this is that list.
+
+- A sent message ECHOES instantly, marked "delivering…", or "queued — the
+  desk is mid-turn, it reads this next" when busy; the echo dissolves the
+  moment the transcript shows the real turn. Typing into a terminal takes
+  seconds to surface, and a silent gap reads as a swallowed message.
+- "working…" ends when the turn ends: a finished turn closes with plain
+  assistant text, mid-turn entries end with a tool call. The shimmer had
+  outlived every turn by the whole mtime window.
+- The Computer is the WHOLE browser: a tab strip lists every open page,
+  click picks which one the mirror shows. The "display only · ~1 fps"
+  caption went away.
+- Desk browsers start on an identity page (/hello?desk=) instead of
+  about:blank, so a row of open Chromes says whose they are.
+- The / suggest now carries the full surface: this repo, the user, EVERY
+  installed plugin's commands and skills, and the CLI built-ins. 145 on
+  this machine, was 10.
+- Sidebar and rail collapse by drag. Hiring reads as a person joining a
+  division. Background jobs show under their desk AND below the mirror,
+  from tasks/*.output, amber while running. The tree's cap says plainly
+  what it is. The duplicate media button is one per screen size,
+  everywhere this time.
+- The / list is vertical with each command's own description, Tab
+  completes the top match, and the menu closes on send. The from-top
+  scroll on switch is actually dead now: the first fix sat ABOVE the
+  original resize="smooth" as a duplicate JSX prop, and the last one wins.
+- working… reads like the CLI status line: elapsed and tokens for THIS
+  turn, from a per-turn counter the tail reader keeps.
+- A folder click toggles the folder; it had been opening the file dialog
+  on the folder's path. Chat images click open full size in their own tab.
+- Polls tightened (chat 1.2s, roster 5s) — the unchanged-payload
+  short-circuit makes the extra beat nearly free.
+- The rig learned about WINDOW focus: with another Chrome holding macOS
+  focus, Base UI's focus trap never engages and Escape/outside dismissal
+  silently die. Three checks went red the moment five desk browsers were
+  relaunched. The rig now activates its tab and clicks once before
+  measuring — the failure was real, the subject was the environment.
+
 ## 0.7.9
 
 - Messaging the LEAD works. Its tab is titled with the task summary, never

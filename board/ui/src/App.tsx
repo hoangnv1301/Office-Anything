@@ -19,7 +19,7 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai-elements/web-preview'
-import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, DollarSign, CircleHelp, Bot, Users } from 'lucide-react'
+import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, DollarSign, CircleHelp, Bot, Users, Clock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Button } from '@/components/ui/button'
@@ -36,13 +36,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { Shimmer } from '@/components/ai-elements/shimmer'
 
-type Desk = { key: string; label: string; sub: string; activeMin: number | null; online?: boolean | null; busy?: boolean | null; waiting?: boolean; agents?: { kind?: string; label: string; activeMin: number; turns: number }[] }
+type Desk = { key: string; label: string; sub: string; activeMin: number | null; online?: boolean | null; busy?: boolean | null; waiting?: boolean; agents?: { kind?: string; label: string; activeMin: number; turns: number }[]; jobs?: { id: string; ageSec: number; size: number }[] }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string } | { kind: 'marker'; label: string }
 export type Msg = { role: 'user' | 'assistant' | 'system'; text: string; label?: string; tools?: ToolRow[]; images?: Img[]; reasoning?: string | null }
 type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
 type Usage = { turns: number; input: number; output: number; cacheRead: number; cacheWrite: number; model: string | null; sessions?: number; cost: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number; asOf: string } | null }
 type PendingAsk = { type: 'question'; questions: { question: string; header?: string; multiSelect?: boolean; options: { label: string; description?: string }[] }[] } | { type: 'plan'; plan: string }
-type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null; usage?: Usage | null; pending?: PendingAsk | null }
+type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null; usage?: Usage | null; turn?: { elapsedSec: number | null; output: number } | null; pending?: PendingAsk | null }
 type CdpTab = { title: string; url: string; devtools: string }
 
 const kb = (n: number) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'
@@ -136,16 +136,19 @@ function renderWs(n: WsNode, prefix: string): React.ReactNode {
       <FileTreeFolder key={prefix + d} name={d} path={prefix + d}>{renderWs(c, prefix + d + '/')}</FileTreeFolder>
     ))}
     {n.files.map((f) => <FileTreeFile key={prefix + f.name} name={f.name} path={prefix + f.name} title={kb(f.size)} />)}
-    {n.truncated && <div className="px-2 py-1 text-[10px] text-muted-foreground">…bounded on purpose</div>}
+    {n.truncated && <div className="px-2 py-1 text-[10px] text-muted-foreground">… more files not shown — the tree lists the first 500</div>}
   </>)
 }
 
 const Pictures = ({ images }: { images?: Img[] }) => !images?.length ? null : (
   <span className="mt-1 flex flex-wrap gap-2">
+    {/* click = the full-size image in its own tab, URL and all */}
     {images.map((im, i) => im.kind === 'b64'
-      ? <AIImage key={i} base64={im.data} uint8Array={new Uint8Array()} mediaType={im.mediaType} alt="pasted image" className="max-h-72" />
+      ? <a key={i} href={'data:' + im.mediaType + ';base64,' + im.data} target="_blank" rel="noreferrer" title="open full size">
+          <AIImage base64={im.data} uint8Array={new Uint8Array()} mediaType={im.mediaType} alt="pasted image" className="max-h-72 cursor-zoom-in" /></a>
       : im.kind === 'path'
-        ? <img key={i} src={'api/imgfile?p=' + encodeURIComponent(im.path)} alt={im.path.split('/').pop()} className="h-auto max-h-72 max-w-full overflow-hidden rounded-md" />
+        ? <a key={i} href={'api/imgfile?p=' + encodeURIComponent(im.path)} target="_blank" rel="noreferrer" title="open full size">
+            <img src={'api/imgfile?p=' + encodeURIComponent(im.path)} alt={im.path.split('/').pop()} className="h-auto max-h-72 max-w-full cursor-zoom-in overflow-hidden rounded-md" /></a>
         : <Badge key={i} variant="secondary" className="gap-1 font-normal text-muted-foreground"><ImageIcon className="size-3" /> {im.label}</Badge>)}
   </span>
 )
@@ -172,7 +175,9 @@ export default function App() {
   const [sel, setSel] = useState<string | null>(null)
   const [pane, setPane] = useState<Pane | null>(null)
   const [note, setNote] = useState('')
-  const [commands, setCommands] = useState<string[]>([])
+  const [commands, setCommands] = useState<{ name: string; desc: string }[]>([])
+  const commandsRef = useRef<{ name: string; desc: string }[]>([])
+  useEffect(() => { commandsRef.current = commands }, [commands])
   const [screen, setScreen] = useState<{ src: string | null; url: string; why: string }>({ src: null, url: '', why: 'Computer is off — no browser running for this desk' })
   const [showComputer, setShowComputer] = useState(false)
   const [file, setFile] = useState<{ path: string; kind: string; content?: string; size?: number } | null>(null)
@@ -216,8 +221,19 @@ export default function App() {
 
 
 
+  // the tree fires onSelect for FOLDER rows too; a folder click must toggle
+  // the folder, never open the detail dialog
+  const paneRef = useRef<Pane | null>(null)
+  const isFileIn = (n: WsNode | null | undefined, p: string): boolean => {
+    if (!n) return true // no tree yet: let the fetch decide
+    const parts = p.split('/')
+    let cur: WsNode = n
+    for (let i = 0; i < parts.length - 1; i++) { const d = cur.dirs[parts[i]]; if (!d) return false; cur = d }
+    return cur.files.some((f) => f.name === parts[parts.length - 1])
+  }
   const openFile = useCallback(async (path: string) => {
     if (!sel) return
+    if (!isFileIn(paneRef.current?.workspace, path)) return
     setDrawerOpen(false) // a file chosen from the phone drawer should be visible, not behind it
     setFile({ path, kind: 'loading' }) // the dialog opens NOW; content follows
     const q = 'api/wsfile?key=' + encodeURIComponent(sel) + '&path=' + encodeURIComponent(path)
@@ -235,6 +251,9 @@ export default function App() {
   // ⛔ THIS WAS A PLAIN OBJECT, recreated every render, so the diff guard
   // never engaged and the re-parse froze the thread anyway. A ref survives.
   const lastPayload = useRef('')
+  // what YOU just sent, shown immediately: typing -> terminal -> transcript
+  // -> poll takes seconds, and a silent gap reads as a swallowed message
+  const [outbox, setOutbox] = useState<{ text: string; at: number }[]>([])
   const poll = useCallback(async () => {
     if (!sel) return
     const text = await (await fetch('api/transcript?key=' + encodeURIComponent(sel))).text()
@@ -242,7 +261,11 @@ export default function App() {
     // seconds at a time. An unchanged payload must cost nothing.
     if (text === lastPayload.current) return
     lastPayload.current = text
-    setPane(JSON.parse(text))
+    const p = JSON.parse(text)
+    setPane(p); paneRef.current = p
+    // an echo leaves the outbox the moment the transcript itself shows it
+    const recent = new Set((p?.messages ?? []).slice(-12).filter((m: Msg) => m.role === 'user').map((m: Msg) => m.text))
+    setOutbox((o) => o.filter((x) => !recent.has(x.text) && Date.now() - x.at < 120000))
   }, [sel])
 
   // moved BELOW office/poll: referencing office above its const was a TDZ
@@ -256,28 +279,39 @@ export default function App() {
     if (r?.ok === false) { setHireWhy(r.why); return }   // the refusal IS the product; show it verbatim
     setHireOpen(false); office()
   }, [office])
-  useEffect(() => { office(); const t = setInterval(office, 10000); return () => clearInterval(t) }, [office])
-  useEffect(() => { poll(); const t = setInterval(poll, 2500); return () => clearInterval(t) }, [poll])
-  useEffect(() => { fetch('api/commands').then((r) => r.json()).then((j) => setCommands(j.commands ?? [])) }, [])
+  useEffect(() => { office(); const t = setInterval(office, 5000); return () => clearInterval(t) }, [office])
+  useEffect(() => { poll(); const t = setInterval(poll, 1200); return () => clearInterval(t) }, [poll])
+  useEffect(() => { fetch('api/commands').then((r) => r.json()).then((j) => setCommands(j.detail ?? (j.commands ?? []).map((n: string) => ({ name: n, desc: '' })))) }, [])
   // switching desks must not leave the LAST desk's pixels or words on
   // screen — a few seconds of the wrong desk reads as the wrong truth
   useEffect(() => {
-    setPane(null)
+    setPane(null); paneRef.current = null
+    setOutbox([])
     setScreen((old) => { if (old.src) URL.revokeObjectURL(old.src); return { src: null, url: '', why: 'connecting to this desk’s computer…' } })
   }, [sel])
+  // the WHOLE browser, not one tab: the strip lists every page the desk has
+  // open and a click picks which one the mirror shows
+  const [tabs, setTabs] = useState<{ id: string; title: string; url: string }[]>([])
+  const [curTab, setCurTab] = useState<string | null>(null)
+  useEffect(() => { setTabs([]); setCurTab(null) }, [sel])
   useEffect(() => {
     if (!sel || !showComputer) return
     let alive = true
     const go = async () => {
-      const r = await fetch('api/screen?key=' + encodeURIComponent(sel))
+      const r = await fetch('api/screen?key=' + encodeURIComponent(sel) + (curTab ? '&tab=' + encodeURIComponent(curTab) : ''))
       if (!alive) return
       if (r.status !== 200) { setScreen({ src: null, url: '', why: 'Computer is currently off for this desk' }); return }
       const blob = await r.blob()
       if (!alive) return
       setScreen((old) => { if (old.src) URL.revokeObjectURL(old.src); return { src: URL.createObjectURL(blob), url: decodeURIComponent(r.headers.get('x-tab-url') ?? ''), why: '' } })
     }
-    go(); const t = setInterval(go, 1200); return () => { alive = false; clearInterval(t) }
-  }, [sel, showComputer])
+    const tabsGo = async () => {
+      try { const r = await fetch('api/tabs?key=' + encodeURIComponent(sel)); if (r.status === 200) { const j = await r.json(); if (alive) setTabs(j.tabs ?? []) } } catch { /* the strip is a convenience */ }
+    }
+    go(); tabsGo()
+    const t = setInterval(go, 1200); const t2 = setInterval(tabsGo, 5000)
+    return () => { alive = false; clearInterval(t); clearInterval(t2) }
+  }, [sel, showComputer, curTab])
 
   const blocks = useMemo(() => toBlocks(pane?.messages ?? []), [pane])
 
@@ -304,6 +338,12 @@ export default function App() {
             <span className="truncate">{a.label}</span>
           </span>
         ))}
+        {d.jobs?.map((j) => (
+          <span key={j.id} title={'background job ' + j.id + ' · output ' + j.size + 'B'} className="flex w-full items-center gap-1.5 overflow-hidden pl-3.5 text-[10px] font-normal text-muted-foreground">
+            <Clock className={'size-2.5 flex-none ' + (j.ageSec < 60 ? 'animate-pulse text-amber-400' : '')} />
+            <span className="truncate">background · {j.id} · {j.ageSec < 60 ? 'running' : Math.round(j.ageSec / 60) + 'm ago'}</span>
+          </span>
+        ))}
       </span>
     </Button>
   ))
@@ -316,6 +356,12 @@ export default function App() {
     const h = (e: KeyboardEvent) => {
       const ta = e.target as HTMLTextAreaElement
       if (ta?.tagName !== 'TEXTAREA' || !sel) return
+      // Tab completes the top slash suggestion, exactly like the CLI
+      if (e.key === 'Tab' && ta.value.startsWith('/') && !ta.value.includes(' ')) {
+        const hit = commandsRef.current.find((c) => c.name.startsWith(ta.value))
+        if (hit) { ta.value = hit.name + ' '; ta.dispatchEvent(new Event('input', { bubbles: true })) }
+        e.preventDefault(); return
+      }
       let hist: string[] = []
       try { hist = JSON.parse(localStorage.getItem('office-hist-' + sel) ?? '[]') } catch { hist = [] }
       if (e.key === 'ArrowUp' && (ta.value === '' || histIdx.current >= 0)) {
@@ -342,7 +388,7 @@ export default function App() {
       body: JSON.stringify({ key: sel, text }),
     })).json()
     setNote(r.ok ? '' : '⛔ ' + r.why)
-    if (r.ok) setTimeout(poll, 900)
+    if (r.ok) { setOutbox((o) => [...o, { text, at: Date.now() }]); setTimeout(poll, 900) }
   }, [canSend, sel, poll])
 
   const onSubmit = useCallback(async (m: PromptInputMessage, e: React.FormEvent<HTMLFormElement>) => {
@@ -372,6 +418,8 @@ export default function App() {
         hist.push(text); localStorage.setItem(k, JSON.stringify(hist.slice(-50)))
       } catch { /* history is a convenience, never a failure */ }
       histIdx.current = -1
+      setOutbox((o) => [...o, { text, at: Date.now() }])
+      setSlashQ(null) // the form clears without an input event; the menu must follow
       setTimeout(poll, 800)
     }
   }, [canSend, sel, poll])
@@ -405,7 +453,7 @@ export default function App() {
   return (
     <ResizablePanelGroup orientation="horizontal" className="h-screen bg-background text-foreground">
       {/* item 3+7: panes told apart by TONE, resizable with bounds */}
-      {isDesktop && <ResizablePanel defaultSize="13%" minSize="9%" maxSize="24%" className="bg-sidebar">
+      {isDesktop && <ResizablePanel defaultSize="13%" minSize="9%" maxSize="24%" collapsible collapsedSize="0%" className="bg-sidebar">
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between py-2 pl-4 pr-2 font-semibold">
             <span className="py-1">🏢 the office</span>
@@ -483,8 +531,19 @@ export default function App() {
                 {(() => { const tail = blocks.slice(-60); return tail.map((b, i) => b.kind === 'msg'
                   ? <MsgBlock key={'m' + i} m={b.m} rich />
                   : <ToolsBlock key={'t' + i} tools={b.tools} />) })()}
+                {outbox.map((x, i) => (
+                  <div key={'ob' + i} className="opacity-70">
+                    <Message from="user"><MessageContent><span className="whitespace-pre-wrap break-words">{x.text}</span></MessageContent></Message>
+                    <div className="text-right text-[10px] text-muted-foreground">
+                      {desks.find((d) => d.key === sel)?.busy ? 'queued — the desk is mid-turn, it reads this next' : 'delivering…'}
+                    </div>
+                  </div>
+                ))}
                 {desks.find((d) => d.key === sel)?.busy && (
-                  <div className="py-1 text-sm"><Shimmer>✳ working…</Shimmer></div>
+                  <div className="py-1 text-sm"><Shimmer>{'✳ working… ' + (pane?.turn?.elapsedSec != null
+                    ? '(' + (pane.turn.elapsedSec >= 60 ? Math.floor(pane.turn.elapsedSec / 60) + 'm ' + (pane.turn.elapsedSec % 60) + 's' : pane.turn.elapsedSec + 's')
+                      + ' · ↓ ' + (pane.turn.output >= 1000 ? (pane.turn.output / 1000).toFixed(1) + 'k' : pane.turn.output) + ' tokens)'
+                    : '')}</Shimmer></div>
                 )}
               </ConversationContent>
               <ConversationScrollButton />
@@ -526,11 +585,16 @@ export default function App() {
                 <PromptInputBody>
                   <PromptInputHeader />
                   {slashQ && (
-                    <div className="flex flex-wrap gap-1 px-2 pt-2">
-                      {commands.filter((c) => c.startsWith(slashQ)).slice(0, 8).map((c) => (
-                        <Button key={c} variant="secondary" size="sm" className="h-6 px-2 text-xs" onClick={() => pickCommand(c)}>{c}</Button>
+                    <div className="max-h-56 overflow-y-auto px-1 pt-1">
+                      {commands.filter((c) => c.name.startsWith(slashQ)).slice(0, 12).map((c, i) => (
+                        <button key={c.name} type="button" onClick={() => pickCommand(c.name)}
+                          className={'flex w-full items-baseline gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent ' + (i === 0 ? 'bg-accent/50' : '')}>
+                          <span className="flex-none font-mono">{c.name}</span>
+                          <span className="truncate text-muted-foreground">{c.desc}</span>
+                          {i === 0 && <span className="ml-auto flex-none text-[9px] text-muted-foreground">tab</span>}
+                        </button>
                       ))}
-                      {commands.filter((c) => c.startsWith(slashQ)).length === 0 && (
+                      {commands.filter((c) => c.name.startsWith(slashQ)).length === 0 && (
                         <span className="px-1 text-[11px] text-muted-foreground">no matching command — Enter sends it as typed</span>
                       )}
                     </div>
@@ -549,18 +613,20 @@ export default function App() {
                         </PromptInputActionMenuContent>
                       </PromptInputActionMenu>
                     </span>
-                    {/* one tap straight to the native picker — the menu is a
-                        second hop that phones kept fumbling */}
-                    <Button variant="ghost" size="sm" className="h-8" title="Add a photo"
+                    {/* one tap straight to the native picker — MOBILE ONLY:
+                        with the + menu also visible on desktop this was a
+                        duplicate media button (owner flagged it twice) */}
+                    <Button variant="ghost" size="sm" className="h-8 sm:hidden" title="Add a photo"
                       onClick={() => (document.querySelector('input[type=file]') as HTMLInputElement | null)?.click()}>
                       <ImageIcon className="size-4" /></Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="h-8 text-xs">/ commands</Button>} />
                       <DropdownMenuContent className="max-h-72 overflow-y-auto">
                         {commands.map((c) => (
-                          <DropdownMenuItem key={c} onSelect={() => {
-                            const ta = document.querySelector('textarea'); if (ta) { ta.value = c + ' '; ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus() }
-                          }}>{c}</DropdownMenuItem>
+                          <DropdownMenuItem key={c.name} onSelect={() => pickCommand(c.name)}>
+                            <span className="font-mono">{c.name}</span>
+                            {c.desc && <span className="ml-2 truncate text-[11px] text-muted-foreground">{c.desc}</span>}
+                          </DropdownMenuItem>
                         ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -575,9 +641,17 @@ export default function App() {
           <ResizablePanel defaultSize="45%" minSize="25%" className="flex min-h-0 flex-col bg-black/20">
             {screen.src ? (
               <WebPreview className="min-h-0 flex-1">
+                {tabs.length > 1 && (
+                  <div className="flex gap-1 overflow-x-auto border-b border-border/40 px-1 py-1">
+                    {tabs.map((t, i) => (
+                      <Button key={t.id} variant={(curTab ?? tabs[0]?.id) === t.id ? 'secondary' : 'ghost'} size="sm"
+                        className="h-6 max-w-40 flex-none justify-start truncate px-2 text-[11px]" title={t.url}
+                        onClick={() => setCurTab(t.id)}>{t.title || 'tab ' + (i + 1)}</Button>
+                    ))}
+                  </div>
+                )}
                 <WebPreviewNavigation>
                   <WebPreviewUrl readOnly value={screen.url} />
-                  <span className="text-[11px] text-muted-foreground">display only · ~1 fps</span>
                 </WebPreviewNavigation>
                 {/* ⛔ WebPreviewBody IS an iframe; handing it a render prop
                     left an empty frame where the mirror belonged while the
@@ -590,6 +664,18 @@ export default function App() {
             ) : (
               <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">{screen.why}</div>
             )}
+            {(desks.find((d) => d.key === sel)?.jobs?.length ?? 0) > 0 && (
+              <div className="border-t border-border/40 px-3 py-2">
+                <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">background</div>
+                {desks.find((d) => d.key === sel)!.jobs!.map((j) => (
+                  <div key={j.id} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Clock className={'size-3 flex-none ' + (j.ageSec < 60 ? 'animate-pulse text-amber-400' : '')} />
+                    <span className="truncate">{j.id}</span>
+                    <span className="ml-auto flex-none">{j.ageSec < 60 ? 'running' : Math.round(j.ageSec / 60) + 'm ago'} · {kb(j.size)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </ResizablePanel>
           )}
           </ResizablePanelGroup>
@@ -598,7 +684,7 @@ export default function App() {
       {isDesktop && <ResizableHandle className="w-0 bg-transparent" />}
 
       {/* item 4: one rail, a menu to switch what it shows */}
-      {isDesktop && <ResizablePanel data-rail="files" defaultSize="22%" minSize="14%" maxSize="34%" className="bg-card">
+      {isDesktop && <ResizablePanel data-rail="files" defaultSize="22%" minSize="14%" maxSize="34%" collapsible collapsedSize="0%" className="bg-card">
         {railTabs}
       </ResizablePanel>}
       <Dialog open={hireOpen} onOpenChange={setHireOpen}>
@@ -610,8 +696,8 @@ export default function App() {
             <Select defaultValue="channel" onValueChange={(v) => { hireKind.current = v }}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent className="max-w-[calc(100vw-4rem)]">
-                <SelectItem value="channel" className="whitespace-normal">channel — talks to people on one channel</SelectItem>
-                <SelectItem value="knowledge" className="whitespace-normal">knowledge — holds facts, can never send</SelectItem>
+                <SelectItem value="channel" className="whitespace-normal">customer service — this person talks to customers, on one channel</SelectItem>
+                <SelectItem value="knowledge" className="whitespace-normal">back office — this person holds the knowledge and never contacts a customer</SelectItem>
               </SelectContent>
             </Select>
             {hireWhy && <div className="rounded-md bg-destructive/10 p-3 text-xs text-destructive">⛔ {hireWhy}</div>}

@@ -102,6 +102,24 @@ export function worktop(scratchBase) {
   } catch { return [] } // no session, or tmp swept at boot: an empty worktop is the truth
 }
 
+// BACKGROUND JOBS, from the native surface: a task the harness runs in the
+// background streams into <session>/tasks/<id>.output. A file still growing
+// is a job still running; one gone quiet is recently finished.
+export function jobsOf(scratchBase, { now = Date.now() } = {}) {
+  try {
+    const sessions = readdirSync(scratchBase, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => ({ name: e.name, at: statSync(join(scratchBase, e.name)).mtimeMs }))
+      .sort((a, b) => b.at - a.at)
+    if (!sessions.length) return []
+    const dir = join(scratchBase, sessions[0].name, 'tasks')
+    return readdirSync(dir).filter((f) => f.endsWith('.output')).map((f) => {
+      const st = statSync(join(dir, f))
+      return { id: f.replace(/\.output$/, '').slice(0, 12), ageSec: Math.round((now - st.mtimeMs) / 1000), size: st.size }
+    }).filter((j) => j.ageSec < 600).sort((a, b) => a.ageSec - b.ageSec).slice(0, 6)
+  } catch { return [] }
+}
+
 // A bounded tree of a session's WORKING folder (its cwd), for the rail.
 // .git and node_modules are nobody's reading; everything else shows, dotfiles
 // included, because desks genuinely live in .claude/ and friends. Bounded in

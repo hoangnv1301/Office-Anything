@@ -198,10 +198,14 @@ export function readTail(path, { limit = 80 } = {}) {
     const body = nl >= 0 ? text.slice(0, nl) : ''
     for (const m of chatFrom(body, { limit: Infinity, toolIndex })) messages.push(m)
     for (const line of body.split('\n')) {
+      // a human message starts a TURN; its output tokens accumulate until
+      // the next one, which is exactly the number the CLI status line shows
+      if (line.includes('"type":"user"') && !line.includes('"tool_result"')) stats.turnOutput = 0
       if (!line.includes('"usage"')) continue
       try {
         const j = JSON.parse(line); const u = j?.message?.usage
         if (!u) continue
+        stats.turnOutput = (stats.turnOutput ?? 0) + (u.output_tokens ?? 0)
         stats.turns += 1; stats.input += u.input_tokens ?? 0; stats.output += u.output_tokens ?? 0
         stats.cacheRead += u.cache_read_input_tokens ?? 0
         stats.cacheWrite += u.cache_creation_input_tokens ?? 0
