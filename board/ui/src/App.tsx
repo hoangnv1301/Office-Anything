@@ -29,6 +29,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 type Desk = { key: string; label: string; sub: string; activeMin: number | null }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string } | { kind: 'marker'; label: string }
@@ -138,6 +140,21 @@ export default function App() {
   const [screen, setScreen] = useState<{ src: string | null; url: string; why: string }>({ src: null, url: '', why: 'no browser to show for this desk yet' })
   const [showComputer, setShowComputer] = useState(false)
   const [file, setFile] = useState<{ path: string; kind: string; content?: string; size?: number } | null>(null)
+  const [hireOpen, setHireOpen] = useState(false)
+  const [hireWhy, setHireWhy] = useState('')
+  const hireName = useRef<HTMLInputElement>(null)
+  const hireDesc = useRef<HTMLInputElement>(null)
+  const hireKind = useRef('channel')
+
+  const doHire = useCallback(async () => {
+    setHireWhy('')
+    const r = await (await fetch('/api/hire', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: hireName.current?.value?.trim(), kind: hireKind.current, description: hireDesc.current?.value ?? '' }),
+    })).json()
+    if (r?.ok === false) { setHireWhy(r.why); return }   // the refusal IS the product; show it verbatim
+    setHireOpen(false); office()
+  }, [office])
 
   const openFile = useCallback(async (path: string) => {
     if (!sel) return
@@ -381,6 +398,28 @@ export default function App() {
           </TabsContent>
         </Tabs>
       </ResizablePanel>
+      <Dialog open={hireOpen} onOpenChange={setHireOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Hire a desk</DialogTitle></DialogHeader>
+          <div className="flex flex-col gap-3">
+            <Input ref={hireName} placeholder="name — lowercase-with-hyphens, e.g. tiktok-customer-service" />
+            <Input ref={hireDesc} placeholder="what this desk does, in one sentence" />
+            <Select defaultValue="channel" onValueChange={(v) => { hireKind.current = v }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="channel">channel — talks to people on one channel</SelectItem>
+                <SelectItem value="knowledge">knowledge — holds facts, can never send</SelectItem>
+              </SelectContent>
+            </Select>
+            {hireWhy && <div className="rounded-md bg-destructive/10 p-3 text-xs text-destructive">⛔ {hireWhy}</div>}
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setHireOpen(false)}>Cancel</Button>
+              <Button onClick={doHire}>Hire</Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Two readers must agree on the kind — you, and the contract's own reading of the description. A disagreement is refused with the reason, and that refusal is the point.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={!!file} onOpenChange={(o) => !o && setFile(null)}>
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">
           <DialogHeader><DialogTitle className="truncate font-mono text-sm">{file?.path}</DialogTitle></DialogHeader>

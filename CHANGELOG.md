@@ -3,6 +3,13 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.6.2
+
+- A ＋ button hires a desk from the board, through hire() and nothing else:
+  the human picks the kind as reader one, the contract's own reading is
+  reader two, and a disagreement comes back 409 with the refusal shown
+  verbatim, because the refusals are the product.
+
 ## 0.6.1
 
 - The Computer opens BESIDE the chat, resizable, never instead of it.

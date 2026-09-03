@@ -22,6 +22,7 @@ import { send, orcaAvailable, normalizeTitle } from './send.mjs'
 import { screenshotOf } from '../lib/cdp.mjs'
 import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
 import { rosterSafe, leadDesk } from '../lib/desk.mjs'
+import { hire } from '../lib/hire.mjs'
 import { collect } from '../checks/run.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
@@ -217,6 +218,28 @@ export function makeServer(root) {
         const folder = filesUnder(join('/private/tmp', 'claude-' + process.getuid(), key, sessionId, 'scratchpad'))
           .map((x) => ({ name: x.name, size: x.size, ageMin: Math.round((now - x.at) / 60000) }))
         return json(res, 200, { label, model: tail?.stats?.model ?? null, count: messages.length, messages, folder, workspace })
+      }
+      if (url.pathname === '/api/hire' && req.method === 'POST') {
+        // ⛔ THE GUARDED ENTRY, NEVER THE PARTS. hire() owns the name rules,
+        // the port claim, the one-lead rule, and the two-reader agreement on
+        // who may talk to a customer. Here the HUMAN is reader one (they pick
+        // the kind in the dialog); hire's own reading is reader two, and its
+        // refusal text goes to the screen verbatim, because the refusals are
+        // the product.
+        let body = ''
+        req.on('data', (c) => { body += c; if (body.length > 65536) req.destroy() })
+        req.on('end', () => {
+          try {
+            const { name, kind, description } = JSON.parse(body)
+            const r = hire(root, { name, kind, description: description ?? '' })
+            return json(res, 200, r)
+          } catch (e) {
+            // a two-reader disagreement is a 409 (the readings conflict);
+            // everything else the contract throws is a plain bad request
+            return json(res, e.disagreement ? 409 : 400, { ok: false, why: e.message })
+          }
+        })
+        return
       }
       if (url.pathname === '/api/send' && req.method === 'POST') {
         let body = ''
