@@ -90,7 +90,7 @@ const textOf = (content) => {
   return content.filter((b) => b.type === 'text').map((b) => b.text).join('\n')
 }
 
-export function chatFrom(jsonlText, { limit = 80 } = {}) {
+export function chatFrom(jsonlText, { limit = 80, toolIndex = new Map() } = {}) {
   const out = []
   for (const line of jsonlText.split('\n')) {
     if (!line.trim()) continue
@@ -101,6 +101,22 @@ export function chatFrom(jsonlText, { limit = 80 } = {}) {
       const text = textOf(m.content)
       // tool results come back as user-typed entries; they are plumbing, not chat
       const isToolResult = Array.isArray(m.content) && m.content.some((b) => b.type === 'tool_result')
+      // ...but each result carries the OUTCOME of a call already on screen:
+      // attach output text and the error flag to the tool it answers. The
+      // index survives incremental reads via the readTail cache, so a result
+      // landing in a later chunk still finds its call.
+      if (isToolResult) {
+        for (const b of m.content) {
+          if (b.type !== 'tool_result' || !b.tool_use_id) continue
+          const t = toolIndex.get(b.tool_use_id)
+          if (!t) continue
+          const otext = typeof b.content === 'string' ? b.content
+            : Array.isArray(b.content) ? b.content.filter((c) => c.type === 'text').map((c) => c.text).join('\n') : ''
+          t.output = otext.slice(0, 1500)
+          t.isError = !!b.is_error
+          toolIndex.delete(b.tool_use_id)
+        }
+      }
       const images = imagesOf(m.content)
       const clean = text.replace(IMG_MARKER, '').trim()
       if (!isToolResult && (clean || images.length)) {
@@ -118,7 +134,12 @@ export function chatFrom(jsonlText, { limit = 80 } = {}) {
       // thinking (-> Reasoning), tool_use with input (-> Tool)
       const arr = Array.isArray(m.content) ? m.content : []
       const tools = arr.filter((b) => b.type === 'tool_use')
-        .map((b) => ({ name: b.name, input: b.input ?? {} }))
+        .map((b) => {
+          const t = { name: b.name, input: b.input ?? {}, output: null, isError: false }
+          if (b.id) toolIndex.set(b.id, t)
+          return t
+        })
+      if (toolIndex.size > 800) for (const k of [...toolIndex.keys()].slice(0, 400)) toolIndex.delete(k)
       const reasoning = arr.filter((b) => b.type === 'thinking').map((b) => b.thinking ?? '').join('\n').slice(0, 4000)
       if (text.trim() || tools.length || reasoning.trim()) {
         out.push({ role: 'assistant', text: text.slice(0, 4000), tools, images: imagesOf(m.content), reasoning: reasoning.trim() || null, at: j.timestamp ?? null, model: m.model ?? null })
@@ -164,8 +185,8 @@ export function readTail(path, { limit = 80 } = {}) {
   try { st = statSync(path) } catch { return null }
   const c = tailCache.get(path)
   if (c && c.size === st.size && c.mtimeMs === st.mtimeMs) return c
-  let from = 0, carry = '', messages = [], stats = { turns: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, model: null }
-  if (c && st.size > c.size) { from = c.size; carry = c.carry; messages = c.messages.slice(); stats = { ...c.stats } }
+  let from = 0, carry = '', messages = [], stats = { turns: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, model: null }, toolIndex = new Map()
+  if (c && st.size > c.size) { from = c.size; carry = c.carry; messages = c.messages.slice(); stats = { ...c.stats }; toolIndex = c.toolIndex ?? new Map() }
   const fd = openSync(path, 'r')
   try {
     const len = st.size - from
@@ -175,7 +196,7 @@ export function readTail(path, { limit = 80 } = {}) {
     const nl = text.lastIndexOf('\n')
     carry = nl >= 0 ? text.slice(nl + 1) : text
     const body = nl >= 0 ? text.slice(0, nl) : ''
-    for (const m of chatFrom(body, { limit: Infinity })) messages.push(m)
+    for (const m of chatFrom(body, { limit: Infinity, toolIndex })) messages.push(m)
     for (const line of body.split('\n')) {
       if (!line.includes('"usage"')) continue
       try {
@@ -189,7 +210,7 @@ export function readTail(path, { limit = 80 } = {}) {
     }
   } finally { closeSync(fd) }
   if (messages.length > limit) messages = messages.slice(-limit)
-  const entry = { size: st.size, mtimeMs: st.mtimeMs, carry, messages, stats: { ...stats, lastActiveMs: st.mtimeMs } }
+  const entry = { size: st.size, mtimeMs: st.mtimeMs, carry, messages, toolIndex, stats: { ...stats, lastActiveMs: st.mtimeMs } }
   tailCache.set(path, entry)
   return entry
 }

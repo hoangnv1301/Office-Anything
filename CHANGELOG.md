@@ -3,6 +3,21 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.7.8
+
+- Tool calls show their RESULTS. Each tool_result attaches its output text
+  and error flag to the call it answers, paired by tool_use_id through an
+  index the incremental reader carries across chunks, so a result landing
+  in a later read still finds its call. A failed call turns its row red
+  and the fold says "⛔ n failed". The registry's ToolOutput and
+  output-error state existed all along, unused.
+- Edit and Write render as diffs: what left in red, what arrived in green,
+  the file path on top. Raw JSON was the CLI's job to avoid, and now the
+  board's too.
+- The suite caught the tool-shape change and the stated-count ratchet
+  caught its own README badge going stale, twice. Both synced by count,
+  not by hand-waving.
+
 ## 0.7.7
 
 - Markdown for the WHOLE tail. The last-15 cutoff predated the memoized

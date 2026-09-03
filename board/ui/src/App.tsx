@@ -8,7 +8,7 @@ import {
 } from '@/components/ai-elements/conversation'
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message'
 import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
-import { Tool, ToolHeader, ToolContent, ToolInput } from '@/components/ai-elements/tool'
+import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
 import { Task, TaskTrigger, TaskContent } from '@/components/ai-elements/task'
 import { FileTree, FileTreeFolder, FileTreeFile } from '@/components/ai-elements/file-tree'
 import { Image as AIImage } from '@/components/ai-elements/image'
@@ -38,7 +38,7 @@ import { Shimmer } from '@/components/ai-elements/shimmer'
 
 type Desk = { key: string; label: string; sub: string; activeMin: number | null; online?: boolean | null; busy?: boolean | null; waiting?: boolean; agents?: { kind?: string; label: string; activeMin: number; turns: number }[] }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string } | { kind: 'marker'; label: string }
-export type Msg = { role: 'user' | 'assistant' | 'system'; text: string; label?: string; tools?: { name: string; input: unknown }[]; images?: Img[]; reasoning?: string | null }
+export type Msg = { role: 'user' | 'assistant' | 'system'; text: string; label?: string; tools?: ToolRow[]; images?: Img[]; reasoning?: string | null }
 type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
 type Usage = { turns: number; input: number; output: number; cacheRead: number; cacheWrite: number; model: string | null; sessions?: number; cost: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number; asOf: string } | null }
 type PendingAsk = { type: 'question'; questions: { question: string; header?: string; multiSelect?: boolean; options: { label: string; description?: string }[] }[] } | { type: 'plan'; plan: string }
@@ -78,21 +78,49 @@ const MsgBlock = memo(function MsgBlock({ m, rich }: { m: Msg; rich: boolean }) 
   )
 }, (a, b) => a.m.text === b.m.text && a.rich === b.rich && a.m.reasoning === b.m.reasoning && (a.m.images?.length ?? 0) === (b.m.images?.length ?? 0))
 
-const ToolsBlock = memo(function ToolsBlock({ tools }: { tools: { name: string; input: unknown }[] }) {
+type ToolRow = { name: string; input: unknown; output?: string | null; isError?: boolean }
+
+// an Edit is a diff and should read as one: what left in red, what arrived
+// in green. Write shows the new content in green. Everything else keeps the
+// registry's ToolInput JSON view.
+const EditDiff = ({ input }: { input: Record<string, unknown> }) => (
+  <div className="space-y-1 p-2 text-xs">
+    {typeof input.file_path === 'string' && <div className="font-mono text-muted-foreground">{input.file_path}</div>}
+    {typeof input.old_string === 'string' && (
+      <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border-l-2 border-red-500 bg-red-950/30 p-2 text-red-200">{input.old_string.slice(0, 1500)}</pre>
+    )}
+    {typeof input.new_string === 'string' && (
+      <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border-l-2 border-emerald-500 bg-emerald-950/30 p-2 text-emerald-200">{input.new_string.slice(0, 1500)}</pre>
+    )}
+    {typeof input.content === 'string' && (
+      <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border-l-2 border-emerald-500 bg-emerald-950/30 p-2 text-emerald-200">{input.content.slice(0, 1500)}</pre>
+    )}
+  </div>
+)
+
+const ToolsBlock = memo(function ToolsBlock({ tools }: { tools: ToolRow[] }) {
+  const failed = tools.filter((t) => t.isError).length
   return (
     <Task defaultOpen={false} className="my-0.5">
-      <TaskTrigger title={'⚙ ' + tools.length + ' tool call' + (tools.length > 1 ? 's' : '') + ' — ' + [...new Set(tools.map((t) => t.name))].join(', ')} />
+      <TaskTrigger title={'⚙ ' + tools.length + ' tool call' + (tools.length > 1 ? 's' : '') + ' — ' + [...new Set(tools.map((t) => t.name))].join(', ') + (failed ? ' · ⛔ ' + failed + ' failed' : '')} />
       <TaskContent>
-        {tools.map((t, k) => (
-          <Tool key={k} className="my-0.5">
-            <ToolHeader type="dynamic-tool" state="output-available" toolName={t.name} />
-            <ToolContent><ToolInput input={t.input} /></ToolContent>
-          </Tool>
-        ))}
+        {tools.map((t, k) => {
+          const isDiff = (t.name === 'Edit' || t.name === 'Write') && typeof t.input === 'object' && t.input !== null
+          return (
+            <Tool key={k} className="my-0.5">
+              <ToolHeader type="dynamic-tool" state={t.isError ? 'output-error' : t.output ? 'output-available' : 'input-available'} toolName={t.name} />
+              <ToolContent>
+                {isDiff ? <EditDiff input={t.input as Record<string, unknown>} /> : <ToolInput input={t.input} />}
+                <ToolOutput output={t.isError ? undefined : (t.output || undefined)} errorText={t.isError ? (t.output || 'failed') : undefined} />
+              </ToolContent>
+            </Tool>
+          )
+        })}
       </TaskContent>
     </Task>
   )
-}, (a, b) => a.tools.length === b.tools.length && a.tools[0]?.name === b.tools[0]?.name)
+}, (a, b) => a.tools.length === b.tools.length && a.tools[0]?.name === b.tools[0]?.name
+  && a.tools.map((t) => (t.output ? 1 : 0) + (t.isError ? 2 : 0)).join() === b.tools.map((t) => (t.output ? 1 : 0) + (t.isError ? 2 : 0)).join())
 
 // ⛔ THE RAIL MUST NOT REBUILD BECAUSE THE CHAT MOVED. The lead's transcript
 // grows every few seconds; every poll re-rendered the pane and the tree was

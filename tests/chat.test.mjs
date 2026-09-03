@@ -21,8 +21,33 @@ test('user text and assistant text become messages; plumbing does not', () => {
   const m = chatFrom(jsonl)
   assert.equal(m.length, 2, 'a tool_result and a torn line are plumbing, not chat')
   assert.deepEqual(m.map((x) => x.role), ['user', 'assistant'])
-  assert.deepEqual(m[1].tools, [{ name: 'Bash', input: {} }], 'tools carry their input for the Tool element')
+  assert.deepEqual(m[1].tools, [{ name: 'Bash', input: {}, output: null, isError: false }], 'tools carry input plus a slot for their result')
   assert.equal(m[1].model, 'claude-opus-5')
+})
+
+test('a tool_result attaches its output and error flag to the call it answers', () => {
+  const jsonl =
+    L({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_1', name: 'Bash', input: { command: 'ls' } }] } })
+    + L({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_1', content: 'file-a\nfile-b', is_error: false }] } })
+    + L({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_2', name: 'Bash', input: { command: 'boom' } }] } })
+    + L({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_2', content: [{ type: 'text', text: 'exit 1: no such command' }], is_error: true }] } })
+  const m = chatFrom(jsonl)
+  assert.equal(m.length, 2, 'result lines stay plumbing; their content rides the call')
+  assert.equal(m[0].tools[0].output, 'file-a\nfile-b')
+  assert.equal(m[0].tools[0].isError, false)
+  assert.equal(m[1].tools[0].output, 'exit 1: no such command', 'array-form result content joins its text blocks')
+  assert.equal(m[1].tools[0].isError, true, 'is_error survives to the UI, which turns the row red')
+})
+
+test('a result landing in a LATER parse still finds its call via a shared toolIndex', () => {
+  const toolIndex = new Map()
+  const first = chatFrom(
+    L({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_9', name: 'Read', input: {} }] } }),
+    { toolIndex })
+  chatFrom(
+    L({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu_9', content: 'the file body' }] } }),
+    { toolIndex })
+  assert.equal(first[0].tools[0].output, 'the file body', 'the incremental reader hands the same map to every chunk')
 })
 
 test('the tail is capped, oldest dropped first', () => {
