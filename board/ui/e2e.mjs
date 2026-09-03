@@ -121,7 +121,7 @@ await mouseClick(`[...document.querySelectorAll('button')].find(b=>/Computer/.te
 const screenUp = (await fetch('http://127.0.0.1:7719/api/screen?key=' + encodeURIComponent(await evalJs(`window.__selKey ?? ''`) || '-Volumes-Extreme-SSD-external-workspace-alibaba-store-diagnost-ai-alibaba-claude-runbook-v2-desks-design'))).status === 200
 const computer = screenUp
   ? await until(`(()=>{const img=document.querySelector('img[alt="desk browser display"]'); const chat=document.querySelectorAll('[class*=is-user],[class*=is-assistant]').length>0; return img&&img.complete&&img.naturalWidth>0&&chat ? 'mirror-beside-chat' : false})()`, 12000)
-  : await until(`/no headed browser|no browser to show/.test(document.body.innerText)`, 6000)
+  : await until(`/Computer is (currently )?off|no headed browser|no browser to show/.test(document.body.innerText)`, 6000)
 check('computer opens BESIDE the chat with a live mirror', computer.ok, String(computer.v ?? 'why') + ' ' + computer.ms + 'ms')
 await shot('computer')
 

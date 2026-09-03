@@ -3,6 +3,26 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.7.7
+
+- Markdown for the WHOLE tail. The last-15 cutoff predated the memoized
+  blocks it was protecting against; every older turn read as raw
+  asterisks. Each message parses once now, so the cutoff protected
+  nothing.
+- Screenshots a TOOL returned finally render. They live one level down,
+  inside the tool_result block, and the extractor never walked that level;
+  tool results stay plumbing except their pictures.
+- Tool-call and system rows read left-aligned: a native button centers
+  wrapped text, which put "2 tool calls" in the middle of the row.
+- One attach affordance per screen: the photo button is the phone's, the
+  action menu is the desktop's; both showed on mobile and shoved each
+  other.
+- The Computer pane says "currently off" when a desk has no browser, in
+  those words. The mirror only polls while open, per viewer, so off costs
+  nothing.
+- local command events name their command in the fold and drop the ANSI
+  color codes that rode /compact stdout onto the screen.
+
 ## 0.7.6
 
 A phone-in-hand pass by the owner, every item found by using the board.

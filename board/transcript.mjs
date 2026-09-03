@@ -50,7 +50,10 @@ const systemLabel = (t) => {
     return 'message from ' + (m?.[1] ?? 'another session')
   }
   if (/Stop hook/i.test(t)) return 'stop hook'
-  if (/local-command|command-name/i.test(t)) return 'local command'
+  if (/local-command|command-name/i.test(t)) {
+    const name = t.match(/<command-name>\s*([^<\s]+)/i)?.[1]
+    return name ? 'local command · ' + name : 'local command'
+  }
   if (/system-reminder/i.test(t)) return 'system reminder'
   return 'system'
 }
@@ -61,6 +64,15 @@ const imagesOf = (content) => {
     for (const b of content) {
       if (b.type === 'image' && b.source?.type === 'base64' && typeof b.source.data === 'string' && b.source.data.length < 8_000_000) {
         out.push({ kind: 'b64', mediaType: b.source.media_type ?? 'image/png', data: b.source.data })
+      }
+      // a screenshot handed back by a tool lives INSIDE the tool_result
+      // block, one level down — the level the first version never walked
+      if (b.type === 'tool_result' && Array.isArray(b.content)) {
+        for (const c of b.content) {
+          if (c.type === 'image' && c.source?.type === 'base64' && typeof c.source.data === 'string' && c.source.data.length < 8_000_000) {
+            out.push({ kind: 'b64', mediaType: c.source.media_type ?? 'image/png', data: c.source.data })
+          }
+        }
       }
     }
   }
@@ -92,8 +104,13 @@ export function chatFrom(jsonlText, { limit = 80 } = {}) {
       const images = imagesOf(m.content)
       const clean = text.replace(IMG_MARKER, '').trim()
       if (!isToolResult && (clean || images.length)) {
-        if (isSystemText(text)) out.push({ role: 'system', label: systemLabel(text), text: text.slice(0, 2500), at: j.timestamp ?? null })
+        // eslint-disable-next-line no-control-regex -- ANSI color codes ride local-command stdout
+        if (isSystemText(text)) out.push({ role: 'system', label: systemLabel(text), text: text.replace(/\x1b\[[0-9;]*m/g, '').slice(0, 2500), at: j.timestamp ?? null })
         else out.push({ role: 'user', text: clean.slice(0, 4000), images, at: j.timestamp ?? null })
+      } else if (isToolResult && images.length) {
+        // tool results stay plumbing EXCEPT their pictures: a screenshot a
+        // tool returned is something the human should see, not skip
+        out.push({ role: 'user', text: '', images, at: j.timestamp ?? null })
       }
     } else if (j.type === 'assistant' && m) {
       const text = textOf(m.content)

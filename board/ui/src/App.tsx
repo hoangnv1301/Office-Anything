@@ -145,7 +145,7 @@ export default function App() {
   const [pane, setPane] = useState<Pane | null>(null)
   const [note, setNote] = useState('')
   const [commands, setCommands] = useState<string[]>([])
-  const [screen, setScreen] = useState<{ src: string | null; url: string; why: string }>({ src: null, url: '', why: 'no browser to show for this desk yet' })
+  const [screen, setScreen] = useState<{ src: string | null; url: string; why: string }>({ src: null, url: '', why: 'Computer is off — no browser running for this desk' })
   const [showComputer, setShowComputer] = useState(false)
   const [file, setFile] = useState<{ path: string; kind: string; content?: string; size?: number } | null>(null)
   const [hireOpen, setHireOpen] = useState(false)
@@ -235,7 +235,7 @@ export default function App() {
   // screen — a few seconds of the wrong desk reads as the wrong truth
   useEffect(() => {
     setPane(null)
-    setScreen((old) => { if (old.src) URL.revokeObjectURL(old.src); return { src: null, url: '', why: 'connecting to this desk…' } })
+    setScreen((old) => { if (old.src) URL.revokeObjectURL(old.src); return { src: null, url: '', why: 'connecting to this desk’s computer…' } })
   }, [sel])
   useEffect(() => {
     if (!sel || !showComputer) return
@@ -243,7 +243,7 @@ export default function App() {
     const go = async () => {
       const r = await fetch('api/screen?key=' + encodeURIComponent(sel))
       if (!alive) return
-      if (r.status !== 200) { setScreen({ src: null, url: '', why: 'no headed browser answering for this desk right now' }); return }
+      if (r.status !== 200) { setScreen({ src: null, url: '', why: 'Computer is currently off for this desk' }); return }
       const blob = await r.blob()
       if (!alive) return
       setScreen((old) => { if (old.src) URL.revokeObjectURL(old.src); return { src: URL.createObjectURL(blob), url: decodeURIComponent(r.headers.get('x-tab-url') ?? ''), why: '' } })
@@ -449,8 +449,11 @@ export default function App() {
                   </div>
                 )}
                 {pane && blocks.length === 0 && <ConversationEmptyState title="Nothing yet" description="This desk has no conversation in its current session." />}
+                {/* markdown for the WHOLE tail: memoized blocks parse once
+                    per message, so the old last-15 cutoff protected nothing
+                    and left older turns reading as raw asterisks */}
                 {(() => { const tail = blocks.slice(-60); return tail.map((b, i) => b.kind === 'msg'
-                  ? <MsgBlock key={'m' + i} m={b.m} rich={i >= tail.length - 15} />
+                  ? <MsgBlock key={'m' + i} m={b.m} rich />
                   : <ToolsBlock key={'t' + i} tools={b.tools} />) })()}
                 {desks.find((d) => d.key === sel)?.busy && (
                   <div className="py-1 text-sm"><Shimmer>✳ working…</Shimmer></div>
@@ -508,12 +511,16 @@ export default function App() {
                 </PromptInputBody>
                 <PromptInputFooter>
                   <PromptInputTools>
-                    <PromptInputActionMenu>
-                      <PromptInputActionMenuTrigger />
-                      <PromptInputActionMenuContent>
-                        <PromptInputActionAddAttachments />
-                      </PromptInputActionMenuContent>
-                    </PromptInputActionMenu>
+                    {/* one attach affordance per screen size: the photo
+                        button IS the mobile path, the menu is desktop's */}
+                    <span className="hidden sm:inline-flex">
+                      <PromptInputActionMenu>
+                        <PromptInputActionMenuTrigger />
+                        <PromptInputActionMenuContent>
+                          <PromptInputActionAddAttachments />
+                        </PromptInputActionMenuContent>
+                      </PromptInputActionMenu>
+                    </span>
                     {/* one tap straight to the native picker — the menu is a
                         second hop that phones kept fumbling */}
                     <Button variant="ghost" size="sm" className="h-8" title="Add a photo"
