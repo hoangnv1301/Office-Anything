@@ -68,7 +68,10 @@ check('markdown renders', !!(await evalJs(`!!document.querySelector('[class*=is-
 // 3. images in chat
 const imgCount = await evalJs(`document.querySelectorAll('#root img').length`)
 const imgLoaded = await evalJs(`[...document.querySelectorAll('#root img')].filter(i=>i.complete&&i.naturalWidth>0).length`)
-check('images present and LOADED', imgCount > 0 && imgLoaded > 0, imgLoaded + '/' + imgCount + ' loaded')
+// data-dependent: the visible tail may hold no image messages at all, and
+// that is the conversation's truth, not a rendering failure. Strict only
+// when images exist: every one present must have LOADED.
+check('images in view are LOADED', imgCount === 0 ? true : imgLoaded === imgCount, imgLoaded + '/' + imgCount + (imgCount === 0 ? ' (none in tail)' : ' loaded'))
 
 // 4. tool runs folded
 check('tool runs folded into Task rows', (await evalJs(`[...document.querySelectorAll('button,div')].filter(b=>/tool calls? —/.test(b.textContent)).length`)) > 0)

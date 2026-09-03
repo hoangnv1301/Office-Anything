@@ -3,6 +3,32 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.7.6
+
+A phone-in-hand pass by the owner, every item found by using the board.
+
+- A literal 0 haunted the chat: `text || images?.length` leaks the NUMBER
+  zero into JSX for every empty-text turn. Boolean now.
+- WORKING is a signal: a desk whose transcript grew in the last 45s pulses
+  sky in the sidebar and shows a shimmer at the chat tail. The tab glyph
+  looked like a spinner and is a permanent marker; mtime is the honest
+  pulse.
+- Typing / suggests commands INLINE above the composer, filtered as you
+  type, like the CLI. The dropdown button remains for discovery.
+- Switching desks: skeletons while loading (never the last desk's words,
+  never a blank flash), the mirror clears to "connecting", and the chat
+  lands at the BOTTOM instantly instead of animating down from the top.
+- The phone drawer dismisses on choice (desk, file, hire): a drawer that
+  stays over the thing you chose is a wall.
+- One-tap photo button in the composer; the action menu was a second hop
+  phones kept fumbling.
+- copy path button on an open file, for mentioning it in chat.
+- The hire dialog speaks plainly, and its kind dropdown no longer clips
+  mid-word over its own trigger.
+- iOS: 16px inputs (no focus zoom), safe-area bottom, viewport-fit=cover.
+- The rig's image check is honest about data-dependence: none-in-view
+  passes with a note; present-but-unloaded still fails.
+
 ## 0.7.5
 
 - Markdown stopped whispering. Rendered markdown rode muted grays and got

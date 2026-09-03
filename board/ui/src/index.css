@@ -145,3 +145,12 @@ html, body, #root { height: 100%; }
 .md-blue blockquote { border-left: 2px solid #3b82f6; color: var(--foreground); }
 .md-blue table th { color: #60a5fa; }
 .md-blue hr { border-color: oklch(0.985 0 0 / 15%); }
+
+/* Phone ergonomics: iOS zooms the page when a focused input is under 16px,
+   which yanks the whole board sideways mid-thought — so on small screens
+   every text input reads at 16px. The bottom padding respects the home
+   indicator (viewport-fit=cover in index.html). */
+@media (max-width: 767px) {
+  textarea, input[type="text"], input:not([type]) { font-size: 16px; }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+}

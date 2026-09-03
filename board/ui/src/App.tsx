@@ -33,8 +33,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Shimmer } from '@/components/ai-elements/shimmer'
 
-type Desk = { key: string; label: string; sub: string; activeMin: number | null; online?: boolean | null; waiting?: boolean; agents?: { kind?: string; label: string; activeMin: number; turns: number }[] }
+type Desk = { key: string; label: string; sub: string; activeMin: number | null; online?: boolean | null; busy?: boolean | null; waiting?: boolean; agents?: { kind?: string; label: string; activeMin: number; turns: number }[] }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string } | { kind: 'marker'; label: string }
 export type Msg = { role: 'user' | 'assistant' | 'system'; text: string; label?: string; tools?: { name: string; input: unknown }[]; images?: Img[]; reasoning?: string | null }
 type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
@@ -62,7 +64,9 @@ const MsgBlock = memo(function MsgBlock({ m, rich }: { m: Msg; rich: boolean }) 
           <ReasoningTrigger /><ReasoningContent>{m.reasoning}</ReasoningContent>
         </Reasoning>
       )}
-      {(m.text || m.images?.length) && (
+      {/* ⛔ boolean, not number: `text || images?.length` leaked a literal
+          0 into the chat for every empty-text, empty-images turn */}
+      {(m.text !== '' || (m.images?.length ?? 0) > 0) && (
         <Message from={m.role}>
           <MessageContent>
             {m.text && (rich ? <MessageResponse>{m.text}</MessageResponse> : <span className="whitespace-pre-wrap break-words">{m.text}</span>)}
@@ -145,6 +149,27 @@ export default function App() {
   const [showComputer, setShowComputer] = useState(false)
   const [file, setFile] = useState<{ path: string; kind: string; content?: string; size?: number } | null>(null)
   const [hireOpen, setHireOpen] = useState(false)
+  // the phone drawer is CONTROLLED so choosing anything inside it dismisses
+  // it — a drawer that stays over the thing you just chose is a wall
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  // typing "/" in the box suggests inline, the way the CLI does — the
+  // dropdown button was a second place to look for a first-class behavior
+  const [slashQ, setSlashQ] = useState<string | null>(null)
+  useEffect(() => {
+    const h = (e: Event) => {
+      const ta = e.target as HTMLTextAreaElement
+      if (ta?.tagName !== 'TEXTAREA') return
+      const v = ta.value
+      setSlashQ(v.startsWith('/') && !v.includes(' ') && v.length < 40 ? v : null)
+    }
+    document.addEventListener('input', h, true)
+    return () => document.removeEventListener('input', h, true)
+  }, [])
+  const pickCommand = useCallback((c: string) => {
+    const ta = document.querySelector('textarea')
+    if (ta) { ta.value = c + ' '; ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus() }
+    setSlashQ(null)
+  }, [])
   const [hireWhy, setHireWhy] = useState('')
   const hireName = useRef<HTMLInputElement>(null)
   const hireDesc = useRef<HTMLInputElement>(null)
@@ -165,6 +190,8 @@ export default function App() {
 
   const openFile = useCallback(async (path: string) => {
     if (!sel) return
+    setDrawerOpen(false) // a file chosen from the phone drawer should be visible, not behind it
+    setFile({ path, kind: 'loading' }) // the dialog opens NOW; content follows
     const q = 'api/wsfile?key=' + encodeURIComponent(sel) + '&path=' + encodeURIComponent(path)
     const r = await fetch(q)
     const type = r.headers.get('content-type') ?? ''
@@ -204,6 +231,12 @@ export default function App() {
   useEffect(() => { office(); const t = setInterval(office, 10000); return () => clearInterval(t) }, [office])
   useEffect(() => { poll(); const t = setInterval(poll, 2500); return () => clearInterval(t) }, [poll])
   useEffect(() => { fetch('api/commands').then((r) => r.json()).then((j) => setCommands(j.commands ?? [])) }, [])
+  // switching desks must not leave the LAST desk's pixels or words on
+  // screen — a few seconds of the wrong desk reads as the wrong truth
+  useEffect(() => {
+    setPane(null)
+    setScreen((old) => { if (old.src) URL.revokeObjectURL(old.src); return { src: null, url: '', why: 'connecting to this desk…' } })
+  }, [sel])
   useEffect(() => {
     if (!sel || !showComputer) return
     let alive = true
@@ -221,14 +254,15 @@ export default function App() {
   const blocks = useMemo(() => toBlocks(pane?.messages ?? []), [pane])
 
   const deskList = desks.map((d) => (
-    <Button key={d.key} variant={sel === d.key ? 'secondary' : 'ghost'} onClick={() => setSel(d.key)}
-      title={d.sub} className="h-auto w-full justify-start rounded-none px-3 py-1.5">
+    <Button key={d.key} variant={sel === d.key ? 'secondary' : 'ghost'} onClick={() => { setSel(d.key); setDrawerOpen(false) }}
+      title={d.sub} className="h-auto w-full justify-start rounded-none px-3 py-2.5 md:py-1.5">
       <span className="flex w-full flex-col items-start gap-0.5 overflow-hidden">
         <span className="flex w-full items-center gap-2 text-[13px] font-medium">
           <span className={'size-1.5 flex-none rounded-full ' + (
-            (d.online ?? (d.activeMin != null && d.activeMin < 30))
-              ? (d.activeMin != null && d.activeMin < 5 ? 'animate-pulse bg-emerald-400' : 'bg-emerald-500')
-              : 'bg-muted-foreground/25')} />
+            d.busy ? 'animate-pulse bg-sky-400'
+              : (d.online ?? (d.activeMin != null && d.activeMin < 30))
+                ? (d.activeMin != null && d.activeMin < 5 ? 'animate-pulse bg-emerald-400' : 'bg-emerald-500')
+                : 'bg-muted-foreground/25')} />
           <span className="truncate">{d.label}</span>
           {d.sub.includes('LIVE') && <Badge className="h-4 flex-none px-1 text-[9px]">LIVE</Badge>}
           {(d.agents?.length ?? 0) > 0 && <Badge variant="secondary" className="h-4 flex-none px-1 text-[9px]">◇ {d.agents!.length}</Badge>}
@@ -357,11 +391,11 @@ export default function App() {
       <ResizablePanel defaultSize={isDesktop ? '60%' : '100%'} minSize="40%">
         <div className="flex h-full flex-col">
           <header className="flex items-center gap-2 px-4 py-2 md:px-6">
-            <Sheet>
+            <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
               <SheetTrigger render={<Button variant="ghost" size="sm" className="md:hidden"><Menu className="size-4" /></Button>} />
               <SheetContent side="left" className="flex w-72 flex-col p-0">
                 <SheetTitle className="flex items-center gap-1.5 px-4 py-3 text-base"><Building2 className="size-4" /> the office
-                  <Button variant="ghost" size="sm" className="ml-auto mr-7" title="Hire a desk" onClick={() => setHireOpen(true)}><Plus className="size-4" /></Button>
+                  <Button variant="ghost" size="sm" className="ml-auto mr-7" title="Hire a desk" onClick={() => { setDrawerOpen(false); setHireOpen(true) }}><Plus className="size-4" /></Button>
                 </SheetTitle>
                 <ScrollArea className="min-h-0 flex-[1.1]">{deskList}</ScrollArea>
                 {/* the phone gets the same rail, in the drawer */}
@@ -403,12 +437,24 @@ export default function App() {
               same pair stacks vertically — still both visible, still resizable. */}
           <ResizablePanelGroup orientation={isDesktop ? 'horizontal' : 'vertical'} className="min-h-0 flex-1">
           <ResizablePanel defaultSize={showComputer ? '55%' : '100%'} minSize="30%" className="flex min-h-0 flex-col">
-            <Conversation className="flex-1">
+            <Conversation key={sel ?? 'none'} className="flex-1">
               <ConversationContent className="mx-auto w-full max-w-3xl gap-2">
-                {blocks.length === 0 && <ConversationEmptyState title="Nothing yet" description="This desk has no conversation in its current session." />}
+                {!pane && (
+                  <div className="flex flex-col gap-3 py-4">
+                    <Skeleton className="h-4 w-2/5" />
+                    <Skeleton className="h-16 w-4/5" />
+                    <Skeleton className="h-4 w-1/3 self-end" />
+                    <Skeleton className="h-10 w-3/5" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </div>
+                )}
+                {pane && blocks.length === 0 && <ConversationEmptyState title="Nothing yet" description="This desk has no conversation in its current session." />}
                 {(() => { const tail = blocks.slice(-60); return tail.map((b, i) => b.kind === 'msg'
                   ? <MsgBlock key={'m' + i} m={b.m} rich={i >= tail.length - 15} />
                   : <ToolsBlock key={'t' + i} tools={b.tools} />) })()}
+                {desks.find((d) => d.key === sel)?.busy && (
+                  <div className="py-1 text-sm"><Shimmer>✳ working…</Shimmer></div>
+                )}
               </ConversationContent>
               <ConversationScrollButton />
             </Conversation>
@@ -448,6 +494,16 @@ export default function App() {
               <PromptInput onSubmit={onSubmit} accept="image/*" multiple globalDrop>
                 <PromptInputBody>
                   <PromptInputHeader />
+                  {slashQ && (
+                    <div className="flex flex-wrap gap-1 px-2 pt-2">
+                      {commands.filter((c) => c.startsWith(slashQ)).slice(0, 8).map((c) => (
+                        <Button key={c} variant="secondary" size="sm" className="h-6 px-2 text-xs" onClick={() => pickCommand(c)}>{c}</Button>
+                      ))}
+                      {commands.filter((c) => c.startsWith(slashQ)).length === 0 && (
+                        <span className="px-1 text-[11px] text-muted-foreground">no matching command — Enter sends it as typed</span>
+                      )}
+                    </div>
+                  )}
                   <PromptInputTextarea placeholder={canSend ? "Message this desk's live terminal — / for commands, drop images anywhere" : 'Read-only on this host (no orca CLI)'} disabled={!canSend} />
                 </PromptInputBody>
                 <PromptInputFooter>
@@ -458,6 +514,11 @@ export default function App() {
                         <PromptInputActionAddAttachments />
                       </PromptInputActionMenuContent>
                     </PromptInputActionMenu>
+                    {/* one tap straight to the native picker — the menu is a
+                        second hop that phones kept fumbling */}
+                    <Button variant="ghost" size="sm" className="h-8" title="Add a photo"
+                      onClick={() => (document.querySelector('input[type=file]') as HTMLInputElement | null)?.click()}>
+                      <ImageIcon className="size-4" /></Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="h-8 text-xs">/ commands</Button>} />
                       <DropdownMenuContent className="max-h-72 overflow-y-auto">
@@ -512,10 +573,10 @@ export default function App() {
             <Input ref={hireName} placeholder="name — lowercase-with-hyphens, e.g. tiktok-customer-service" />
             <Input ref={hireDesc} placeholder="what this desk does, in one sentence" />
             <Select defaultValue="channel" onValueChange={(v) => { hireKind.current = v }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="channel">channel — talks to people on one channel</SelectItem>
-                <SelectItem value="knowledge">knowledge — holds facts, can never send</SelectItem>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent className="max-w-[calc(100vw-4rem)]">
+                <SelectItem value="channel" className="whitespace-normal">channel — talks to people on one channel</SelectItem>
+                <SelectItem value="knowledge" className="whitespace-normal">knowledge — holds facts, can never send</SelectItem>
               </SelectContent>
             </Select>
             {hireWhy && <div className="rounded-md bg-destructive/10 p-3 text-xs text-destructive">⛔ {hireWhy}</div>}
@@ -523,14 +584,25 @@ export default function App() {
               <Button variant="ghost" onClick={() => setHireOpen(false)}>Cancel</Button>
               <Button onClick={doHire}>Hire</Button>
             </div>
-            <p className="text-[11px] text-muted-foreground">Two readers must agree on the kind — you, and the contract's own reading of the description. A disagreement is refused with the reason, and that refusal is the point.</p>
+            <p className="text-[11px] text-muted-foreground">The description is double-checked: if it reads like a different kind than the one you picked, the hire is refused and the reason shows here.</p>
           </div>
         </DialogContent>
       </Dialog>
       <Dialog open={!!file} onOpenChange={(o) => !o && setFile(null)}>
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">
-          <DialogHeader><DialogTitle className="truncate font-mono text-sm">{file?.path}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex min-w-0 items-center gap-2 pr-6">
+              <span className="truncate font-mono text-sm">{file?.path}</span>
+              <Button variant="ghost" size="sm" className="h-6 flex-none px-2 text-[11px]" title="Copy path to mention it in chat"
+                onClick={(e) => {
+                  if (!file) return
+                  navigator.clipboard?.writeText(file.path).catch(() => {})
+                  const b = e.currentTarget; b.textContent = 'copied'; setTimeout(() => { b.textContent = 'copy path' }, 1200)
+                }}>copy path</Button>
+            </DialogTitle>
+          </DialogHeader>
           <ScrollArea className="max-h-[70vh] min-h-0 flex-1 overflow-auto">
+            {file?.kind === 'loading' && <div className="flex flex-col gap-2 p-2"><Skeleton className="h-4 w-1/2" /><Skeleton className="h-24 w-full" /><Skeleton className="h-4 w-2/3" /></div>}
             {file?.kind === 'imageurl' && <img src={file.content} alt={file.path} className="h-auto max-w-full rounded-md" />}
             {file?.kind === 'markdown' && <MessageResponse>{file.content ?? ''}</MessageResponse>}
             {file?.kind === 'text' && <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">{file.content}</pre>}

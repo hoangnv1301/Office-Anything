@@ -71,6 +71,10 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
     try { const tp = t ? readTail(t) : null; r.waiting = !!(tp && pendingAsk(tp.messages)) } catch { r.waiting = false }
     const titles = liveTitles()
     r.online = titles ? (titles.has(r.desk) || r.desk === 'team-lead') : null
+    // WORKING, from the source that cannot lie about it: Claude Code appends
+    // to the transcript every few seconds mid-turn. The tab glyph looked like
+    // a spinner and is in fact a permanent marker; mtime is the honest pulse.
+    r.busy = t ? (now - statSafe(t)) < 45000 : null
     if (st) {
       const k = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
       r.sub += ' · ' + st.turns + ' turns · ' + k(st.input + st.cacheRead) + '/' + k(st.output) + ' tok'
