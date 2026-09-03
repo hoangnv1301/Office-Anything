@@ -218,7 +218,7 @@ export default function App() {
             (d.online ?? (d.activeMin != null && d.activeMin < 30))
               ? (d.activeMin != null && d.activeMin < 5 ? 'animate-pulse bg-emerald-400' : 'bg-emerald-500')
               : 'bg-muted-foreground/25')} />
-          <span className="truncate">{d.label.replace('-customer-service', '')}</span>
+          <span className="truncate">{d.label}</span>
           {d.sub.includes('LIVE') && <Badge className="h-4 flex-none px-1 text-[9px]">LIVE</Badge>}
           {(d.agents?.length ?? 0) > 0 && <Badge variant="secondary" className="h-4 flex-none px-1 text-[9px]">◇ {d.agents!.length}</Badge>}
           {d.waiting && <Badge className="h-4 flex-none gap-0.5 bg-amber-500 px-1 text-[9px] text-black"><CircleHelp className="size-2.5" /> waiting</Badge>}
@@ -308,7 +308,10 @@ export default function App() {
       {/* item 3+7: panes told apart by TONE, resizable with bounds */}
       <ResizablePanel defaultSize="13%" minSize="9%" maxSize="24%" className="hidden bg-sidebar md:block">
         <div className="flex h-full flex-col">
-          <div className="px-4 py-3 font-semibold">🏢 the office</div>
+          <div className="flex items-center justify-between py-2 pl-4 pr-2 font-semibold">
+            <span className="py-1">🏢 the office</span>
+            <Button variant="ghost" size="sm" title="Hire a desk" onClick={() => setHireOpen(true)}><Plus className="size-4" /></Button>
+          </div>
           <ScrollArea className="min-h-0 flex-1">{deskList}</ScrollArea>
         </div>
       </ResizablePanel>
@@ -320,7 +323,9 @@ export default function App() {
             <Sheet>
               <SheetTrigger render={<Button variant="ghost" size="sm" className="md:hidden"><Menu className="size-4" /></Button>} />
               <SheetContent side="left" className="w-72 p-0">
-                <SheetTitle className="flex items-center gap-1.5 px-4 py-3 text-base"><Building2 className="size-4" /> the office</SheetTitle>
+                <SheetTitle className="flex items-center gap-1.5 px-4 py-3 text-base"><Building2 className="size-4" /> the office
+                  <Button variant="ghost" size="sm" className="ml-auto" title="Hire a desk" onClick={() => setHireOpen(true)}><Plus className="size-4" /></Button>
+                </SheetTitle>
                 <ScrollArea className="h-full">{deskList}</ScrollArea>
               </SheetContent>
             </Sheet>

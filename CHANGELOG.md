@@ -3,6 +3,17 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.7.2
+
+- The sidebar shows each desk's EXACT folder name. It had been trimming
+  `-customer-service` for width, which meant the name on the board was not
+  the name on disk, in the roster, or in a hire refusal. Owner's ruling:
+  the folder is the name.
+- The hire dialog got its + button back. The dialog and `/api/hire` were
+  live, but the trigger was dropped in a layout refactor, so the only way
+  to hire from the UI was a dialog nothing could open. Now in the sidebar
+  header and the mobile drawer.
+
 ## 0.7.1
 
 - ONLINE means a live terminal, not "spoke recently": the whole office read
