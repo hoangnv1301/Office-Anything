@@ -19,7 +19,7 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai-elements/web-preview'
-import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, DollarSign, CircleHelp, Bot, Users, Clock } from 'lucide-react'
+import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, DollarSign, CircleHelp, Bot, Users, Clock, ArrowUpCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Button } from '@/components/ui/button'
@@ -520,7 +520,16 @@ export default function App() {
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between py-2 pl-4 pr-2 font-semibold">
             <span className="py-1">🏢 the office</span>
-            <Button variant="ghost" size="sm" title="Hire a desk" onClick={() => setHireOpen(true)}><Plus className="size-4" /></Button>
+            <span className="flex items-center">
+              <Button variant="ghost" size="sm" className="px-1.5" title="Upgrade Claude Code to latest (running sessions keep their version until restarted)"
+                onClick={async () => {
+                  if (!window.confirm('Run `claude update` on the host?')) return
+                  setNote('upgrading Claude Code…')
+                  const r = await (await fetch('api/upgrade', { method: 'POST' })).json()
+                  setNote((r.ok ? '✓ ' : '⛔ ') + (r.before === r.after ? 'already latest: ' + r.after : r.before + ' → ' + r.after) + ' — ' + r.note)
+                }}><ArrowUpCircle className="size-4" /></Button>
+              <Button variant="ghost" size="sm" className="px-1.5" title="Hire a desk" onClick={() => setHireOpen(true)}><Plus className="size-4" /></Button>
+            </span>
           </div>
           <ScrollArea className="min-h-0 flex-1">{deskList}</ScrollArea>
         </div>
@@ -567,7 +576,9 @@ export default function App() {
               </HoverCard>
             )}
             <span className="hidden whitespace-nowrap text-xs text-muted-foreground md:inline">{pane ? pane.count + ' messages' : ''}</span>
-            <Button variant={showComputer ? 'secondary' : 'ghost'} size="sm" className="ml-auto h-8 text-xs"
+            <Button variant="ghost" size="sm" className="ml-auto h-8 px-2 font-mono text-xs" title="Shift-Tab into this desk's terminal — the CLI cycles its permission mode there; watch the terminal chrome for the result"
+              onClick={async () => { const r = await (await fetch('api/key', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: sel, k: 'shift-tab' }) })).json(); setNote(r.ok ? 'Shift-Tab sent — the mode shows in the desk terminal' : '⛔ ' + r.why) }}>⇧⇥</Button>
+            <Button variant={showComputer ? 'secondary' : 'ghost'} size="sm" className="h-8 text-xs"
               onClick={() => setShowComputer(v => !v)}><Monitor className="size-3.5 sm:mr-1" /><span className="hidden sm:inline"> Computer</span></Button>
           </header>
 

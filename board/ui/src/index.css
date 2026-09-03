@@ -154,3 +154,10 @@ html, body, #root { height: 100%; }
   textarea, input[type="text"], input:not([type]) { font-size: 16px; }
   body { padding-bottom: env(safe-area-inset-bottom); }
 }
+
+/* the scrollbar belongs to the room it is in: thin, muted, no bright track */
+* { scrollbar-width: thin; scrollbar-color: oklch(0.4 0 0 / 45%) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: oklch(0.4 0 0 / 45%); border-radius: 4px; }
+*::-webkit-scrollbar-thumb:hover { background: oklch(0.5 0 0 / 60%); }
+*::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }

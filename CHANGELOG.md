@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.14
+
+- SEND WAS 8-12 SECONDS and it was ours: orca types at human speed and the
+  server waited for it SYNCHRONOUSLY, freezing every other request too.
+  Dispatch is async with a 700ms early reply, the terminal roster is kept
+  warm from the background, and the transcript (over SSE) is the delivery
+  confirmation the outbox already visualizes. Measured: 1.2s, echo instant.
+- A Skill's injected instruction body folds as "skill loaded · <name>"; it
+  had rendered as the owner pasting a manual into chat.
+- The mode key: ⇧⇥ in the header sends a real Shift-Tab into the desk's
+  pty, which is how the CLI cycles permission modes. The record does not
+  carry the resulting mode, so the button says to watch the terminal, not
+  a made-up badge.
+- The upgrade button: `claude update` from the sidebar, versions before
+  and after, and the honest note that running sessions keep their version
+  until restarted.
+- The scrollbar belongs to the room: thin, muted, no bright track.
+
 ## 0.7.13
 
 - A checks tab on the registry's TestResults element: the plugin's own

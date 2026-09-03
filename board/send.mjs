@@ -5,7 +5,7 @@
 // actually owns these terminals and its send verb is already trusted by the
 // system this contract came from. No orca on PATH means the board is
 // READ-ONLY and says so; it never falls back to something cleverer.
-import { execFileSync } from 'node:child_process'
+import { execFileSync, execFile } from 'node:child_process'
 
 // ⛔ THE SPINNER GLYPH CYCLES while a desk works (✳ ✶ ✽ ...), so stripping
 // one literal star called the BUSIEST desks offline and made send miss them.
@@ -20,9 +20,23 @@ export function orcaAvailable(run = execFileSync) {
 // barely moves, so the REAL runner gets a 3s cache. Injected runners (tests)
 // bypass it: a cached mock would poison the next test's world.
 let listCache = { at: 0, terminals: null }
+// the warmer keeps the cache fresh from the BACKGROUND, so no user's send
+// ever pays the ~3s list call in the foreground. Started by the server.
+export function keepTerminalsWarm(intervalMs = 2500) {
+  const refresh = () => {
+    execFile('orca', ['terminal', 'list', '--json'], { encoding: 'utf8', timeout: 8000 }, (e, out) => {
+      if (e) return
+      try { listCache = { at: Date.now(), terminals: JSON.parse(out)?.result?.terminals ?? [] } } catch {}
+    })
+  }
+  refresh()
+  const t = setInterval(refresh, intervalMs)
+  t.unref?.()
+  return t
+}
 export function terminalFor(desk, run = execFileSync, dir = null) {
   let terminals
-  if (run === execFileSync && listCache.terminals && Date.now() - listCache.at < 3000) {
+  if (run === execFileSync && listCache.terminals && Date.now() - listCache.at < 15000) {
     terminals = listCache.terminals
   } else {
     const out = run('orca', ['terminal', 'list', '--json'], { encoding: 'utf8', stdio: 'pipe' })

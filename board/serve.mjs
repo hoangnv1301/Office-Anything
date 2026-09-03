@@ -19,8 +19,8 @@ import { newestSession, chatFrom, readTail, pendingAsk } from './transcript.mjs'
 import { subagentsOf, jobsOf } from './read.mjs'
 import { transcriptStats, worktop, filesUnder, treeOf } from './read.mjs'
 import { basename } from 'node:path'
-import { send, orcaAvailable, normalizeTitle } from './send.mjs'
-import { execFileSync } from 'node:child_process'
+import { send, orcaAvailable, normalizeTitle, terminalFor, keepTerminalsWarm } from './send.mjs'
+import { execFileSync, execFile } from 'node:child_process'
 
 // ⛔ ONLINE MEANS A LIVE TERMINAL, not "spoke recently". A desk sitting
 // quietly at its pane is online; the activity dot said otherwise and the
@@ -107,6 +107,7 @@ const statSafe = (p) => { try { return statSync(p).mtimeMs } catch { return 0 } 
 const json = (res, code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)) }
 
 export function makeServer(root) {
+  if (!globalThis.__oaWarmer && orcaAvailable()) globalThis.__oaWarmer = keepTerminalsWarm()
   return createServer((req, res) => {
     const url = new URL(req.url, 'http://x')
     try {
@@ -134,6 +135,46 @@ export function makeServer(root) {
 <div style="text-align:center"><div style="font-size:44px">🏢</div>
 <div style="font-size:22px;font-weight:600;margin-top:8px">${who}</div>
 <div style="color:#8a8a8a;margin-top:6px;font-size:14px">browser ready · watched from the office board</div></div></body>`)
+      }
+      if (url.pathname === '/api/key' && req.method === 'POST') {
+        // one named keystroke, straight into the desk's pty. Shift-Tab is
+        // how the CLI cycles permission modes; the record does not carry the
+        // resulting mode, so this is fire-and-observe-in-terminal, said so.
+        let body = ''
+        req.on('data', (c) => { body += c; if (body.length > 4096) req.destroy() })
+        req.on('end', () => {
+          try {
+            const { key, k } = JSON.parse(body)
+            const KEYS = { 'shift-tab': '[Z', escape: '' }
+            if (!KEYS[k]) return json(res, 400, { ok: false, why: 'unknown key' })
+            const row = chatRosterCheap(root).find((r) => r.key === key)
+            if (!row) return json(res, 404, { ok: false, why: 'unknown desk' })
+            const deskDir = row.key === slugFor(root) ? root : join(root, 'desks', row.desk)
+            const handle = terminalFor(row.desk, undefined, deskDir)
+            if (!handle) return json(res, 200, { ok: false, why: 'no live terminal for this desk' })
+            execFile('orca', ['terminal', 'send', '--terminal', handle, '--text', KEYS[k], '--json'], { timeout: 15000 }, () => {})
+            return json(res, 200, { ok: true, sent: k })
+          } catch (e) { return json(res, 500, { ok: false, why: e.message }) }
+        })
+        return
+      }
+      if (url.pathname === '/api/upgrade' && req.method === 'POST') {
+        // `claude update`, run by the board, versions before and after. It
+        // updates the INSTALL; running sessions keep their version until
+        // they restart, and the reply says so rather than implying magic.
+        execFile('claude', ['--version'], { timeout: 15000 }, (e1, before) => {
+          execFile('claude', ['update'], { timeout: 180000 }, (e2, out, err) => {
+            execFile('claude', ['--version'], { timeout: 15000 }, (e3, after) => {
+              json(res, 200, {
+                ok: !e2,
+                before: String(before ?? '').trim(),
+                after: String(after ?? '').trim(),
+                note: e2 ? String(err ?? e2.message).slice(0, 300) : 'running sessions keep their version until restarted',
+              })
+            })
+          })
+        })
+        return
       }
       if (url.pathname === '/api/checks') {
         // the plugin's own structural checks, run live against this office:
@@ -411,8 +452,24 @@ export function makeServer(root) {
             const row = chatRoster(root).find((r) => r.key === key)
             if (!row) return json(res, 404, { ok: false, why: 'unknown desk' })
             if (!text || typeof text !== 'string' || text.length > 8000) return json(res, 400, { ok: false, why: 'no text, or too long' })
+            // ⛔ orca TYPES at human speed — 8-12s for a sentence — and a
+            // synchronous wait froze this single-threaded server for everyone.
+            // Dispatch async, answer in under a second; the transcript (via
+            // SSE) is the delivery confirmation, and the outbox shows pending.
             const deskDir = row.key === slugFor(root) ? root : join(root, 'desks', row.desk)
-            return json(res, 200, send(row.desk, text, undefined, deskDir))
+            if (!orcaAvailable()) return json(res, 200, { ok: false, why: 'no orca CLI on this host; the board is read-only here' })
+            const handle = terminalFor(row.desk, undefined, deskDir)
+            if (!handle) return json(res, 200, { ok: false, why: `no live terminal is titled "${row.desk}" or working in its folder` })
+            const child = execFile('orca', ['terminal', 'send', '--terminal', handle, '--text', text, '--enter', '--json'], { timeout: 60000 }, () => {})
+            let replied = false
+            const early = setTimeout(() => { replied = true; json(res, 200, { ok: true, handle, dispatched: true }) }, 700)
+            child.on('exit', (code) => {
+              clearTimeout(early)
+              if (replied) return
+              if (code === 0) json(res, 200, { ok: true, handle })
+              else json(res, 200, { ok: false, why: 'orca send exited ' + code })
+            })
+            return
           } catch (e) { return json(res, 500, { ok: false, why: e.message }) }
         })
         return
