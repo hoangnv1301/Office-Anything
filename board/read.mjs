@@ -16,6 +16,7 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { rosterSafe } from '../lib/desk.mjs'
 import { newestSession, readTail } from './transcript.mjs'
+import { openSync, readSync, closeSync } from 'node:fs'
 
 // Claude Code's own slug: the absolute cwd with / and spaces flattened to -.
 export const slugFor = (absPath) => absPath.replace(/[/ ]/g, '-')
@@ -61,7 +62,17 @@ export function subagentsOf(projectDir, mainSessionPath, { now = Date.now(), act
       const tail = readTail(p, { limit: 4 })
       if (!tail) continue
       const first = tail.messages.find((m) => m.role === 'user' && m.text)
+      // ⛔ TWO KINDS OF COMPANY: an sdk-spawned SUBAGENT (a task, disposable)
+      // and a full peer SESSION (a teammate, a second window). The transcript
+      // head says which; conflating them made every teammate look like a bot.
+      let kind = 'agent'
+      try {
+        const fd = openSync(p, 'r'); const b = Buffer.alloc(4096)
+        const n = readSync(fd, b, 0, 4096, 0); closeSync(fd)
+        if (b.slice(0, n).toString('utf8').includes('"entrypoint":"cli"')) kind = 'session'
+      } catch {}
       out.push({
+        kind,
         label: (first?.text ?? 'agent').replace(/\s+/g, ' ').slice(0, 64),
         activeMin: Math.round((now - st.mtimeMs) / 60000),
         turns: tail.stats.turns,

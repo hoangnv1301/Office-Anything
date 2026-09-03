@@ -7,7 +7,10 @@
 // READ-ONLY and says so; it never falls back to something cleverer.
 import { execFileSync } from 'node:child_process'
 
-export const normalizeTitle = (t) => String(t ?? '').replace(/^[✳*]\s*/, '').replace(/^DESK-/, '').trim()
+// ⛔ THE SPINNER GLYPH CYCLES while a desk works (✳ ✶ ✽ ...), so stripping
+// one literal star called the BUSIEST desks offline and made send miss them.
+// Strip any leading symbol run; a desk name starts with a letter.
+export const normalizeTitle = (t) => String(t ?? '').replace(/^[^A-Za-z0-9]+/, '').replace(/^DESK-/, '').trim()
 
 export function orcaAvailable(run = execFileSync) {
   try { run('orca', ['--version'], { encoding: 'utf8', stdio: 'pipe' }); return true } catch { return false }

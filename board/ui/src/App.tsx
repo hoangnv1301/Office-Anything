@@ -19,7 +19,7 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai-elements/web-preview'
-import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, DollarSign, CircleHelp } from 'lucide-react'
+import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, DollarSign, CircleHelp, Bot, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Button } from '@/components/ui/button'
@@ -34,7 +34,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/s
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-type Desk = { key: string; label: string; sub: string; activeMin: number | null; waiting?: boolean; agents?: { label: string; activeMin: number; turns: number }[] }
+type Desk = { key: string; label: string; sub: string; activeMin: number | null; online?: boolean | null; waiting?: boolean; agents?: { kind?: string; label: string; activeMin: number; turns: number }[] }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string } | { kind: 'marker'; label: string }
 export type Msg = { role: 'user' | 'assistant' | 'system'; text: string; label?: string; tools?: { name: string; input: unknown }[]; images?: Img[]; reasoning?: string | null }
 type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
@@ -214,15 +214,20 @@ export default function App() {
       title={d.sub} className="h-auto w-full justify-start rounded-none px-3 py-1.5">
       <span className="flex w-full flex-col items-start gap-0.5 overflow-hidden">
         <span className="flex w-full items-center gap-2 text-[13px] font-medium">
-          <span className={'size-1.5 flex-none rounded-full ' + (d.activeMin != null && d.activeMin < 10 ? 'bg-emerald-500' : 'bg-muted-foreground/25')} />
+          <span className={'size-1.5 flex-none rounded-full ' + (
+            (d.online ?? (d.activeMin != null && d.activeMin < 30))
+              ? (d.activeMin != null && d.activeMin < 5 ? 'animate-pulse bg-emerald-400' : 'bg-emerald-500')
+              : 'bg-muted-foreground/25')} />
           <span className="truncate">{d.label.replace('-customer-service', '')}</span>
           {d.sub.includes('LIVE') && <Badge className="h-4 flex-none px-1 text-[9px]">LIVE</Badge>}
           {(d.agents?.length ?? 0) > 0 && <Badge variant="secondary" className="h-4 flex-none px-1 text-[9px]">◇ {d.agents!.length}</Badge>}
           {d.waiting && <Badge className="h-4 flex-none gap-0.5 bg-amber-500 px-1 text-[9px] text-black"><CircleHelp className="size-2.5" /> waiting</Badge>}
         </span>
         {d.agents?.map((a, i) => (
-          <span key={i} title={a.label} className="flex w-full items-center gap-1.5 overflow-hidden pl-3.5 text-[10px] font-normal text-muted-foreground">
-            <span className={'size-1 flex-none rounded-full ' + (a.activeMin < 2 ? 'animate-pulse bg-sky-400' : 'bg-muted-foreground/40')} />
+          <span key={i} title={(a.kind === 'session' ? 'teammate session: ' : 'subagent: ') + a.label} className="flex w-full items-center gap-1.5 overflow-hidden pl-3.5 text-[10px] font-normal text-muted-foreground">
+            {a.kind === 'session'
+              ? <Users className={'size-2.5 flex-none ' + (a.activeMin < 2 ? 'text-sky-400' : '')} />
+              : <Bot className={'size-2.5 flex-none ' + (a.activeMin < 2 ? 'animate-pulse text-sky-400' : '')} />}
             <span className="truncate">{a.label}</span>
           </span>
         ))}

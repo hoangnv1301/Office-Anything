@@ -32,8 +32,12 @@ test('the tail is capped, oldest dropped first', () => {
   assert.equal(m[0].text, 'm89')
 })
 
-test('a desk retitles its own tab; normalize sees through it', () => {
-  assert.equal(normalizeTitle('✳ design'), 'design')
+test('a desk retitles its own tab; normalize sees through EVERY spinner glyph', () => {
+  // the spinner cycles while a desk works — one literal star called the
+  // busiest desks offline and made send miss them
+  for (const g of ['✳ ', '✶ ', '✽ ', '* ', '· ', '']) {
+    assert.equal(normalizeTitle(g + 'design'), 'design', JSON.stringify(g))
+  }
   assert.equal(normalizeTitle('DESK-design'), 'design')
 })
 

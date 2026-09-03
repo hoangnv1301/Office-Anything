@@ -3,6 +3,18 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.7.1
+
+- ONLINE means a live terminal, not "spoke recently": the whole office read
+  as absent while sitting at its desks. Terminal truth from the orca CLI,
+  cached 5s, honest null without it. Found immediately: the spinner glyph
+  cycles while a desk works, and stripping one literal star called the
+  BUSIEST desks offline and made send miss them — the normalizer now strips
+  any leading glyph run, pinned for every spinner variant.
+- Subagents and teammate SESSIONS are told apart in the sidebar: Bot for
+  sdk-spawned sidechains, Users for full peer sessions, from the transcript
+  head's own entrypoint.
+
 ## 0.7.0
 
 Rollup of the 0.6.x local deliveries plus the blocked-on-you feature.

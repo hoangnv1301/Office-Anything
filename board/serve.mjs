@@ -20,6 +20,21 @@ import { subagentsOf } from './read.mjs'
 import { transcriptStats, worktop, filesUnder, treeOf } from './read.mjs'
 import { basename } from 'node:path'
 import { send, orcaAvailable, normalizeTitle } from './send.mjs'
+import { execFileSync } from 'node:child_process'
+
+// ⛔ ONLINE MEANS A LIVE TERMINAL, not "spoke recently". A desk sitting
+// quietly at its pane is online; the activity dot said otherwise and the
+// whole office read as absent. orca owns terminal truth; cached 5s so nine
+// rows cost one call. No orca -> null, and the UI falls back honestly.
+let termCache = { at: 0, titles: null }
+function liveTitles() {
+  if (Date.now() - termCache.at < 5000) return termCache.titles
+  try {
+    const out = execFileSync('orca', ['terminal', 'list', '--json'], { encoding: 'utf8', timeout: 4000 })
+    termCache = { at: Date.now(), titles: new Set((JSON.parse(out)?.result?.terminals ?? []).map((t) => normalizeTitle(t.title))) }
+  } catch { termCache = { at: Date.now(), titles: null } }
+  return termCache.titles
+}
 import { screenshotOf } from '../lib/cdp.mjs'
 import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
 import { rosterSafe, leadDesk } from '../lib/desk.mjs'
@@ -54,6 +69,8 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
     r.agents = t ? subagentsOf(dir, t) : []
     const st = transcriptStats(join(home, '.claude', 'projects', r.key))
     try { const tp = t ? readTail(t) : null; r.waiting = !!(tp && pendingAsk(tp.messages)) } catch { r.waiting = false }
+    const titles = liveTitles()
+    r.online = titles ? (titles.has(r.desk) || r.desk === 'team-lead') : null
     if (st) {
       const k = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
       r.sub += ' · ' + st.turns + ' turns · ' + k(st.input + st.cacheRead) + '/' + k(st.output) + ' tok'
