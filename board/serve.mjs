@@ -69,8 +69,21 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
     r.agents = t ? subagentsOf(dir, t) : []
     r.jobs = jobsOf(join('/private/tmp', 'claude-' + process.getuid(), r.key))
     const st = transcriptStats(join(home, '.claude', 'projects', r.key))
-    let lastMsg = null
-    try { const tp = t ? readTail(t) : null; r.waiting = !!(tp && pendingAsk(tp.messages)); lastMsg = tp?.messages?.at(-1) ?? null } catch { r.waiting = false }
+    let lastMsg = null, tp = null
+    try { tp = t ? readTail(t) : null; r.waiting = !!(tp && pendingAsk(tp.messages)); lastMsg = tp?.messages?.at(-1) ?? null } catch { r.waiting = false }
+    // a background job's NAME lives in the tool call that spawned it: the
+    // result names the id, the input carries the human description
+    if (r.jobs?.length && tp) {
+      for (const j of r.jobs) {
+        outer: for (const m of tp.messages) for (const tl of m.tools ?? []) {
+          if (tl.output && j.id && tl.output.includes(j.id)) {
+            const inp = tl.input ?? {}
+            j.label = String(inp.description ?? inp.prompt ?? inp.command ?? '').slice(0, 70)
+            break outer
+          }
+        }
+      }
+    }
     const titles = liveTitles()
     r.online = titles ? (titles.has(r.desk) || r.desk === 'team-lead') : null
     // WORKING, from the source that cannot lie about it: Claude Code appends
@@ -121,6 +134,15 @@ export function makeServer(root) {
 <div style="text-align:center"><div style="font-size:44px">🏢</div>
 <div style="font-size:22px;font-weight:600;margin-top:8px">${who}</div>
 <div style="color:#8a8a8a;margin-top:6px;font-size:14px">browser ready · watched from the office board</div></div></body>`)
+      }
+      if (url.pathname === '/api/checks') {
+        // the plugin's own structural checks, run live against this office:
+        // 0 = pass, 4 = fail, 7 = unknown (an empty walk is never clean)
+        const c = collect(root)
+        return json(res, 200, {
+          code: c.code,
+          rows: c.rows.map((r) => ({ name: r.name, code: r.code, why: r.why ?? '', applicable: r.applicable !== false })),
+        })
       }
       if (url.pathname === '/api/hooks') {
         // every hook that can actually fire on this desk, from the three

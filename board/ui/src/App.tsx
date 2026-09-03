@@ -36,8 +36,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { Shimmer } from '@/components/ai-elements/shimmer'
 import { QueueList, QueueItem, QueueItemIndicator, QueueItemContent, QueueItemDescription } from '@/components/ai-elements/queue'
+import { TestResults, TestResultsHeader, TestResultsSummary, TestResultsContent, Test, TestStatus, TestName } from '@/components/ai-elements/test-results'
 
-type Desk = { key: string; label: string; sub: string; activeMin: number | null; online?: boolean | null; busy?: boolean | null; waiting?: boolean; agents?: { kind?: string; label: string; activeMin: number; turns: number }[]; jobs?: { id: string; ageSec: number; size: number }[] }
+type Desk = { key: string; label: string; sub: string; activeMin: number | null; online?: boolean | null; busy?: boolean | null; waiting?: boolean; agents?: { kind?: string; label: string; activeMin: number; turns: number }[]; jobs?: { id: string; ageSec: number; size: number; label?: string }[] }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string } | { kind: 'marker'; label: string }
 export type Msg = { role: 'user' | 'assistant' | 'system'; text: string; label?: string; tools?: ToolRow[]; images?: Img[]; reasoning?: string | null }
 type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
@@ -300,6 +301,7 @@ export default function App() {
   }, [sel])
   // the WHOLE browser, not one tab: the strip lists every page the desk has
   // open and a click picks which one the mirror shows
+  const [checks, setChecks] = useState<{ code: number; rows: { name: string; code: number; why: string; applicable: boolean }[] } | null>(null)
   const [hooks, setHooks] = useState<{ source: string; event: string; matcher: string; command: string }[] | null>(null)
   useEffect(() => {
     if (!sel) return
@@ -356,7 +358,7 @@ export default function App() {
         {d.jobs?.map((j) => (
           <span key={j.id} title={'background job ' + j.id + ' · output ' + j.size + 'B'} className="flex w-full items-center gap-1.5 overflow-hidden pl-3.5 text-[10px] font-normal text-muted-foreground">
             <Clock className={'size-2.5 flex-none ' + (j.ageSec < 60 ? 'animate-pulse text-amber-400' : '')} />
-            <span className="truncate">background · {j.id} · {j.ageSec < 60 ? 'running' : Math.round(j.ageSec / 60) + 'm ago'}</span>
+            <span className="truncate">{j.label || 'background · ' + j.id} · {j.ageSec < 60 ? 'running' : Math.round(j.ageSec / 60) + 'm ago'}</span>
           </span>
         ))}
       </span>
@@ -446,7 +448,32 @@ export default function App() {
         <TabsTrigger value="workspace" className="text-xs">workspace</TabsTrigger>
         <TabsTrigger value="scratchpad" className="text-xs">scratchpad</TabsTrigger>
         <TabsTrigger value="hooks" className="text-xs">hooks</TabsTrigger>
+        <TabsTrigger value="checks" className="text-xs" onClick={() => {
+          if (checks !== null) return
+          fetch('api/checks').then((r) => r.json()).then(setChecks).catch(() => setChecks({ code: 7, rows: [] }))
+        }}>checks</TabsTrigger>
       </TabsList>
+      <TabsContent value="checks" className="min-h-0 flex-1 data-[state=inactive]:hidden">
+        <ScrollArea className="h-full px-1 pb-2">
+          {checks === null
+            ? <div className="px-2 py-2 text-xs text-muted-foreground">…</div>
+            : (
+              <TestResults className="border-0 bg-transparent">
+                <TestResultsHeader className="px-2 py-2">
+                  <TestResultsSummary passed={checks.rows.filter((r) => r.code === 0).length} failed={checks.rows.filter((r) => r.code === 4).length} skipped={checks.rows.filter((r) => r.code === 7).length} total={checks.rows.length} />
+                </TestResultsHeader>
+                <TestResultsContent>
+                  {checks.rows.map((r) => (
+                    <Test key={r.name} name={r.name} status={r.code === 0 ? 'passed' : r.code === 4 ? 'failed' : 'skipped'} className="px-2 py-1 text-xs">
+                      <TestStatus /><TestName />
+                      {r.why && <span className="ml-auto truncate text-[10px] text-muted-foreground" title={r.why}>{r.why}</span>}
+                    </Test>
+                  ))}
+                </TestResultsContent>
+              </TestResults>
+            )}
+        </ScrollArea>
+      </TabsContent>
       <TabsContent value="hooks" className="min-h-0 flex-1 data-[state=inactive]:hidden">
         <ScrollArea className="h-full px-2 pb-2">
           {hooks === null
@@ -712,7 +739,7 @@ export default function App() {
                 {desks.find((d) => d.key === sel)!.jobs!.map((j) => (
                   <div key={j.id} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                     <Clock className={'size-3 flex-none ' + (j.ageSec < 60 ? 'animate-pulse text-amber-400' : '')} />
-                    <span className="truncate">{j.id}</span>
+                    <span className="truncate" title={j.id}>{j.label || j.id}</span>
                     <span className="ml-auto flex-none">{j.ageSec < 60 ? 'running' : Math.round(j.ageSec / 60) + 'm ago'} · {kb(j.size)}</span>
                   </div>
                 ))}

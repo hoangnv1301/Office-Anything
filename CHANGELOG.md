@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.13
+
+- A checks tab on the registry's TestResults element: the plugin's own
+  structural checks run live against the office, pass/fail/unknown with
+  the why on the row. Its FIRST render caught a real fault: the office's
+  backup robot commits as "auto:" with no conventional type, failing the
+  commit-convention check the office itself adopted.
+- Background jobs carry their NAME: the tool result that spawned a job
+  names the id, that call's own input carries the human description, and
+  the two are joined. "b48q6efs9 · 4m ago" reads as what it is instead.
+
 ## 0.7.12
 
 - A hooks tab in the rail: every hook that can actually fire on the desk,
