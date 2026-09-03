@@ -67,3 +67,18 @@ test('the message list stays capped while stats keep the full total', () => {
   assert.equal(t.messages.length, 10)
   assert.equal(t.stats.turns, 30, 'the cap trims the VIEW, never the accounting')
 })
+
+test('subagents are the OTHER recent transcripts, labeled by their task', async () => {
+  const { subagentsOf } = await import('../board/read.mjs')
+  const dir = mkdtempSync(join(tmpdir(), 'oa-sub-'))
+  const main = join(dir, 'main.jsonl')
+  writeFileSync(main, user('the human session'))
+  writeFileSync(join(dir, 'bot1.jsonl'), user('Review the diff for correctness issues') + asst('on it'))
+  writeFileSync(join(dir, 'old-bot.jsonl'), user('ancient task'))
+  const past = new Date(Date.now() - 60 * 60_000)
+  utimesSync(join(dir, 'old-bot.jsonl'), past, past)
+  const agents = subagentsOf(dir, main)
+  assert.equal(agents.length, 1, 'the main session and the hour-old bot are both excluded')
+  assert.match(agents[0].label, /Review the diff/)
+  assert.equal(agents[0].turns, 1)
+})

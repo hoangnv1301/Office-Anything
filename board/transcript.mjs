@@ -125,7 +125,7 @@ export function readTail(path, { limit = 80 } = {}) {
   try { st = statSync(path) } catch { return null }
   const c = tailCache.get(path)
   if (c && c.size === st.size && c.mtimeMs === st.mtimeMs) return c
-  let from = 0, carry = '', messages = [], stats = { turns: 0, input: 0, output: 0, cacheRead: 0, model: null }
+  let from = 0, carry = '', messages = [], stats = { turns: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, model: null }
   if (c && st.size > c.size) { from = c.size; carry = c.carry; messages = c.messages.slice(); stats = { ...c.stats } }
   const fd = openSync(path, 'r')
   try {
@@ -144,6 +144,7 @@ export function readTail(path, { limit = 80 } = {}) {
         if (!u) continue
         stats.turns += 1; stats.input += u.input_tokens ?? 0; stats.output += u.output_tokens ?? 0
         stats.cacheRead += u.cache_read_input_tokens ?? 0
+        stats.cacheWrite += u.cache_creation_input_tokens ?? 0
         if (j.message?.model) stats.model = j.message.model
       } catch {}
     }

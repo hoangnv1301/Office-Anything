@@ -19,7 +19,9 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai-elements/web-preview'
+import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, Bot, DollarSign } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -32,11 +34,12 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/s
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-type Desk = { key: string; label: string; sub: string; activeMin: number | null }
+type Desk = { key: string; label: string; sub: string; activeMin: number | null; agents?: { label: string; activeMin: number; turns: number }[] }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string } | { kind: 'marker'; label: string }
 export type Msg = { role: 'user' | 'assistant' | 'system'; text: string; label?: string; tools?: { name: string; input: unknown }[]; images?: Img[]; reasoning?: string | null }
 type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
-type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null }
+type Usage = { turns: number; input: number; output: number; cacheRead: number; cacheWrite: number; model: string | null; sessions?: number; cost: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number; asOf: string } | null }
+type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null; usage?: Usage | null }
 type CdpTab = { title: string; url: string; devtools: string }
 
 const kb = (n: number) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'
@@ -46,7 +49,7 @@ const MsgBlock = memo(function MsgBlock({ m, rich }: { m: Msg; rich: boolean }) 
   if (m.role === 'system') {
     return (
       <Task defaultOpen={false} className="my-0.5 opacity-75">
-        <TaskTrigger title={'⚑ ' + (m.label ?? 'system')} />
+        <TaskTrigger title={'⚑ ' + (m.label ?? 'system')} icon={<Flag className="size-3.5" />} />
         <TaskContent><pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs">{m.text}</pre></TaskContent>
       </Task>
     )
@@ -110,7 +113,7 @@ const Pictures = ({ images }: { images?: Img[] }) => !images?.length ? null : (
       ? <AIImage key={i} base64={im.data} uint8Array={new Uint8Array()} mediaType={im.mediaType} alt="pasted image" className="max-h-72" />
       : im.kind === 'path'
         ? <img key={i} src={'/api/imgfile?p=' + encodeURIComponent(im.path)} alt={im.path.split('/').pop()} className="h-auto max-h-72 max-w-full overflow-hidden rounded-md" />
-        : <Badge key={i} variant="secondary" className="font-normal text-muted-foreground">🖼 {im.label}</Badge>)}
+        : <Badge key={i} variant="secondary" className="gap-1 font-normal text-muted-foreground"><ImageIcon className="size-3" /> {im.label}</Badge>)}
   </span>
 )
 
@@ -207,14 +210,20 @@ export default function App() {
 
   const deskList = desks.map((d) => (
     <Button key={d.key} variant={sel === d.key ? 'secondary' : 'ghost'} onClick={() => setSel(d.key)}
-      className="h-auto w-full justify-start rounded-none px-4 py-2.5">
+      title={d.sub} className="h-auto w-full justify-start rounded-none px-3 py-1.5">
       <span className="flex w-full flex-col items-start gap-0.5 overflow-hidden">
-        <span className="flex items-center gap-2 text-sm font-medium">
-          <span className={'size-2 rounded-full ' + (d.activeMin != null && d.activeMin < 10 ? 'bg-emerald-500' : 'bg-muted-foreground/30')} />
-          {d.label}
-          {d.sub.includes('LIVE') && <Badge className="h-4 px-1.5 text-[10px]">LIVE</Badge>}
+        <span className="flex w-full items-center gap-2 text-[13px] font-medium">
+          <span className={'size-1.5 flex-none rounded-full ' + (d.activeMin != null && d.activeMin < 10 ? 'bg-emerald-500' : 'bg-muted-foreground/25')} />
+          <span className="truncate">{d.label.replace('-customer-service', '')}</span>
+          {d.sub.includes('LIVE') && <Badge className="h-4 flex-none px-1 text-[9px]">LIVE</Badge>}
+          {(d.agents?.length ?? 0) > 0 && <Badge variant="secondary" className="h-4 flex-none px-1 text-[9px]">◇ {d.agents!.length}</Badge>}
         </span>
-        <span className="w-full truncate pl-4 text-left text-xs font-normal text-muted-foreground">{d.sub.replace(' · LIVE', '')}</span>
+        {d.agents?.map((a, i) => (
+          <span key={i} title={a.label} className="flex w-full items-center gap-1.5 overflow-hidden pl-3.5 text-[10px] font-normal text-muted-foreground">
+            <span className={'size-1 flex-none rounded-full ' + (a.activeMin < 2 ? 'animate-pulse bg-sky-400' : 'bg-muted-foreground/40')} />
+            <span className="truncate">{a.label}</span>
+          </span>
+        ))}
       </span>
     </Button>
   ))
@@ -280,7 +289,7 @@ export default function App() {
   return (
     <ResizablePanelGroup orientation="horizontal" className="h-screen bg-background text-foreground">
       {/* item 3+7: panes told apart by TONE, resizable with bounds */}
-      <ResizablePanel defaultSize="18%" minSize="12%" maxSize="28%" className="hidden bg-sidebar md:block">
+      <ResizablePanel defaultSize="13%" minSize="9%" maxSize="24%" className="hidden bg-sidebar md:block">
         <div className="flex h-full flex-col">
           <div className="px-4 py-3 font-semibold">🏢 the office</div>
           <ScrollArea className="min-h-0 flex-1">{deskList}</ScrollArea>
@@ -292,17 +301,40 @@ export default function App() {
         <div className="flex h-full flex-col">
           <header className="flex items-center gap-2 px-4 py-2 md:px-6">
             <Sheet>
-              <SheetTrigger render={<Button variant="ghost" size="sm" className="md:hidden">☰</Button>} />
+              <SheetTrigger render={<Button variant="ghost" size="sm" className="md:hidden"><Menu className="size-4" /></Button>} />
               <SheetContent side="left" className="w-72 p-0">
-                <SheetTitle className="px-4 py-3 text-base">🏢 the office</SheetTitle>
+                <SheetTitle className="flex items-center gap-1.5 px-4 py-3 text-base"><Building2 className="size-4" /> the office</SheetTitle>
                 <ScrollArea className="h-full">{deskList}</ScrollArea>
               </SheetContent>
             </Sheet>
             <span className="min-w-0 truncate whitespace-nowrap font-semibold">{pane?.label ?? '…'}</span>
-            {pane?.model && <Badge variant="secondary" className="hidden whitespace-nowrap text-[11px] sm:inline-flex">{pane.model}</Badge>}
+            {pane?.model && (
+              <HoverCard openDelay={100}>
+                <HoverCardTrigger render={<Badge variant="secondary" className="hidden cursor-default gap-1 whitespace-nowrap text-[11px] sm:inline-flex"><DollarSign className="size-3" />{pane.model}</Badge>} />
+                <HoverCardContent className="w-72 text-xs">
+                  {pane.usage ? (() => {
+                    const u = pane.usage!
+                    const k = (n: number) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
+                    const $ = (n: number) => '$' + (n >= 100 ? n.toFixed(0) : n >= 1 ? n.toFixed(2) : n.toFixed(3))
+                    const row = (label: string, tok: number, cost?: number) => (
+                      <div className="flex justify-between py-0.5"><span className="text-muted-foreground">{label}</span><span>{k(tok)} tok{cost != null ? ' · ' + $(cost) : ''}</span></div>
+                    )
+                    return (<div>
+                      <div className="mb-1 font-medium">{u.turns} turns · this session</div>
+                      {row('input (fresh)', u.input, u.cost?.input)}
+                      {row('output', u.output, u.cost?.output)}
+                      {row('cache read', u.cacheRead, u.cost?.cacheRead)}
+                      {row('cache write', u.cacheWrite, u.cost?.cacheWrite)}
+                      <div className="mt-1 flex justify-between border-t pt-1 font-medium"><span>estimated total</span><span>{u.cost ? $(u.cost.total) : 'no rate for this model'}</span></div>
+                      <div className="mt-1 text-[10px] text-muted-foreground">{u.cost ? 'rates as of ' + u.cost.asOf + ' · cache read 0.1×, write 1.25× input rate' : 'tokens only — an unknown model gets no dollars, never a guess'}</div>
+                    </div>)
+                  })() : <span className="text-muted-foreground">no session yet</span>}
+                </HoverCardContent>
+              </HoverCard>
+            )}
             <span className="hidden whitespace-nowrap text-xs text-muted-foreground md:inline">{pane ? pane.count + ' messages' : ''}</span>
             <Button variant={showComputer ? 'secondary' : 'ghost'} size="sm" className="ml-auto h-8 text-xs"
-              onClick={() => setShowComputer(v => !v)}>🖥 Computer</Button>
+              onClick={() => setShowComputer(v => !v)}><Monitor className="mr-1 size-3.5" /> Computer</Button>
           </header>
 
           {/* ⛔ SIDE BY SIDE, owner's ruling: the mirror opens NEXT TO the

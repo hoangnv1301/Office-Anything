@@ -3,6 +3,19 @@
 Every entry below is a fault found by **using** this plugin, not by reading it. Four of the
 first five needed a desk to exist and a second action taken against it.
 
+## 0.6.3
+
+- Live SUBAGENTS in the sidebar: recently-active sidechain transcripts under
+  their desk, labeled by their task, pulsing while fresh. The Grok Build idea,
+  built as a read of what Claude Code already writes.
+- A usage menu on the model badge: tokens and dollars per line (input, output,
+  cache read at 0.1x, cache write at 1.25x), rates carrying their as-of date,
+  and an unknown model gets tokens only, never a guessed dollar. One owner for
+  the arithmetic, tested to the cent.
+- Lucide icons replace the emoji; the sidebar slimmed to names and signals
+  with the numbers on hover; the send/upload path proven end to end against a
+  live desk, which replied.
+
 ## 0.6.2
 
 - A ＋ button hires a desk from the board, through hire() and nothing else:

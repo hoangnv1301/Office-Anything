@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { gatherOffice, slugFor } from './read.mjs'
 import { newestSession, chatFrom, readTail } from './transcript.mjs'
+import { subagentsOf } from './read.mjs'
 import { transcriptStats, worktop, filesUnder, treeOf } from './read.mjs'
 import { basename } from 'node:path'
 import { send, orcaAvailable, normalizeTitle } from './send.mjs'
@@ -23,6 +24,7 @@ import { screenshotOf } from '../lib/cdp.mjs'
 import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
 import { rosterSafe, leadDesk } from '../lib/desk.mjs'
 import { hire } from '../lib/hire.mjs'
+import { costOf } from '../lib/rates.mjs'
 import { collect } from '../checks/run.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
@@ -46,8 +48,10 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
     ...desks.map((d) => ({ key: slugFor(join(root, 'desks', d.name)), label: d.name, sub: d.kind + (d.live ? ' · LIVE' : ''), desk: d.name, port: d.port, kind: d.kind })),
   ]
   for (const r of rows) {
-    const t = newestSession(join(home, '.claude', 'projects', r.key))
+    const dir = join(home, '.claude', 'projects', r.key)
+    const t = newestSession(dir)
     r.activeMin = t ? Math.round((now - (statSafe(t))) / 60000) : null
+    r.agents = t ? subagentsOf(dir, t) : []
     const st = transcriptStats(join(home, '.claude', 'projects', r.key))
     if (st) {
       const k = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
@@ -217,7 +221,8 @@ export function makeServer(root) {
         const sessionId = basename(t, '.jsonl')
         const folder = filesUnder(join('/private/tmp', 'claude-' + process.getuid(), key, sessionId, 'scratchpad'))
           .map((x) => ({ name: x.name, size: x.size, ageMin: Math.round((now - x.at) / 60000) }))
-        return json(res, 200, { label, model: tail?.stats?.model ?? null, count: messages.length, messages, folder, workspace })
+        const usage = tail ? { ...tail.stats, cost: costOf({ model: tail.stats.model, input: tail.stats.input, output: tail.stats.output, cacheRead: tail.stats.cacheRead, cacheWrite: tail.stats.cacheWrite ?? 0 }) } : null
+        return json(res, 200, { label, model: tail?.stats?.model ?? null, count: messages.length, messages, folder, workspace, usage })
       }
       if (url.pathname === '/api/hire' && req.method === 'POST') {
         // ⛔ THE GUARDED ENTRY, NEVER THE PARTS. hire() owns the name rules,

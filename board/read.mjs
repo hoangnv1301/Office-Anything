@@ -44,6 +44,34 @@ export function filesUnder(dir) {
   return files.sort((a, b) => b.at - a.at)
 }
 
+// ⛔ SUBAGENTS ARE ALREADY ON DISK. Every Task/subagent run writes its own
+// jsonl beside the main session (sdk entrypoints, sidechains). "Show the
+// running sub-agents" — the Grok Build idea — is therefore a READ, not a
+// runtime: recently-active transcripts that are not the human session ARE
+// the live agents. Recency is the only honest liveness signal a file gives.
+export function subagentsOf(projectDir, mainSessionPath, { now = Date.now(), activeMs = 10 * 60_000, cap = 5 } = {}) {
+  try {
+    const out = []
+    for (const f of readdirSync(projectDir)) {
+      if (!f.endsWith('.jsonl')) continue
+      const p = join(projectDir, f)
+      if (p === mainSessionPath) continue
+      const st = statSync(p)
+      if (now - st.mtimeMs > activeMs) continue
+      const tail = readTail(p, { limit: 4 })
+      if (!tail) continue
+      const first = tail.messages.find((m) => m.role === 'user' && m.text)
+      out.push({
+        label: (first?.text ?? 'agent').replace(/\s+/g, ' ').slice(0, 64),
+        activeMin: Math.round((now - st.mtimeMs) / 60000),
+        turns: tail.stats.turns,
+        model: tail.stats.model,
+      })
+    }
+    return out.sort((a, b) => a.activeMin - b.activeMin).slice(0, cap)
+  } catch { return [] }
+}
+
 export function worktop(scratchBase) {
   try {
     const sessions = readdirSync(scratchBase, { withFileTypes: true })
