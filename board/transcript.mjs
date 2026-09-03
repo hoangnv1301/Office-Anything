@@ -149,7 +149,13 @@ export function chatFrom(jsonlText, { limit = 80, toolIndex = new Map() } = {}) 
       if (toolIndex.size > 800) for (const k of [...toolIndex.keys()].slice(0, 400)) toolIndex.delete(k)
       const reasoning = arr.filter((b) => b.type === 'thinking').map((b) => b.thinking ?? '').join('\n').slice(0, 4000)
       if (text.trim() || tools.length || reasoning.trim()) {
-        out.push({ role: 'assistant', text: text.slice(0, 4000), tools, images: imagesOf(m.content), reasoning: reasoning.trim() || null, at: j.timestamp ?? null, model: m.model ?? null })
+        // an API error is the HARNESS speaking, not the desk: synthetic model
+        // or "API Error" text renders as a red event, never as the desk's words
+        if (m.model === '<synthetic>' || /^\s*API Error/i.test(text)) {
+          out.push({ role: 'system', label: 'api error', text: text.slice(0, 2500), at: j.timestamp ?? null })
+        } else {
+          out.push({ role: 'assistant', text: text.slice(0, 4000), tools, images: imagesOf(m.content), reasoning: reasoning.trim() || null, at: j.timestamp ?? null, model: m.model ?? null })
+        }
       }
     }
   }

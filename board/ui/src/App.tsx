@@ -16,6 +16,7 @@ import {
   PromptInput, PromptInputBody, PromptInputTextarea, PromptInputFooter, PromptInputSubmit,
   PromptInputTools, PromptInputActionAddAttachments, PromptInputHeader,
   PromptInputActionMenu, PromptInputActionMenuTrigger, PromptInputActionMenuContent,
+  usePromptInputAttachments,
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai-elements/web-preview'
@@ -52,9 +53,10 @@ const age = (m: number) => (m < 60 ? `${m}m` : `${Math.round(m / 60)}h`) + ' ago
 
 const MsgBlock = memo(function MsgBlock({ m, rich }: { m: Msg; rich: boolean }) {
   if (m.role === 'system') {
+    const isErr = /error/i.test(m.label ?? '')
     return (
-      <Task defaultOpen={false} className="my-0.5 opacity-75">
-        <TaskTrigger title={'⚑ ' + (m.label ?? 'system')} icon={<Flag className="size-3.5" />} />
+      <Task defaultOpen={false} className={'my-0.5 ' + (isErr ? 'rounded-md border-l-2 border-red-500 bg-red-950/20 py-0.5 pl-2 [&_p]:text-red-400' : 'opacity-75')}>
+        <TaskTrigger title={(isErr ? '⛔ ' : '⚑ ') + (m.label ?? 'system')} icon={<Flag className={'size-3.5 ' + (isErr ? 'text-red-400' : '')} />} />
         <TaskContent><pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs">{m.text}</pre></TaskContent>
       </Task>
     )
@@ -81,6 +83,22 @@ const MsgBlock = memo(function MsgBlock({ m, rich }: { m: Msg; rich: boolean }) 
 }, (a, b) => a.m.text === b.m.text && a.rich === b.rich && a.m.reasoning === b.m.reasoning && (a.m.images?.length ?? 0) === (b.m.images?.length ?? 0))
 
 type ToolRow = { name: string; input: unknown; output?: string | null; isError?: boolean }
+
+// a dropped or picked file was landing in context with NO chip on screen, so
+// the composer looked like it swallowed the image. The hook is the component's
+// own; only the chips are ours.
+function AttachChips() {
+  const a = usePromptInputAttachments()
+  if (!a.files.length) return null
+  return (<>
+    {a.files.map((f) => (
+      <Badge key={f.id} variant="secondary" className="gap-1 font-normal">
+        <ImageIcon className="size-3" />{f.filename ?? 'image'}
+        <button type="button" className="ml-0.5 opacity-70 hover:opacity-100" title="remove" onClick={() => a.remove(f.id)}>×</button>
+      </Badge>
+    ))}
+  </>)
+}
 
 // an Edit is a diff and should read as one: what left in red, what arrived
 // in green. Write shows the new content in green. Everything else keeps the
@@ -576,9 +594,7 @@ export default function App() {
               </HoverCard>
             )}
             <span className="hidden whitespace-nowrap text-xs text-muted-foreground md:inline">{pane ? pane.count + ' messages' : ''}</span>
-            <Button variant="ghost" size="sm" className="ml-auto h-8 px-2 font-mono text-xs" title="Shift-Tab into this desk's terminal — the CLI cycles its permission mode there; watch the terminal chrome for the result"
-              onClick={async () => { const r = await (await fetch('api/key', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: sel, k: 'shift-tab' }) })).json(); setNote(r.ok ? 'Shift-Tab sent — the mode shows in the desk terminal' : '⛔ ' + r.why) }}>⇧⇥</Button>
-            <Button variant={showComputer ? 'secondary' : 'ghost'} size="sm" className="h-8 text-xs"
+            <Button variant={showComputer ? 'secondary' : 'ghost'} size="sm" className="ml-auto h-8 text-xs"
               onClick={() => setShowComputer(v => !v)}><Monitor className="size-3.5 sm:mr-1" /><span className="hidden sm:inline"> Computer</span></Button>
           </header>
 
@@ -660,7 +676,7 @@ export default function App() {
             <div className="mx-auto w-full max-w-3xl px-4 pb-4">
               <PromptInput onSubmit={onSubmit} accept="image/*" multiple globalDrop>
                 <PromptInputBody>
-                  <PromptInputHeader />
+                  <PromptInputHeader><AttachChips /></PromptInputHeader>
                   {slashQ && (
                     <div className="max-h-56 overflow-y-auto px-1 pt-1">
                       {/* two honest columns, CLI-style: the NAME gets the room
@@ -699,6 +715,8 @@ export default function App() {
                     <Button variant="ghost" size="sm" className="h-8 sm:hidden" title="Add a photo"
                       onClick={() => (document.querySelector('input[type=file]') as HTMLInputElement | null)?.click()}>
                       <ImageIcon className="size-4" /></Button>
+                    <Button variant="ghost" size="sm" className="h-8 px-2 font-mono text-xs" title="Shift-Tab into this desk's terminal — the CLI cycles its permission mode there; watch the terminal for the result"
+                      onClick={async () => { const r = await (await fetch('api/key', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: sel, k: 'shift-tab' }) })).json(); setNote(r.ok ? 'Shift-Tab sent — the mode shows in the desk terminal' : '⛔ ' + r.why) }}>⇧⇥</Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="h-8 text-xs">/ commands</Button>} />
                       <DropdownMenuContent className="max-h-72 w-[30rem] max-w-[92vw] overflow-y-auto">

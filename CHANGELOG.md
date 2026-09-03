@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.15
+
+- API errors are the HARNESS speaking, not the desk: a synthetic turn or
+  "API Error..." text renders as a red ⛔ event, never as the desk's words.
+- Attachments got their chips back: a dropped or picked file landed in
+  context with NOTHING on screen, so the composer looked like it swallowed
+  the image. The chips ride the component's own attachments hook; drop and
+  the photo button were working all along, invisibly.
+- The ⇧⇥ mode key lives in the composer next to / commands, where input
+  belongs, not in the header.
+
 ## 0.7.14
 
 - SEND WAS 8-12 SECONDS and it was ours: orca types at human speed and the
