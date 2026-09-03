@@ -57,6 +57,12 @@ fails every other office for existing.
 
 ## Before a PR
 
+The pre-commit hook runs the whole suite with its exit code intact — a red
+commit reached main twice because a pipe swallowed the runner's status, so
+this stopped being a habit and became a gate. `git config core.hooksPath
+.githooks` once after cloning arms it.
+
+
 ```
 node --test "tests/**/*.test.mjs"    # the count is stated in three places; a test pins them
 node checks/run.mjs                  # every check, one exit code

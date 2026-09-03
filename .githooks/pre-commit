@@ -1,3 +1,18 @@
 #!/bin/sh
-# ⛔ Blocks a commit that contains a credential. Install: git config core.hooksPath .githooks
-exec node "$(git rev-parse --show-toplevel)/hooks/no-secrets.mjs" --staged
+# ⛔ TWO GATES, BOTH EARNED.
+#
+# 1. No credential in a commit.
+# 2. The suite runs, WITH ITS EXIT CODE INTACT. A red commit reached main
+#    twice on 2026-09-03 the same way both times: the maintainer piped the
+#    test runner into a formatter, the pipe reported the FORMATTER's exit
+#    code, and the && chain sailed on. A human promising to read exit codes
+#    carefully is prose; this hook is the gate. (stated-numbers is in the
+#    suite, so the recurring stale-count slip is caught here too.)
+set -e
+ROOT="$(git rev-parse --show-toplevel)"
+node "$ROOT/hooks/no-secrets.mjs" --staged
+cd "$ROOT" && node --test "tests/**/*.test.mjs" > /tmp/oa-precommit-tests.log 2>&1 || {
+  echo "⛔ pre-commit: the suite is red. Last lines:" >&2
+  tail -12 /tmp/oa-precommit-tests.log >&2
+  exit 1
+}
