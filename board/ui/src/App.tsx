@@ -83,6 +83,15 @@ function DeskAvatar({ name, busy, size = 20 }: { name: string; busy?: boolean | 
 // the CLI's hook events in LIFECYCLE order, session start to session end;
 // an alphabetical list put Stop before UserPromptSubmit
 const HOOK_ORDER = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PermissionRequest', 'PostToolUse', 'PostToolUseFailure', 'Notification', 'SubagentStart', 'SubagentStop', 'Stop', 'StopFailure', 'TeammateIdle', 'TaskCompleted', 'PreCompact', 'SessionEnd']
+// a hook's NAME is its script file when it has one, else its first word;
+// splitting a quoted shell command on "/" left a stray quote and, for
+// if [ -f '/Users/… ] wrappers, a bare path fragment
+const hookName = (cmd: string) => {
+  const file = /([\w.-]+\.(?:sh|mjs|cjs|js|ts|py|rb|cmd))\b/.exec(cmd)?.[1]
+  if (file) return file
+  const first = cmd.trim().replace(/^["']+|["']+$/g, '').split(/\s+/)[0] ?? cmd
+  return first.length > 40 ? first.slice(0, 40) + '…' : first
+}
 const kb = (n: number) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'
 const age = (m: number) => (m < 60 ? `${m}m` : `${Math.round(m / 60)}h`) + ' ago'
 
@@ -657,7 +666,7 @@ export default function App() {
                     <div className="px-1 py-1 text-[10px] font-medium uppercase tracking-wide text-blue-400">{event}</div>
                     {hooks.filter((h) => h.event === event).map((h, i) => (
                       <div key={i} className="px-1 py-0.5 text-[11px]" title={h.command}>
-                        <div className="truncate font-mono">{h.command.split('/').pop()}</div>
+                        <div className="truncate font-mono">{hookName(h.command)}</div>
                         <div className="truncate text-muted-foreground">{h.matcher !== '*' ? h.matcher + ' · ' : ''}{h.source}</div>
                       </div>
                     ))}

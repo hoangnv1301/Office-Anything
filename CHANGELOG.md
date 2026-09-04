@@ -2,6 +2,9 @@
 
 ## 0.7.25
 
+- A hook row names its SCRIPT (guard-bash.sh, no-secrets.mjs), not a
+  path fragment with a stray quote from splitting a shell command on /.
+
 - Hooks list in LIFECYCLE order, SessionStart to SessionEnd; alphabetical
   had put Stop before UserPromptSubmit.
 - The heartbeat is a pill: "12/12 loops up" with the pulse icon, the full
