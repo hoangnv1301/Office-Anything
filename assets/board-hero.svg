@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0c0c0d"/><stop offset="1" stop-color="#090909"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="620" rx="16" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="1199" height="619" rx="16" fill="none" stroke="#ffffff" stroke-opacity="0.06"/>
+
+  <!-- ============ SIDEBAR ============ -->
+  <rect x="20" y="20" width="250" height="580" rx="12" fill="#111113"/>
+  <text x="42" y="55" fill="#fafafa" font-size="16" font-weight="700">🏢 the office</text>
+  <circle cx="228" cy="49" r="11" fill="#1b1b1e"/><text x="228" y="54" fill="#8a8a8a" font-size="14" text-anchor="middle">↑</text>
+  <circle cx="252" cy="49" r="11" fill="#1b1b1e"/><text x="252" y="54" fill="#8a8a8a" font-size="15" text-anchor="middle">+</text>
+
+  <!-- selected: the-lead, shimmering (working) -->
+  <rect x="30" y="78" width="230" height="34" rx="8" fill="#1d1d20"/>
+  <path d="M46 87 q10 -6 20 0 q6 10 0 20 q-10 6 -20 0 q-6 -10 0 -20z" fill="#ff5d8f"/>
+  <text x="56" y="101" fill="#0c0c0d" font-size="12" font-weight="700" text-anchor="middle">L</text>
+  <text x="76" y="100" fill="#e9e9ea" font-size="13" font-weight="600">the-lead</text>
+  <rect x="140" y="92" width="46" height="9" rx="4" fill="#3a3a3f" opacity="0.9"/>
+
+  <!-- support, online, LIVE -->
+  <ellipse cx="46" cy="130" rx="10" ry="10" fill="#3fb6c4" transform="rotate(8 46 130)"/>
+  <text x="46" y="135" fill="#0c0c0d" font-size="12" font-weight="700" text-anchor="middle">S</text>
+  <text x="66" y="134" fill="#e9e9ea" font-size="13" font-weight="500">support</text>
+  <rect x="132" y="123" width="34" height="16" rx="8" fill="#e9e9ea"/><text x="149" y="135" fill="#0c0c0d" font-size="9" font-weight="700" text-anchor="middle">LIVE</text>
+
+  <!-- pricing, online -->
+  <path d="M40 158 q12 -7 22 2 q5 11 -2 20 q-12 6 -21 -2 q-5 -10 1 -20z" fill="#b58cff"/>
+  <text x="49" y="177" fill="#0c0c0d" font-size="12" font-weight="700" text-anchor="middle">P</text>
+  <text x="66" y="176" fill="#e9e9ea" font-size="13" font-weight="500">pricing</text>
+
+  <!-- design, online -->
+  <ellipse cx="46" cy="204" rx="11" ry="9" fill="#ffb020" transform="rotate(-10 46 204)"/>
+  <text x="46" y="209" fill="#0c0c0d" font-size="12" font-weight="700" text-anchor="middle">D</text>
+  <text x="66" y="208" fill="#e9e9ea" font-size="13" font-weight="500">design</text>
+
+  <!-- shipping, offline (grayed) -->
+  <path d="M40 230 q12 -6 22 1 q6 11 -1 21 q-12 6 -21 -2 q-6 -11 0 -20z" fill="#5aa469" opacity="0.55"/>
+  <text x="49" y="248" fill="#0c0c0d" font-size="12" font-weight="700" text-anchor="middle">S</text>
+  <text x="66" y="247" fill="#77777a" font-size="13" font-weight="500">shipping</text>
+
+  <!-- research, offline (grayed) -->
+  <ellipse cx="46" cy="274" rx="10" ry="10" fill="#e0733d" opacity="0.55" transform="rotate(14 46 274)"/>
+  <text x="46" y="279" fill="#0c0c0d" font-size="12" font-weight="700" text-anchor="middle">R</text>
+  <text x="66" y="278" fill="#77777a" font-size="13" font-weight="500">research</text>
+
+  <line x1="42" y1="320" x2="248" y2="320" stroke="#ffffff" stroke-opacity="0.05"/>
+  <text x="42" y="345" fill="#5a5a5e" font-size="10" letter-spacing="1">6 DESKS · 1 LIVE · 0 DEPENDENCIES</text>
+
+  <!-- ============ CHAT ============ -->
+  <rect x="286" y="20" width="590" height="580" rx="12" fill="#0e0e10"/>
+  <!-- header -->
+  <path d="M312 40 q10 -6 20 0 q6 10 0 20 q-10 6 -20 0 q-6 -10 0 -20z" fill="#ff5d8f"/>
+  <text x="322" y="55" fill="#0c0c0d" font-size="11" font-weight="700" text-anchor="middle">L</text>
+  <text x="344" y="55" fill="#fafafa" font-size="15" font-weight="600">the-lead</text>
+  <rect x="430" y="42" width="118" height="20" rx="10" fill="#1b1b1e"/><text x="489" y="56" fill="#c9c9cc" font-size="11" text-anchor="middle">$ claude-opus</text>
+  <text x="820" y="55" fill="#8a8a8a" font-size="12">🖥 Computer</text>
+
+  <!-- a message FROM support, in support's colour -->
+  <text x="312" y="96" fill="#3fb6c4" font-size="11">◗ from support</text>
+  <rect x="312" y="104" width="470" height="52" rx="10" fill="#141416"/>
+  <rect x="312" y="104" width="3" height="52" rx="2" fill="#3fb6c4"/>
+  <text x="330" y="126" fill="#d6d6d8" font-size="12.5">Buyer asked the lead time on the walnut units.</text>
+  <text x="330" y="145" fill="#d6d6d8" font-size="12.5">What should I quote?</text>
+
+  <!-- lead reply, markdown-ish -->
+  <rect x="336" y="176" width="440" height="70" rx="10" fill="#151517"/>
+  <text x="354" y="199" fill="#e9e9ea" font-size="12.5">Ask <tspan fill="#60a5fa" font-weight="600">pricing</tspan> for the number — you never state</text>
+  <text x="354" y="217" fill="#e9e9ea" font-size="12.5">one it did not give you. I will route it.</text>
+  <rect x="354" y="228" width="150" height="9" rx="4" fill="#2a2a2e"/>
+
+  <!-- tool fold -->
+  <rect x="336" y="262" width="300" height="26" rx="8" fill="#141416"/>
+  <text x="352" y="279" fill="#8a8a8a" font-size="11.5">⚙ 1 tool call — SendMessage → pricing</text>
+
+  <!-- from pricing, purple -->
+  <text x="312" y="318" fill="#b58cff" font-size="11">◗ from pricing</text>
+  <rect x="312" y="326" width="360" height="34" rx="10" fill="#141416"/>
+  <rect x="312" y="326" width="3" height="34" rx="2" fill="#b58cff"/>
+  <text x="330" y="347" fill="#d6d6d8" font-size="12.5">The final number, all-in. Lead time attached.</text>
+
+  <!-- working shimmer -->
+  <text x="312" y="392" fill="#6a6a6e" font-size="12.5">✳ working…  (12s · one turn's tokens)</text>
+
+  <!-- composer -->
+  <rect x="312" y="520" width="538" height="60" rx="12" fill="#141416" stroke="#ffffff" stroke-opacity="0.06"/>
+  <text x="330" y="546" fill="#5a5a5e" font-size="12.5">Message this desk's live terminal — / for commands</text>
+  <text x="330" y="568" fill="#7a7a7e" font-size="12">+   🖼   ⇧⇥   / commands</text>
+  <circle cx="828" cy="550" r="15" fill="#e9e9ea"/><text x="828" y="555" fill="#0c0c0d" font-size="14" text-anchor="middle">↵</text>
+
+  <!-- ============ COMPUTER MIRROR ============ -->
+  <rect x="892" y="20" width="288" height="580" rx="12" fill="#0e0e10"/>
+  <text x="912" y="48" fill="#8a8a8a" font-size="11">workspace · scratchpad · hooks · checks</text>
+  <rect x="908" y="66" width="256" height="300" rx="10" fill="#050505" stroke="#ffffff" stroke-opacity="0.06" filter="url(#soft)"/>
+  <!-- browser chrome -->
+  <rect x="908" y="66" width="256" height="26" rx="10" fill="#161618"/>
+  <circle cx="924" cy="79" r="4" fill="#ff5f57"/><circle cx="938" cy="79" r="4" fill="#febc2e"/><circle cx="952" cy="79" r="4" fill="#28c840"/>
+  <rect x="978" y="72" width="176" height="13" rx="6" fill="#0c0c0d"/><text x="986" y="82" fill="#6a6a6e" font-size="9">a desk's own browser</text>
+  <!-- page -->
+  <rect x="920" y="104" width="232" height="70" rx="6" fill="#12100e"/>
+  <rect x="932" y="118" width="120" height="10" rx="5" fill="#caa25a" opacity="0.8"/>
+  <rect x="932" y="136" width="200" height="7" rx="3" fill="#333"/>
+  <rect x="932" y="150" width="176" height="7" rx="3" fill="#2a2a2a"/>
+  <rect x="920" y="186" width="110" height="70" rx="6" fill="#161616"/>
+  <rect x="1042" y="186" width="110" height="70" rx="6" fill="#161616"/>
+  <rect x="920" y="268" width="232" height="86" rx="6" fill="#131313"/>
+  <text x="912" y="392" fill="#5a5a5e" font-size="10">mirrored — display only, never touched</text>
+
+  <!-- background jobs strip -->
+  <line x1="908" y1="410" x2="1164" y2="410" stroke="#ffffff" stroke-opacity="0.05"/>
+  <text x="912" y="432" fill="#5a5a5e" font-size="10" letter-spacing="1">BACKGROUND</text>
+  <circle cx="916" cy="452" r="4" fill="#ffb020"/><text x="928" y="456" fill="#9a9a9e" font-size="11">audit the walnut catalog · running</text>
+  <circle cx="916" cy="474" r="4" fill="#4a4a4e"/><text x="928" y="478" fill="#9a9a9e" font-size="11">reconcile the docs · 4m ago</text>
+</svg>

@@ -15,9 +15,12 @@ gets a desk, a browser, a live board, and limits that are enforced, not suggeste
 [Fire](#fire-someone) · [The wall](#the-wall) · [The checks](#the-checks) · [The board](#the-board) ·
 [Design](#design-philosophy) · [Roadmap](#roadmap)
 
-<img src="assets/the-office.svg" width="100%"
-     alt="One Claude Code conversation becomes three desks. Each is its own agent with its own context: support gets a browser and can reply, pricing holds margins and has no way to send, the lead organizes and hires.">
+<img src="assets/board-hero.svg" width="100%"
+     alt="The office board: a sidebar of desks each with its own colored shape, the lead's live chat in the middle with a message routed to pricing and its reply, and the desk's own browser mirrored on the right. Built entirely on what Claude Code already writes.">
 
+<sub>Every desk is a real Claude Code session. The board only reads what Claude Code already writes — transcripts, scratchpads, the desk's browser — and makes it one screen you can watch and message from, on your phone too.</sub>
+
+<br><br>
 <b><a href="https://hoangnv1301.github.io/Office-Anything/">See it work &rarr;</a></b><br>
 <sub>Pick a desk, try to give it a job that isn't its own, and watch it refuse.</sub>
 
@@ -175,16 +178,27 @@ committing `conventions.json` with `{"commits": "conventional"}`.
 /desk-board
 ```
 
-The office on one page, served read-only on localhost: every desk with its
-kind, live status, model, turns, token usage and last activity — read from
-desk.json and the desks' own transcripts, never from self-report — plus each
-desk's worktop (its session's native Claude Code scratchpad) and the full
-checks board. The front page IS the conversation view: every desk (the lead included) in a
-sidebar, its live transcript streaming as chat on the right, and a send box
-that types straight into that desk's terminal where the host supports it.
-Loopback only, stateless, re-gathered per request. It cannot
-know something `node checks/run.mjs` does not, which is the rule that let it
-exist at all.
+The office on one page (the shot up top is it), served read-only on
+localhost. The front page IS the conversation view, built on real
+[shadcn/ui](https://ui.shadcn.com) + [AI Elements](https://elements.ai-sdk.dev)
+components, nothing hand-rolled:
+
+- **Every desk in a sidebar**, each with its own colored shape, its name
+  grayed when offline and shimmering while it works — read from the desks'
+  own transcripts, never from self-report.
+- **Its live transcript as chat**: markdown, tool calls with their diffs and
+  results, images, a message *from* another desk in that desk's own color,
+  the working line showing elapsed and tokens like the CLI status bar.
+- **A composer that types into the desk's real terminal** — `/` commands,
+  Tab-complete, image drop, Shift-Tab for mode — where the host supports it.
+- **The Computer tab mirrors the desk's own browser**, display only, through
+  a zero-dependency CDP client. A rail switches between the desk's workspace
+  tree, its scratchpad, its configured hooks, and the live checks board.
+
+Loopback only, stateless, re-gathered per request, and it can be mounted
+behind an existing app's auth to reach it from a phone. It cannot know
+something `node checks/run.mjs` does not, which is the rule that let it exist
+at all.
 
 ## Design philosophy
 

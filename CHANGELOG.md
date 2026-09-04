@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.21
+
+- A new README hero: a product shot of the actual board (assets/board-hero.svg)
+  with the colored blob avatars, a message from support in its own color
+  routed to pricing and answered, the working line, and the mirrored browser.
+  The old three-desk schematic retired to bk. The board section rewritten to
+  say what the page actually is now, component by component.
+
+
 ## 0.7.20
 
 - Every desk wears a shape, not a bar. A colored blob avatar with the
