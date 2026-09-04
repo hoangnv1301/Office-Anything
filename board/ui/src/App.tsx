@@ -80,6 +80,9 @@ function DeskAvatar({ name, busy, size = 20 }: { name: string; busy?: boolean | 
   )
 }
 
+// the CLI's hook events in LIFECYCLE order, session start to session end;
+// an alphabetical list put Stop before UserPromptSubmit
+const HOOK_ORDER = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PermissionRequest', 'PostToolUse', 'PostToolUseFailure', 'Notification', 'SubagentStart', 'SubagentStop', 'Stop', 'StopFailure', 'TeammateIdle', 'TaskCompleted', 'PreCompact', 'SessionEnd']
 const kb = (n: number) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'
 const age = (m: number) => (m < 60 ? `${m}m` : `${Math.round(m / 60)}h`) + ' ago'
 
@@ -649,7 +652,7 @@ export default function App() {
             ? <div className="px-2 py-2 text-xs text-muted-foreground">…</div>
             : hooks.length === 0
               ? <div className="px-2 py-2 text-xs text-muted-foreground">no hooks configured for this desk</div>
-              : [...new Set(hooks.map((h) => h.event))].map((event) => (
+              : [...new Set(hooks.map((h) => h.event))].sort((a, b) => HOOK_ORDER.indexOf(a) - HOOK_ORDER.indexOf(b)).map((event) => (
                   <div key={event} className="mb-2">
                     <div className="px-1 py-1 text-[10px] font-medium uppercase tracking-wide text-blue-400">{event}</div>
                     {hooks.filter((h) => h.event === event).map((h, i) => (
@@ -683,9 +686,14 @@ export default function App() {
           </div>
           <ScrollArea className="min-h-0 flex-1">{deskList}</ScrollArea>
           {beat?.declared && (
-            <div className={'flex items-center gap-2 border-t border-border/40 px-3 py-2 text-[11px] ' + (beat.ok ? 'text-muted-foreground' : 'text-red-400')} title={beat.lines?.join('\n')}>
+            <div className="flex items-center gap-2 border-t border-border/40 px-3 py-2" title={beat.lines?.join('\n') || beat.last}>
               <HeartPulse className={'size-3.5 flex-none ' + (beat.ok ? 'text-emerald-400' : 'animate-pulse text-red-400')} />
-              <span className="truncate">{beat.last || (beat.ok ? 'office heartbeat OK' : 'office heartbeat RED')}</span>
+              {(() => {
+                const m = /(\d+)\s*\/\s*(\d+)/.exec(beat.last ?? '')
+                return <span className={'text-[11px] ' + (beat.ok ? 'text-muted-foreground' : 'text-red-400')}>
+                  {m ? <><span className={beat.ok ? 'text-foreground' : ''}>{m[1]}/{m[2]}</span> loops {beat.ok ? 'up' : '— attention'}</> : (beat.ok ? 'office up' : 'office needs attention')}
+                </span>
+              })()}
             </div>
           )}
         </div>

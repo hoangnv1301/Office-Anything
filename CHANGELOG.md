@@ -2,6 +2,11 @@
 
 ## 0.7.25
 
+- Hooks list in LIFECYCLE order, SessionStart to SessionEnd; alphabetical
+  had put Stop before UserPromptSubmit.
+- The heartbeat is a pill: "12/12 loops up" with the pulse icon, the full
+  line on hover, red and "attention" when not.
+
 - A bare slash command typed at a prompt is recorded as plain text in some
   paths and rendered as the human chatting; it folds as a local command now,
   and a bare /compact joins the one compaction event.
