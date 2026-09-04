@@ -1004,7 +1004,7 @@ export default function App() {
         <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex min-w-0 items-center gap-2 pr-6">
-              <span className="truncate font-mono text-sm">{file?.path}</span>
+              <span className="truncate font-mono text-sm select-all" title="long-press or triple-click selects the whole path">{file?.path}</span>
               <Button variant="ghost" size="sm" className="h-6 flex-none px-2 text-[11px]" title="Copy path to mention it in chat"
                 onClick={async (e) => {
                   e.stopPropagation()
@@ -1015,10 +1015,17 @@ export default function App() {
                   let ok = false
                   try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(file.path); ok = true } } catch { ok = false }
                   if (!ok) {
+                    // iOS Safari: execCommand copies only from an editable,
+                    // explicitly-ranged selection made inside the gesture
                     try {
-                      const ta = document.createElement('textarea'); ta.value = file.path; ta.setAttribute('readonly', '')
-                      ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select()
-                      ok = document.execCommand('copy'); ta.remove()
+                      const ta = document.createElement('textarea'); ta.value = file.path
+                      ta.contentEditable = 'true'; ta.readOnly = false
+                      ta.style.position = 'fixed'; ta.style.top = '0'; ta.style.left = '0'; ta.style.opacity = '0'; ta.style.fontSize = '16px'
+                      document.body.appendChild(ta)
+                      const range = document.createRange(); range.selectNodeContents(ta)
+                      const sel = window.getSelection(); sel?.removeAllRanges(); sel?.addRange(range)
+                      ta.setSelectionRange(0, file.path.length)
+                      ok = document.execCommand('copy'); ta.remove(); sel?.removeAllRanges()
                     } catch { ok = false }
                   }
                   b.textContent = ok ? 'copied ✓' : 'copy failed — select the path above'

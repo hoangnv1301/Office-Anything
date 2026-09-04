@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.26
+
+- THE RIG GREW FROM 9 TO 21 CHECKS, one per thing the owner caught by hand
+  this week: the recorded mode and ctx % in the header, the heartbeat pill,
+  every rail tab rendering, hooks in lifecycle order, copy path writing the
+  clipboard (read back, not assumed), the lightbox, and the phone drawer
+  opening and closing on a desk tap. A human found each once; a machine
+  finds them now.
+- copy path works on iOS: Safari copies only from an editable, explicitly
+  ranged selection made inside the gesture; the path is also select-all
+  for a long-press.
+- What the CLI never renders, the board never renders: system-reminders
+  and local-command caveats are context for the model, not for the human.
+- The office board runs as a KEPT loop in the runbook (respawned on exit);
+  a hand-started process typed from the wrong directory left the site dark
+  for seven minutes. The wrapper forwards SIGTERM to its server so a stop
+  never leaves an orphan on 7719.
+
 ## 0.7.25
 
 - A hook row names its SCRIPT (guard-bash.sh, no-secrets.mjs), not a

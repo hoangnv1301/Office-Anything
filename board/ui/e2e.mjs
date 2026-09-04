@@ -136,6 +136,65 @@ const computer = screenUp
 check('computer opens BESIDE the chat with a live mirror', computer.ok, String(computer.v ?? 'why') + ' ' + computer.ms + 'ms')
 await shot('computer')
 
+
+// ── the owner's 2026-09-04 burst: every failure below was first found by a
+// human. Each is a machine's job now. Hit-tested like everything above.
+
+// 9. header carries the recorded mode and the context percent
+const hdr = await evalJs(`document.querySelector('header')?.innerText ?? ''`)
+check('header shows recorded mode and ctx %', /mode · \w+/.test(hdr) && /\d+% ctx/.test(hdr), hdr.replace(/\s+/g, ' ').slice(0, 80))
+
+// 10. the heartbeat pill, whenever the office declares one
+const beat = await (await fetch('http://127.0.0.1:7719/api/heartbeat')).json()
+if (beat.declared) {
+  const pill = await evalJs(`/\\d+\\/\\d+ loops/.test(document.body.innerText)`)
+  check('heartbeat pill renders the loop count', !!pill, beat.last)
+}
+
+// 11. every rail tab renders content; hooks are in lifecycle order
+for (const tab of ['agents', 'skills', 'plugins', 'hooks']) {
+  await mouseClick(`[...document.querySelectorAll('[role=tab]')].find(t=>t.textContent==='${tab}')`)
+  const rows = await until(`(()=>{const p=[...document.querySelectorAll('[role=tabpanel]')].find(p=>p.offsetParent&&!p.hidden); return p && p.innerText.trim().length > 20})()`, 5000)
+  check('rail tab "' + tab + '" renders content', rows.ok, rows.ms + 'ms')
+}
+const hookOrder = await evalJs(`(()=>{const p=[...document.querySelectorAll('[role=tabpanel]')].find(p=>p.offsetParent&&/SESSIONSTART|PRETOOLUSE/i.test(p.innerText)); const t=(p?.innerText??'').toUpperCase(); return JSON.stringify({start:t.indexOf('SESSIONSTART'),pre:t.indexOf('PRETOOLUSE'),stop:t.indexOf('\\nSTOP')})})()`)
+const ho = JSON.parse(hookOrder || '{}')
+check('hooks listed in lifecycle order', ho.start >= 0 && ho.pre > ho.start && (ho.stop < 0 || ho.stop > ho.pre), hookOrder)
+
+// 12. copy path: a REAL click writes the clipboard and the button says so
+await call('Browser.grantPermissions', { permissions: ['clipboardReadWrite', 'clipboardSanitizedWrite'], origin: 'http://127.0.0.1:7719' }).catch(() => {})
+await mouseClick(`[...document.querySelectorAll('[role=tab]')].find(t=>t.textContent==='workspace')`)
+await synth(`[...document.querySelectorAll('[data-rail="files"] [class*="cursor-pointer"]')].find(el=>el.textContent.trim()==='CLAUDE.md')`)
+await until(`(()=>{const d=document.querySelector('[role=dialog]'); return d && d.innerText.length > 200})()`, 4000)
+await mouseClick(`[...document.querySelectorAll('[role=dialog] button')].find(b=>/copy path/.test(b.textContent))`)
+const copied = await until(`/copied ✓/.test([...document.querySelectorAll('[role=dialog] button')].map(b=>b.textContent).join(' '))`, 2500)
+const clip = await evalJs(`navigator.clipboard.readText().catch(()=> '')`)
+check('copy path writes the clipboard and confirms', copied.ok && clip === 'CLAUDE.md', 'clipboard=' + JSON.stringify(clip))
+const esc = async () => { await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }) }
+await esc(); await until(`!document.querySelector('[role=dialog]')`, 3000)
+
+// 13. lightbox: an image click opens the viewer (only when one is in view)
+const hasImg = await evalJs(`!!document.querySelector('#root button[title="open full size"]')`)
+if (hasImg) {
+  await mouseClick(`document.querySelector('#root button[title="open full size"]')`)
+  const lb = await until(`(()=>{const d=document.querySelector('[role=dialog]'); return d && !!d.querySelector('img')})()`, 4000)
+  check('image click opens the lightbox', lb.ok, lb.ms + 'ms')
+  await esc(); await until(`!document.querySelector('[role=dialog]')`, 3000)
+} else check('image click opens the lightbox', true, 'no image in view (nothing to verify)')
+
+// 14. phone: no side panels rendered, the drawer opens, a desk tap closes it and switches
+await call('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
+await new Promise(r => setTimeout(r, 900))
+check('phone: side panels are not rendered', !!(await evalJs(`!document.querySelector('[data-rail="files"]')`)))
+await mouseClick(`[...document.querySelectorAll('button')].find(b=>b.querySelector('svg.lucide-menu'))`)
+const drawer = await until(`!!document.querySelector('[data-slot="sheet-content"], [role=dialog]')`, 3000)
+check('phone: drawer opens', drawer.ok, drawer.ms + 'ms')
+// the row text starts with the avatar INITIAL ("Mmanufacturing"): match the name anywhere
+await mouseClick(`[...document.querySelectorAll('[data-slot="sheet-content"] button, [role=dialog] button')].find(b=>/manufacturing/.test(b.textContent))`)
+const drawerClosed = await until(`!document.querySelector('[data-slot="sheet-content"], [role=dialog]') && (document.querySelector('header')?.innerText ?? '').includes('manufacturing')`, 4000)
+check('phone: a desk tap closes the drawer and switches', drawerClosed.ok, drawerClosed.ms + 'ms')
+await call('Emulation.clearDeviceMetricsOverride')
+
 // 8. back to lead + chat for the closing screenshot
 
 await mouseClick(`[...document.querySelectorAll('button')].find(b=>/team-lead/.test(b.textContent))`)

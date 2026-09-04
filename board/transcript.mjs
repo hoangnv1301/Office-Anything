@@ -143,6 +143,10 @@ export function chatFrom(jsonlText, { limit = 80, toolIndex = new Map() } = {}) 
         const bareCmd = /^\/[a-z][\w:-]*(\s+\S.*)?$/i.test(clean) && clean.length < 120
         if (xs) out.push({ role: 'peer', from: xs[1], text: xs[2].trim().slice(0, 4000), at: j.timestamp ?? null })
         else if (isCompactMachinery || /^\/compact\b/i.test(clean)) { /* the one compaction event says it all */ }
+        // the CLI never renders these: context injected for the model, not
+        // for the human. A board that shows them shows MORE than the terminal,
+        // and the owner's rule is 1:1 with what the terminal shows.
+        else if (/^\s*<system-reminder>/i.test(text) || /^\s*Caveat: /i.test(text) || /^\s*<local-command-caveat>/i.test(text)) { /* invisible in the CLI, invisible here */ }
         else if (bareCmd) out.push({ role: 'system', label: 'local command · ' + clean.split(/\s+/)[0], text: clean, at: j.timestamp ?? null })
         else if (isSystemText(text)) out.push({ role: 'system', label: systemLabel(text), text: text.replace(/\x1b\[[0-9;]*m/g, '').slice(0, 2500), at: j.timestamp ?? null })
         else out.push({ role: 'user', text: clean.slice(0, 4000), images, at: j.timestamp ?? null })
