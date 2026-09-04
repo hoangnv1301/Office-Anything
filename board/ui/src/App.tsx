@@ -725,7 +725,7 @@ export default function App() {
             </Sheet>
             {pane?.label && <DeskAvatar name={pane.label} size={22} />}
             <span className="min-w-0 truncate whitespace-nowrap font-semibold">{pane?.label ?? '…'}</span>
-            {pane?.mode && <Badge variant="outline" className="hidden h-5 flex-none gap-1 whitespace-nowrap px-1.5 font-mono text-[10px] sm:inline-flex" title="permission mode, from the session record">⇧⇥ {pane.mode === 'bypassPermissions' ? 'bypass' : pane.mode === 'acceptEdits' ? 'accept edits' : pane.mode}</Badge>}
+            {pane?.mode && <Badge variant="outline" className="hidden h-5 flex-none gap-1 whitespace-nowrap px-1.5 font-mono text-[10px] sm:inline-flex" title="permission mode, from the session record (⇧⇥ in the composer cycles it)">mode · {pane.mode === 'bypassPermissions' ? 'bypass' : pane.mode === 'acceptEdits' ? 'accept edits' : pane.mode}</Badge>}
             {pane?.model && (
               <Context usedTokens={pane.usage?.ctxUsed ?? 0} maxTokens={pane.usage?.ctxMax ?? 200000} modelId={pane.model ?? undefined}
                 usage={{ inputTokens: pane.usage?.input ?? 0, outputTokens: pane.usage?.output ?? 0, totalTokens: (pane.usage?.input ?? 0) + (pane.usage?.output ?? 0), cachedInputTokens: pane.usage?.cacheRead ?? 0 } as never}
