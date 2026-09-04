@@ -125,6 +125,15 @@ export function makeServer(root) {
           return res.end('board UI not built: run `npm run build` in board/ui (maintainers only; releases ship it prebuilt)')
         }
       }
+      if (url.pathname === '/api/version') {
+        // the tab heals itself: the client compares this to what it booted
+        // with and reloads when the board has shipped underneath it
+        let builtAt = 0
+        try { builtAt = statSafe(fileURLToPath(new URL('./ui/dist/index.html', import.meta.url))) } catch {}
+        let version = 'unknown'
+        try { version = JSON.parse(readFileSync(fileURLToPath(new URL('../.claude-plugin/plugin.json', import.meta.url)), 'utf8')).version } catch {}
+        return json(res, 200, { version, builtAt })
+      }
       if (url.pathname === '/hello') {
         // a desk browser's START page: says whose it is and that it is ready,
         // so a wall of open Chromes stops reading as "what even runs here"

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.16
+
+- The tab heals itself. no-store protects the NEXT load, not the one
+  already running, so a tab left open across ships kept yesterday's UI
+  while looking current (the owner caught it as "seems outdated"). The
+  client now compares /api/version's build stamp to the one it booted
+  with and reloads on change — unless the human is mid-sentence, in
+  which case it says so and waits.
+
 ## 0.7.15
 
 - API errors are the HARNESS speaking, not the desk: a synthetic turn or

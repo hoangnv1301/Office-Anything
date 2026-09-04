@@ -300,6 +300,25 @@ export default function App() {
     setHireOpen(false); office()
   }, [office])
   useEffect(() => { office(); const t = setInterval(office, 5000); return () => clearInterval(t) }, [office])
+  // ⛔ AN OPEN TAB NEVER REFETCHES THE PAGE: no-store protects the next load,
+  // not the one already running, and a tab left open across ships kept
+  // yesterday's UI while looking current. The tab heals itself: when the
+  // build underneath changes, reload — unless the human is mid-sentence.
+  const bootBuild = useRef<number | null>(null)
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const v = await (await fetch('api/version')).json()
+        if (bootBuild.current === null) { bootBuild.current = v.builtAt; return }
+        if (v.builtAt !== bootBuild.current) {
+          const ta = document.querySelector('textarea') as HTMLTextAreaElement | null
+          if (ta?.value?.trim()) { setNote('the board updated underneath this tab — refresh when ready') ; return }
+          location.reload()
+        }
+      } catch { /* offline moments are not staleness */ }
+    }
+    check(); const t = setInterval(check, 15000); return () => clearInterval(t)
+  }, [])
   // push first, poll as the net: the server watches the transcript and ticks
   // over SSE the moment Claude writes; the interval only covers a dropped stream
   useEffect(() => { poll(); const t = setInterval(poll, 4000); return () => clearInterval(t) }, [poll])
