@@ -195,6 +195,35 @@ export function makeServer(root) {
         })
         return
       }
+      if (url.pathname === '/api/plugins') {
+        // installed plugins, from the cache Claude Code itself loads: name,
+        // version, description, and what each one brings (counts, not claims)
+        const items = []
+        const count = (d, filter = () => true) => { try { return readdirSync(d).filter(filter).length } catch { return 0 } }
+        try {
+          const cache = join(homedir(), '.claude', 'plugins', 'cache')
+          for (const mkt of readdirSync(cache)) for (const plug of readdirSync(join(cache, mkt))) {
+            try {
+              const vers = readdirSync(join(cache, mkt, plug)).sort().reverse()
+              if (!vers.length) continue
+              const base = join(cache, mkt, plug, vers[0])
+              let meta = {}
+              try { meta = JSON.parse(readFileSync(join(base, '.claude-plugin', 'plugin.json'), 'utf8')) } catch {}
+              let hooks = 0
+              try { const h = JSON.parse(readFileSync(join(base, 'hooks', 'hooks.json'), 'utf8')).hooks ?? {}; hooks = Object.values(h).reduce((n, arr) => n + (arr ?? []).reduce((m, x) => m + (x.hooks?.length ?? 0), 0), 0) } catch {}
+              items.push({
+                name: meta.name ?? plug, version: meta.version ?? vers[0], marketplace: mkt,
+                description: String(meta.description ?? '').slice(0, 160),
+                agents: count(join(base, 'agents'), (f) => f.endsWith('.md')),
+                skills: count(join(base, 'skills')),
+                commands: count(join(base, 'commands'), (f) => f.endsWith('.md')),
+                hooks,
+              })
+            } catch {}
+          }
+        } catch {}
+        return json(res, 200, { items: items.sort((a, b) => a.name.localeCompare(b.name)) })
+      }
       if (url.pathname === '/api/heartbeat') {
         // an office that keeps itself alive (a keeper, loops, a daemon) may say
         // HOW to ask: desk.json at the root, "heartbeat": "<command>". The board
@@ -258,12 +287,10 @@ export function makeServer(root) {
           agentsIn(join(deskDir, '.claude', 'agents'), 'this desk')
           if (deskDir !== root) agentsIn(join(root, '.claude', 'agents'), 'the office')
           agentsIn(join(homedir(), '.claude', 'agents'), 'user')
-          for (const [plug, base] of plugins) agentsIn(join(base, 'agents'), 'plugin: ' + plug)
         } else {
           skillsIn(join(deskDir, '.claude', 'skills'), 'this desk'); commandsIn(join(deskDir, '.claude', 'commands'), 'this desk')
           if (deskDir !== root) { skillsIn(join(root, '.claude', 'skills'), 'the office'); commandsIn(join(root, '.claude', 'commands'), 'the office') }
           skillsIn(join(homedir(), '.claude', 'skills'), 'user'); commandsIn(join(homedir(), '.claude', 'commands'), 'user')
-          for (const [plug, base] of plugins) { skillsIn(join(base, 'skills'), 'plugin: ' + plug); commandsIn(join(base, 'commands'), 'plugin: ' + plug) }
         }
         return json(res, 200, { items })
       }

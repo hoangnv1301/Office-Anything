@@ -400,6 +400,8 @@ export default function App() {
   const [checks, setChecks] = useState<{ code: number; rows: { name: string; code: number; why: string; applicable: boolean }[] } | null>(null)
   const [agents, setAgents] = useState<{ name: string; description: string; model?: string; effort?: string; source: string }[] | null>(null)
   const [skills, setSkills] = useState<{ name: string; description: string; kind?: string; source: string }[] | null>(null)
+  const [plugins, setPlugins] = useState<{ name: string; version: string; marketplace: string; description: string; agents: number; skills: number; commands: number; hooks: number }[] | null>(null)
+  useEffect(() => { fetch('api/plugins').then((r) => r.json()).then((j) => setPlugins(j.items ?? [])).catch(() => setPlugins([])) }, [])
   const [hooks, setHooks] = useState<{ source: string; event: string; matcher: string; command: string }[] | null>(null)
   useEffect(() => {
     if (!sel) return
@@ -557,8 +559,29 @@ export default function App() {
         <TabsTrigger value="workspace" className="text-xs">workspace</TabsTrigger>
         <TabsTrigger value="agents" className="text-xs">agents</TabsTrigger>
         <TabsTrigger value="skills" className="text-xs">skills</TabsTrigger>
+        <TabsTrigger value="plugins" className="text-xs">plugins</TabsTrigger>
         <TabsTrigger value="hooks" className="text-xs">hooks</TabsTrigger>
       </TabsList>
+      <TabsContent value="plugins" className="min-h-0 flex-1 data-[state=inactive]:hidden">
+        <ScrollArea className="h-full px-2 pb-2">
+          {plugins === null
+            ? <div className="px-2 py-2 text-xs text-muted-foreground">…</div>
+            : plugins.length === 0
+              ? <div className="px-2 py-2 text-xs text-muted-foreground">no plugins installed</div>
+              : plugins.map((pl) => (
+                  <div key={pl.marketplace + '/' + pl.name} className="flex items-start gap-2 px-1 py-2" title={pl.description}>
+                    <DeskAvatar name={pl.name} size={18} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline gap-2 text-[12px] font-medium"><span className="truncate">{pl.name}</span><span className="flex-none font-mono text-[10px] text-muted-foreground">{pl.version}</span></div>
+                      {pl.description && <div className="line-clamp-2 text-[11px] text-muted-foreground">{pl.description}</div>}
+                      <div className="mt-0.5 text-[10px] text-muted-foreground">
+                        {[pl.agents && pl.agents + ' agents', pl.skills && pl.skills + ' skills', pl.commands && pl.commands + ' commands', pl.hooks && pl.hooks + ' hooks'].filter(Boolean).join(' · ') || 'no agents, skills, commands or hooks'} · {pl.marketplace}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+        </ScrollArea>
+      </TabsContent>
       <TabsContent value="agents" className="min-h-0 flex-1 data-[state=inactive]:hidden">
         <ScrollArea className="h-full px-2 pb-2">
           {agents === null
@@ -938,10 +961,23 @@ export default function App() {
             <DialogTitle className="flex min-w-0 items-center gap-2 pr-6">
               <span className="truncate font-mono text-sm">{file?.path}</span>
               <Button variant="ghost" size="sm" className="h-6 flex-none px-2 text-[11px]" title="Copy path to mention it in chat"
-                onClick={(e) => {
+                onClick={async (e) => {
+                  e.stopPropagation()
                   if (!file) return
-                  navigator.clipboard?.writeText(file.path).catch(() => {})
-                  const b = e.currentTarget; b.textContent = 'copied'; setTimeout(() => { b.textContent = 'copy path' }, 1200)
+                  const b = e.currentTarget
+                  // the Clipboard API needs a secure context; a hidden textarea +
+                  // execCommand is the fallback that works everywhere a page does
+                  let ok = false
+                  try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(file.path); ok = true } } catch { ok = false }
+                  if (!ok) {
+                    try {
+                      const ta = document.createElement('textarea'); ta.value = file.path; ta.setAttribute('readonly', '')
+                      ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select()
+                      ok = document.execCommand('copy'); ta.remove()
+                    } catch { ok = false }
+                  }
+                  b.textContent = ok ? 'copied ✓' : 'copy failed — select the path above'
+                  setTimeout(() => { b.textContent = 'copy path' }, ok ? 1200 : 3000)
                 }}>copy path</Button>
             </DialogTitle>
           </DialogHeader>

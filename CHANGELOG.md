@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.23
+
+- The rail is workspace · agents · skills · plugins · hooks. Agents and
+  skills show ONLY what the desk's .claude loads (desk, office, user);
+  installed plugins get their own tab from the cache Claude Code loads
+  them from: name, version, description, and what each brings, counted
+  (agents · skills · commands · hooks), never claimed.
+- copy path works everywhere a page does: the Clipboard API only exists in
+  a secure context and the old button swallowed its failure silently. A
+  hidden-textarea fallback, and the button says copied ✓ or copy failed.
+  Proven by a real click reading the path back off the clipboard.
+- Markdown lists got their bullets back. Tailwind's preflight strips
+  list-style, so "- item" rendered as a bare line with no marker to color.
+
 ## 0.7.22
 
 The owner's second burst, every item a read of something Claude Code already writes.
