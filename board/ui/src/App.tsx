@@ -314,6 +314,46 @@ export default function App() {
     document.addEventListener('input', h, true)
     return () => document.removeEventListener('input', h, true)
   }, [])
+  // the CLI shows mode and context at the prompt, so the board does too:
+  // top right of the composer, never in the header
+  const composerStatus = pane ? (
+    <div className="mb-1 flex items-center justify-end gap-1.5" data-testid="composer-status">
+      {pane?.mode && <Badge variant="outline" className="inline-flex h-5 flex-none gap-1 whitespace-nowrap px-1.5 font-mono text-[10px]" title="permission mode, from the session record (⇧⇥ in the composer cycles it)">mode · {pane.mode === 'bypassPermissions' ? 'bypass' : pane.mode === 'acceptEdits' ? 'accept edits' : pane.mode}</Badge>}
+      {pane?.model && (
+        <Context usedTokens={pane.usage?.ctxUsed ?? 0} maxTokens={pane.usage?.ctxMax ?? 200000} modelId={pane.model ?? undefined}
+          usage={{ inputTokens: pane.usage?.input ?? 0, outputTokens: pane.usage?.output ?? 0, totalTokens: (pane.usage?.input ?? 0) + (pane.usage?.output ?? 0), cachedInputTokens: pane.usage?.cacheRead ?? 0 } as never}
+          openDelay={100}>
+          <ContextTrigger><Badge variant="secondary" className="inline-flex h-5 cursor-default gap-1 whitespace-nowrap px-1.5 text-[10px]" title="context window used · hover for tokens and cost">
+            <DollarSign className="size-3" />{pane.model}<span className="text-muted-foreground">· {Math.round(((pane.usage?.ctxUsed ?? 0) / (pane.usage?.ctxMax ?? 200000)) * 100)}% ctx</span></Badge></ContextTrigger>
+          <ContextContent className="w-80 text-xs">
+            <ContextContentHeader />
+            <ContextContentBody><ContextInputUsage /><ContextOutputUsage /><ContextCacheUsage /></ContextContentBody>
+            <ContextContentFooter />
+          <HoverCardContent className="hidden">
+            {pane.usage ? (() => {
+              const u = pane.usage!
+              const k = (n: number) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
+              const $ = (n: number) => '$' + (n >= 100 ? n.toFixed(0) : n >= 1 ? n.toFixed(2) : n.toFixed(3))
+              const row = (label: string, tok: number, cost?: number) => (
+                <div className="flex justify-between py-0.5"><span className="text-muted-foreground">{label}</span><span>{k(tok)} tok{cost != null ? ' · ' + $(cost) : ''}</span></div>
+              )
+              return (<div>
+                <div className="mb-1 font-medium">{u.turns} turns · this session</div>
+                {row('input (fresh)', u.input, u.cost?.input)}
+                {row('output', u.output, u.cost?.output)}
+                {row('cache read', u.cacheRead, u.cost?.cacheRead)}
+                {row('cache write', u.cacheWrite, u.cost?.cacheWrite)}
+                <div className="mt-1 flex justify-between border-t pt-1 font-medium"><span>estimated total</span><span>{u.cost ? $(u.cost.total) : 'no rate for this model'}</span></div>
+                <div className="mt-1 text-[10px] text-muted-foreground">{u.cost ? 'rates as of ' + u.cost.asOf + ' · cache read 0.1×, write 1.25× input rate' : 'tokens only — an unknown model gets no dollars, never a guess'}</div>
+              </div>)
+            })() : <span className="text-muted-foreground">no session yet</span>}
+          </HoverCardContent>
+          </ContextContent>
+        </Context>
+      )}
+    </div>
+  ) : null
+
   const pickCommand = useCallback((c: string) => {
     const ta = document.querySelector('textarea')
     if (ta) { ta.value = c + ' '; ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus() }
@@ -597,8 +637,9 @@ export default function App() {
     const bare = text.trim().split(/\s+/)[0]
     if (text.trim() === bare && Object.prototype.hasOwnProperty.call(PICKERS, bare)) {
       setNote('⛔ ' + bare + ' opens an interactive picker in the desk\'s terminal, which the board cannot show. Give the value inline' + (PICKERS[bare].length ? ', e.g. ' + bare + ' ' + PICKERS[bare][0] : ', or run it in the terminal itself') + '.')
-      // the component clears the box on submit; a refusal must hand the text back
-      setTimeout(() => { const ta = document.querySelector('textarea'); if (ta) { ta.value = text; ta.dispatchEvent(new Event('input', { bubbles: true })) } }, 0)
+      // the component form.reset()s BEFORE calling us, so a refusal hands the
+      // text back right here, synchronously; a deferred restore raced the reader
+      { const ta = document.querySelector('textarea'); if (ta) { ta.value = text; ta.dispatchEvent(new Event('input', { bubbles: true })) } }
       return
     }
     const r = await (await fetch('api/send', {
@@ -765,39 +806,6 @@ export default function App() {
             </Sheet>
             {pane?.label && <DeskAvatar name={pane.label} size={22} />}
             <span className="min-w-0 truncate whitespace-nowrap font-semibold">{pane?.label ?? '…'}</span>
-            {pane?.mode && <Badge variant="outline" className="hidden h-5 flex-none gap-1 whitespace-nowrap px-1.5 font-mono text-[10px] sm:inline-flex" title="permission mode, from the session record (⇧⇥ in the composer cycles it)">mode · {pane.mode === 'bypassPermissions' ? 'bypass' : pane.mode === 'acceptEdits' ? 'accept edits' : pane.mode}</Badge>}
-            {pane?.model && (
-              <Context usedTokens={pane.usage?.ctxUsed ?? 0} maxTokens={pane.usage?.ctxMax ?? 200000} modelId={pane.model ?? undefined}
-                usage={{ inputTokens: pane.usage?.input ?? 0, outputTokens: pane.usage?.output ?? 0, totalTokens: (pane.usage?.input ?? 0) + (pane.usage?.output ?? 0), cachedInputTokens: pane.usage?.cacheRead ?? 0 } as never}
-                openDelay={100}>
-                <ContextTrigger><Badge variant="secondary" className="hidden cursor-default gap-1 whitespace-nowrap text-[11px] sm:inline-flex" title="context window used · hover for tokens and cost">
-                  <DollarSign className="size-3" />{pane.model}<span className="text-muted-foreground">· {Math.round(((pane.usage?.ctxUsed ?? 0) / (pane.usage?.ctxMax ?? 200000)) * 100)}% ctx</span></Badge></ContextTrigger>
-                <ContextContent className="w-80 text-xs">
-                  <ContextContentHeader />
-                  <ContextContentBody><ContextInputUsage /><ContextOutputUsage /><ContextCacheUsage /></ContextContentBody>
-                  <ContextContentFooter />
-                <HoverCardContent className="hidden">
-                  {pane.usage ? (() => {
-                    const u = pane.usage!
-                    const k = (n: number) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
-                    const $ = (n: number) => '$' + (n >= 100 ? n.toFixed(0) : n >= 1 ? n.toFixed(2) : n.toFixed(3))
-                    const row = (label: string, tok: number, cost?: number) => (
-                      <div className="flex justify-between py-0.5"><span className="text-muted-foreground">{label}</span><span>{k(tok)} tok{cost != null ? ' · ' + $(cost) : ''}</span></div>
-                    )
-                    return (<div>
-                      <div className="mb-1 font-medium">{u.turns} turns · this session</div>
-                      {row('input (fresh)', u.input, u.cost?.input)}
-                      {row('output', u.output, u.cost?.output)}
-                      {row('cache read', u.cacheRead, u.cost?.cacheRead)}
-                      {row('cache write', u.cacheWrite, u.cost?.cacheWrite)}
-                      <div className="mt-1 flex justify-between border-t pt-1 font-medium"><span>estimated total</span><span>{u.cost ? $(u.cost.total) : 'no rate for this model'}</span></div>
-                      <div className="mt-1 text-[10px] text-muted-foreground">{u.cost ? 'rates as of ' + u.cost.asOf + ' · cache read 0.1×, write 1.25× input rate' : 'tokens only — an unknown model gets no dollars, never a guess'}</div>
-                    </div>)
-                  })() : <span className="text-muted-foreground">no session yet</span>}
-                </HoverCardContent>
-                </ContextContent>
-              </Context>
-            )}
             <span className="hidden whitespace-nowrap text-xs text-muted-foreground md:inline">{pane ? pane.count + ' messages' : ''}</span>
             <Button variant={showComputer ? 'secondary' : 'ghost'} size="sm" className="ml-auto h-8 text-xs"
               onClick={() => setShowComputer(v => !v)}><Monitor className="size-3.5 sm:mr-1" /><span className="hidden sm:inline"> Computer</span></Button>
@@ -881,6 +889,7 @@ export default function App() {
             )}
             {note && <div className="px-6 pb-1 text-xs text-destructive">{note}</div>}
             <div className="mx-auto w-full max-w-3xl px-4 pb-4">
+              {composerStatus}
               <PromptInput onSubmit={onSubmit} accept="image/*" multiple globalDrop>
                 <PromptInputBody>
                   <PromptInputHeader><AttachChips /></PromptInputHeader>
@@ -1019,7 +1028,8 @@ export default function App() {
       </ResizablePanel>}
       {/* updates live in one corner, folded until wanted: the host's Claude
           Code, and this plugin. Neither touches a running session. */}
-      <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
+      {/* on the phone the rail is gone, so the FAB would land on the send button; lift it above the composer */}
+      <div className="fixed bottom-44 right-4 z-40 flex flex-col items-end gap-2 sm:bottom-4">
         {fabOpen && (
           <div className="flex flex-col gap-1 rounded-lg border border-border/60 bg-card p-1.5 shadow-lg">
             <Button variant="ghost" size="sm" className="justify-start gap-2 text-xs" title="claude update — running sessions keep their version until restarted"

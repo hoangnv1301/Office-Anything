@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.28
+
+- MODE AND CONTEXT LIVE AT THE PROMPT, like the CLI status line: the
+  permission mode badge and the model · ctx % badge moved out of the header
+  to the top right of the composer, and now show on the phone too. Asked
+  for twice; the rig check now asserts the header does NOT carry them.
+- A refused bare picker command (/model with no argument) hands the text
+  back synchronously. The component resets the form before calling us, so
+  a deferred restore raced any reader; the rig caught it one run in four.
+- On the phone the update FAB sat on top of the send button; it now floats
+  above the composer. The heartbeat rig check waits for the page's own
+  fetch instead of probing once, which was red on every cold start.
+
 ## 0.7.27
 
 - THE / FLOW BEHAVES LIKE THE CLI: ↑↓ move a highlight, Enter or Tab

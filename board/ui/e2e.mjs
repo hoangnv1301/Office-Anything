@@ -140,15 +140,19 @@ await shot('computer')
 // ── the owner's 2026-09-04 burst: every failure below was first found by a
 // human. Each is a machine's job now. Hit-tested like everything above.
 
-// 9. header carries the recorded mode and the context percent
+// 9. the COMPOSER carries the recorded mode and the context percent, top right,
+//    like the CLI prompt; the header must NOT (it was moved twice on request)
+const cs = await evalJs(`document.querySelector('[data-testid=composer-status]')?.innerText ?? ''`)
 const hdr = await evalJs(`document.querySelector('header')?.innerText ?? ''`)
-check('header shows recorded mode and ctx %', /mode · \w+/.test(hdr) && /\d+% ctx/.test(hdr), hdr.replace(/\s+/g, ' ').slice(0, 80))
+check('composer shows recorded mode and ctx %, header does not', /mode · \w+/.test(cs) && /\d+% ctx/.test(cs) && !/% ctx/.test(hdr), cs.replace(/\s+/g, ' ').slice(0, 80))
 
 // 10. the heartbeat pill, whenever the office declares one
 const beat = await (await fetch('http://127.0.0.1:7719/api/heartbeat')).json()
 if (beat.declared) {
-  const pill = await evalJs(`/\\d+\\/\\d+ loops/.test(document.body.innerText)`)
-  check('heartbeat pill renders the loop count', !!pill, beat.last)
+  // the page fetches the beat itself; on a cold server cache that run takes
+  // seconds, so wait for the pill the way every other check waits for the page
+  const pill = await until(`/\\d+\\/\\d+ loops/.test(document.body.innerText)`, 15000)
+  check('heartbeat pill renders the loop count', pill.ok, beat.last + '  ' + pill.ms + 'ms')
 }
 
 // 11. every rail tab renders content; hooks are in lifecycle order
