@@ -20,7 +20,7 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai-elements/web-preview'
-import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, DollarSign, CircleHelp, Users, Clock, ArrowUpCircle, Wrench, CornerDownRight, HeartPulse, ChevronDown, XCircle } from 'lucide-react'
+import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, DollarSign, CircleHelp, Users, Clock, ArrowUpCircle, Wrench, CornerDownRight, RefreshCw, ChevronDown, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Button } from '@/components/ui/button'
@@ -696,7 +696,7 @@ export default function App() {
           <ScrollArea className="min-h-0 flex-1">{deskList}</ScrollArea>
           {beat?.declared && (
             <div className="flex items-center gap-2 border-t border-border/40 px-3 py-2" title={beat.lines?.join('\n') || beat.last}>
-              <HeartPulse className={'size-3.5 flex-none ' + (beat.ok ? 'text-emerald-400' : 'animate-pulse text-red-400')} />
+              <RefreshCw className={'size-3 flex-none ' + (beat.ok ? 'text-emerald-400/80' : 'text-red-400')} />
               {(() => {
                 const m = /(\d+)\s*\/\s*(\d+)/.exec(beat.last ?? '')
                 return <span className={'text-[11px] ' + (beat.ok ? 'text-muted-foreground' : 'text-red-400')}>
