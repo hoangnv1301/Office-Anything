@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.19
+
+- Every desk has a COLOR, hashed from its name so it is the same across
+  sessions, machines and reloads with nothing to configure. One hue,
+  everywhere the desk appears: an identity bar by its sidebar dot (which
+  keeps meaning live/busy — two signals, never conflated), a bar in the
+  header, the border and label of a message FROM it, so "from
+  manufacturing" wears manufacturing's color.
+- A /compact turn is ONE "context compacted" event now, not the giant
+  summary rendered as a chat bubble plus three empty "local command"
+  folds. The owner watched exactly that pile up and called it confusing.
+- The hire dialog's kind dropdown says the generic thing (customer-facing
+  / internal), because the plugin is a general office and customer service
+  is only how WE use it; the dialog is roomier so neither clips.
+
 ## 0.7.18
 
 - "running for 4,000 minutes" is gone. The turn timer anchored on the last

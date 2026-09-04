@@ -48,6 +48,16 @@ type PendingAsk = { type: 'question'; questions: { question: string; header?: st
 type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null; usage?: Usage | null; turn?: { elapsedSec: number | null; output: number } | null; pending?: PendingAsk | null }
 type CdpTab = { title: string; url: string; devtools: string }
 
+// a stable accent per desk, hashed from the NAME so it is identical across
+// sessions, machines and reloads with nothing to configure. One hue, used
+// wherever a desk appears: its dot, its header, its bubble, its send fold.
+const deskHue = (name: string) => {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360
+  return h
+}
+const deskColor = (name: string) => `oklch(0.72 0.15 ${deskHue(name)})`
+
 const kb = (n: number) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'
 const age = (m: number) => (m < 60 ? `${m}m` : `${Math.round(m / 60)}h`) + ' ago'
 
@@ -66,9 +76,9 @@ const MsgBlock = memo(function MsgBlock({ m, rich }: { m: Msg; rich: boolean }) 
     // attributed, left-aligned, no envelope, no harness boilerplate
     return (
       <div className="max-w-[85%]">
-        <div className="mb-0.5 flex items-center gap-1 text-[11px] text-sky-400"><Users className="size-3" /> from {m.from}</div>
+        <div className="mb-0.5 flex items-center gap-1 text-[11px]" style={{ color: deskColor(m.from ?? '') }}><Users className="size-3" /> from {m.from}</div>
         <Message from="assistant">
-          <MessageContent className="rounded-lg border-l-2 border-sky-500/60 bg-sky-950/20 px-3 py-2">
+          <MessageContent className="rounded-lg border-l-2 bg-muted/40 px-3 py-2" style={{ borderColor: deskColor(m.from ?? '') }}>
             {rich ? <MessageResponse>{m.text}</MessageResponse> : <span className="whitespace-pre-wrap break-words">{m.text}</span>}
           </MessageContent>
         </Message>
@@ -391,6 +401,9 @@ export default function App() {
       title={d.sub} className="h-auto w-full justify-start rounded-none px-3 py-2.5 md:py-1.5">
       <span className="flex w-full flex-col items-start gap-0.5 overflow-hidden">
         <span className="flex w-full items-center gap-2 text-[13px] font-medium">
+          {/* a colored bar for IDENTITY (stable per desk) + the dot for STATUS
+              (live/busy). two signals, never conflated. */}
+          <span className="h-3.5 w-0.5 flex-none rounded-full" style={{ background: deskColor(d.label) }} />
           <span className={'size-1.5 flex-none rounded-full ' + (
             d.busy ? 'animate-pulse bg-sky-400'
               : (d.online ?? (d.activeMin != null && d.activeMin < 30))
@@ -604,6 +617,7 @@ export default function App() {
                 <div className="min-h-0 flex-1 border-t border-border/50">{railTabs}</div>
               </SheetContent>
             </Sheet>
+            {pane?.label && <span className="h-4 w-1 flex-none rounded-full" style={{ background: deskColor(pane.label) }} />}
             <span className="min-w-0 truncate whitespace-nowrap font-semibold">{pane?.label ?? '…'}</span>
             {pane?.model && (
               <HoverCard openDelay={100}>
@@ -823,7 +837,7 @@ export default function App() {
         {railTabs}
       </ResizablePanel>}
       <Dialog open={hireOpen} onOpenChange={setHireOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>Hire a desk</DialogTitle></DialogHeader>
           <div className="flex flex-col gap-3">
             <Input ref={hireName} placeholder="name — lowercase-with-hyphens, e.g. tiktok-customer-service" />
@@ -831,8 +845,8 @@ export default function App() {
             <Select defaultValue="channel" onValueChange={(v) => { hireKind.current = v }}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent className="max-w-[calc(100vw-4rem)]">
-                <SelectItem value="channel" className="whitespace-normal">customer service — this person talks to customers, on one channel</SelectItem>
-                <SelectItem value="knowledge" className="whitespace-normal">back office — this person holds the knowledge and never contacts a customer</SelectItem>
+                <SelectItem value="channel" className="whitespace-normal">customer-facing — talks to people on one channel</SelectItem>
+                <SelectItem value="knowledge" className="whitespace-normal">internal — holds knowledge, never contacts anyone</SelectItem>
               </SelectContent>
             </Select>
             {hireWhy && <div className="rounded-md bg-destructive/10 p-3 text-xs text-destructive">⛔ {hireWhy}</div>}

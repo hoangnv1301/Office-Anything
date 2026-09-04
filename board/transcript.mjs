@@ -44,6 +44,8 @@ const SYSTEM_SHAPES = [
   // a Skill invocation injects its whole instruction body as a user turn;
   // rendered as chat it reads like the owner pasted a manual
   /^\s*Base directory for this skill:/i, /^\s*<command-message>/i,
+  // /compact's summary re-enters as a user turn; it is machinery, not a message
+  /^\s*This session is being continued from a previous conversation/i,
 ]
 export const isSystemText = (t) => SYSTEM_SHAPES.some((r) => r.test(t))
 const systemLabel = (t) => {
@@ -56,6 +58,7 @@ const systemLabel = (t) => {
     const m = /skills\/([A-Za-z0-9_-]+)/.exec(t)
     return 'skill loaded · ' + (m?.[1] ?? 'unknown')
   }
+  if (/^\s*This session is being continued/i.test(t)) return 'context compacted'
   if (/Stop hook/i.test(t)) return 'stop hook'
   if (/local-command|command-name/i.test(t)) {
     const name = t.match(/<command-name>\s*([^<\s]+)/i)?.[1]
@@ -130,8 +133,13 @@ export function chatFrom(jsonlText, { limit = 80, toolIndex = new Map() } = {}) 
         // a desk-to-desk message is CONVERSATION, not plumbing: strip the
         // envelope and the harness's boilerplate, keep who said what
         const xs = /<cross-session-message[^>]*from-name="([^"]+)"[^>]*>([\s\S]*?)<\/cross-session-message>/.exec(text)
+        // /compact's own wrapper entries (the command-name for /compact and
+        // its "Compacted" stdout) are pure machinery; the "context compacted"
+        // event stands in for the whole thing, so these two folds are dropped
+        const isCompactMachinery = /<command-name>\s*\/compact/i.test(text) || /<local-command-stdout>[^<]*Compacted/i.test(text)
         // eslint-disable-next-line no-control-regex -- ANSI color codes ride local-command stdout
         if (xs) out.push({ role: 'peer', from: xs[1], text: xs[2].trim().slice(0, 4000), at: j.timestamp ?? null })
+        else if (isCompactMachinery) { /* the one compaction event says it all */ }
         else if (isSystemText(text)) out.push({ role: 'system', label: systemLabel(text), text: text.replace(/\x1b\[[0-9;]*m/g, '').slice(0, 2500), at: j.timestamp ?? null })
         else out.push({ role: 'user', text: clean.slice(0, 4000), images, at: j.timestamp ?? null })
       } else if (isToolResult && images.length) {
