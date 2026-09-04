@@ -58,6 +58,26 @@ const deskHue = (name: string) => {
 }
 const deskColor = (name: string) => `oklch(0.72 0.15 ${deskHue(name)})`
 
+// a small playful shape per desk, colour AND form both hashed from the name,
+// so each desk is recognizable at a glance without reading it. Five organic
+// border-radius blobs; the initial rides on top.
+const BLOBS = [
+  '42% 58% 63% 37% / 41% 44% 56% 59%',
+  '63% 37% 54% 46% / 55% 48% 52% 45%',
+  '50% 50% 33% 67% / 55% 60% 40% 45%',
+  '38% 62% 47% 53% / 63% 37% 63% 37%',
+  '58% 42% 38% 62% / 45% 63% 37% 55%',
+]
+function DeskAvatar({ name, busy, size = 20 }: { name: string; busy?: boolean | null; size?: number }) {
+  const blob = BLOBS[deskHue(name) % BLOBS.length]
+  return (
+    <span className={'flex flex-none items-center justify-center font-semibold text-black ' + (busy ? 'animate-pulse' : '')}
+      style={{ width: size, height: size, borderRadius: blob, background: deskColor(name), fontSize: size * 0.5 }}>
+      {name[0]?.toUpperCase() ?? '?'}
+    </span>
+  )
+}
+
 const kb = (n: number) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'
 const age = (m: number) => (m < 60 ? `${m}m` : `${Math.round(m / 60)}h`) + ' ago'
 
@@ -76,7 +96,7 @@ const MsgBlock = memo(function MsgBlock({ m, rich }: { m: Msg; rich: boolean }) 
     // attributed, left-aligned, no envelope, no harness boilerplate
     return (
       <div className="max-w-[85%]">
-        <div className="mb-0.5 flex items-center gap-1 text-[11px]" style={{ color: deskColor(m.from ?? '') }}><Users className="size-3" /> from {m.from}</div>
+        <div className="mb-0.5 flex items-center gap-1.5 text-[11px]" style={{ color: deskColor(m.from ?? '') }}><DeskAvatar name={m.from ?? '?'} size={16} /> from {m.from}</div>
         <Message from="assistant">
           <MessageContent className="rounded-lg border-l-2 bg-muted/40 px-3 py-2" style={{ borderColor: deskColor(m.from ?? '') }}>
             {rich ? <MessageResponse>{m.text}</MessageResponse> : <span className="whitespace-pre-wrap break-words">{m.text}</span>}
@@ -401,15 +421,18 @@ export default function App() {
       title={d.sub} className="h-auto w-full justify-start rounded-none px-3 py-2.5 md:py-1.5">
       <span className="flex w-full flex-col items-start gap-0.5 overflow-hidden">
         <span className="flex w-full items-center gap-2 text-[13px] font-medium">
-          {/* a colored bar for IDENTITY (stable per desk) + the dot for STATUS
-              (live/busy). two signals, never conflated. */}
-          <span className="h-3.5 w-0.5 flex-none rounded-full" style={{ background: deskColor(d.label) }} />
-          <span className={'size-1.5 flex-none rounded-full ' + (
-            d.busy ? 'animate-pulse bg-sky-400'
-              : (d.online ?? (d.activeMin != null && d.activeMin < 30))
-                ? (d.activeMin != null && d.activeMin < 5 ? 'animate-pulse bg-emerald-400' : 'bg-emerald-500')
-                : 'bg-muted-foreground/25')} />
-          <span className="truncate">{d.label}</span>
+          {/* the shape IS the desk (colour + form from its name); status is
+              carried by the NAME now — grayed when offline, shimmering when
+              handling something — so the green dot is gone. */}
+          {(() => {
+            const online = d.online ?? (d.activeMin != null && d.activeMin < 30)
+            return <>
+              <DeskAvatar name={d.label} busy={d.busy} />
+              {d.busy
+                ? <Shimmer className="truncate">{d.label}</Shimmer>
+                : <span className={'truncate ' + (online ? '' : 'text-muted-foreground/50')}>{d.label}</span>}
+            </>
+          })()}
           {d.sub.includes('LIVE') && <Badge className="h-4 flex-none px-1 text-[9px]">LIVE</Badge>}
           {(d.agents?.length ?? 0) > 0 && <Badge variant="secondary" className="h-4 flex-none px-1 text-[9px]">◇ {d.agents!.length}</Badge>}
           {d.waiting && <Badge className="h-4 flex-none gap-0.5 bg-amber-500 px-1 text-[9px] text-black"><CircleHelp className="size-2.5" /> waiting</Badge>}
@@ -617,7 +640,7 @@ export default function App() {
                 <div className="min-h-0 flex-1 border-t border-border/50">{railTabs}</div>
               </SheetContent>
             </Sheet>
-            {pane?.label && <span className="h-4 w-1 flex-none rounded-full" style={{ background: deskColor(pane.label) }} />}
+            {pane?.label && <DeskAvatar name={pane.label} size={22} />}
             <span className="min-w-0 truncate whitespace-nowrap font-semibold">{pane?.label ?? '…'}</span>
             {pane?.model && (
               <HoverCard openDelay={100}>

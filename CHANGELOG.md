@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.20
+
+- Every desk wears a shape, not a bar. A colored blob avatar with the
+  desk's initial, both colour AND organic form hashed from the name, so a
+  desk is known at a glance in the sidebar, the header, and any message
+  from it. The green status dot is gone: status rides the NAME now, which
+  grays out when the desk is offline and SHIMMERS (the registry Shimmer)
+  while it is handling something. Two things to read, not three.
+
 ## 0.7.19
 
 - Every desk has a COLOR, hashed from its name so it is the same across
