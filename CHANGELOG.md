@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.25
+
+- A bare slash command typed at a prompt is recorded as plain text in some
+  paths and rendered as the human chatting; it folds as a local command now,
+  and a bare /compact joins the one compaction event.
+- "queued" says WHY when the desk is waiting on a prompt in its own terminal
+  (the CLI's live status), because a message stuck behind a permission
+  prompt looks like a bug until the board explains it.
+
 ## 0.7.24
 
 - THE CLI'S OWN LIVE STATE, adopted: ~/.claude/sessions/<pid>.json carries

@@ -138,8 +138,12 @@ export function chatFrom(jsonlText, { limit = 80, toolIndex = new Map() } = {}) 
         // event stands in for the whole thing, so these two folds are dropped
         const isCompactMachinery = /<command-name>\s*\/compact/i.test(text) || /<local-command-stdout>[^<]*Compacted/i.test(text)
         // eslint-disable-next-line no-control-regex -- ANSI color codes ride local-command stdout
+        // a BARE slash command typed at the prompt is recorded as plain text in
+        // some paths; it is a command, never the human chatting
+        const bareCmd = /^\/[a-z][\w:-]*(\s+\S.*)?$/i.test(clean) && clean.length < 120
         if (xs) out.push({ role: 'peer', from: xs[1], text: xs[2].trim().slice(0, 4000), at: j.timestamp ?? null })
-        else if (isCompactMachinery) { /* the one compaction event says it all */ }
+        else if (isCompactMachinery || /^\/compact\b/i.test(clean)) { /* the one compaction event says it all */ }
+        else if (bareCmd) out.push({ role: 'system', label: 'local command · ' + clean.split(/\s+/)[0], text: clean, at: j.timestamp ?? null })
         else if (isSystemText(text)) out.push({ role: 'system', label: systemLabel(text), text: text.replace(/\x1b\[[0-9;]*m/g, '').slice(0, 2500), at: j.timestamp ?? null })
         else out.push({ role: 'user', text: clean.slice(0, 4000), images, at: j.timestamp ?? null })
       } else if (isToolResult && images.length) {

@@ -41,7 +41,7 @@ import { Context, ContextTrigger, ContextContent, ContextContentHeader, ContextC
 import { Confirmation, ConfirmationTitle, ConfirmationRequest, ConfirmationActions, ConfirmationAction } from '@/components/ai-elements/confirmation'
 import { Sources, SourcesTrigger, SourcesContent, Source } from '@/components/ai-elements/sources'
 
-type Desk = { key: string; label: string; sub: string; activeMin: number | null; online?: boolean | null; busy?: boolean | null; waiting?: boolean; agents?: { kind?: string; label: string; activeMin: number; turns: number }[]; jobs?: { id: string; ageSec: number; size: number; label?: string }[] }
+type Desk = { key: string; label: string; sub: string; activeMin: number | null; online?: boolean | null; busy?: boolean | null; status?: string | null; waiting?: boolean; agents?: { kind?: string; label: string; activeMin: number; turns: number }[]; jobs?: { id: string; ageSec: number; size: number; label?: string }[] }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string } | { kind: 'marker'; label: string }
 export type Msg = { role: 'user' | 'assistant' | 'system' | 'peer'; from?: string; text: string; label?: string; tools?: ToolRow[]; images?: Img[]; reasoning?: string | null }
 type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
@@ -775,7 +775,7 @@ export default function App() {
                       <QueueItem key={'ob' + i} className="flex-row items-baseline gap-2">
                         <QueueItemIndicator className="animate-pulse border-sky-400" />
                         <QueueItemContent className="line-clamp-2">{x.text}</QueueItemContent>
-                        <QueueItemDescription className="ml-2 flex-none">{desks.find((d) => d.key === sel)?.busy ? 'queued' : 'delivering…'}</QueueItemDescription>
+                        <QueueItemDescription className="ml-2 flex-none">{(() => { const dk = desks.find((d) => d.key === sel); return dk?.status === 'waiting' ? 'queued — the desk is waiting on a prompt in its terminal' : dk?.busy ? 'queued' : 'delivering…' })()}</QueueItemDescription>
                       </QueueItem>
                     ))}
                   </QueueList>
