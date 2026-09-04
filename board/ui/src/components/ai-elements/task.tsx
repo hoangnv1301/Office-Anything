@@ -47,12 +47,15 @@ export const Task = ({
 
 export type TaskTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {
   title: string;
+  // the registry hardcodes a search icon; a fold about TOOLS or EVENTS may say so
+  icon?: React.ReactNode;
 };
 
 export const TaskTrigger = ({
   children,
   className,
   title,
+  icon,
   ...props
 }: TaskTriggerProps) => (
   <CollapsibleTrigger className={cn("group", className)} {...props}>
@@ -60,7 +63,7 @@ export const TaskTrigger = ({
       // a native <button> centers wrapped text; these rows must read
       // left-aligned like every other line of the conversation
       <div className="flex w-full cursor-pointer items-center justify-start gap-2 text-left text-muted-foreground text-sm transition-colors hover:text-foreground">
-        <SearchIcon className="size-4 flex-none" />
+        {icon ?? <SearchIcon className="size-4 flex-none" />}
         <p className="text-left text-sm">{title}</p>
         <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
       </div>

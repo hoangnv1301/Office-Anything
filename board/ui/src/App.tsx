@@ -20,7 +20,7 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai-elements/web-preview'
-import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, DollarSign, CircleHelp, Bot, Users, Clock, ArrowUpCircle } from 'lucide-react'
+import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, DollarSign, CircleHelp, Users, Clock, ArrowUpCircle, Wrench, Sparkles, HeartPulse } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Button } from '@/components/ui/button'
@@ -45,7 +45,7 @@ export type Msg = { role: 'user' | 'assistant' | 'system' | 'peer'; from?: strin
 type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
 type Usage = { turns: number; input: number; output: number; cacheRead: number; cacheWrite: number; model: string | null; sessions?: number; cost: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number; asOf: string } | null }
 type PendingAsk = { type: 'question'; questions: { question: string; header?: string; multiSelect?: boolean; options: { label: string; description?: string }[] }[] } | { type: 'plan'; plan: string }
-type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null; usage?: Usage | null; turn?: { elapsedSec: number | null; output: number } | null; pending?: PendingAsk | null }
+type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null; usage?: Usage | null; turn?: { elapsedSec: number | null; output: number } | null; mode?: string | null; pending?: PendingAsk | null }
 type CdpTab = { title: string; url: string; devtools: string }
 
 // a stable accent per desk, hashed from the NAME so it is identical across
@@ -166,7 +166,7 @@ const ToolsBlock = memo(function ToolsBlock({ tools }: { tools: ToolRow[] }) {
   const failed = tools.filter((t) => t.isError).length
   return (
     <Task defaultOpen={false} className="my-0.5">
-      <TaskTrigger title={'⚙ ' + tools.length + ' tool call' + (tools.length > 1 ? 's' : '') + ' — ' + [...new Set(tools.map((t) => {
+      <TaskTrigger icon={<Wrench className="size-3.5" />} title={tools.length + ' tool call' + (tools.length > 1 ? 's' : '') + ' — ' + [...new Set(tools.map((t) => {
         const to = t.name === 'SendMessage' && typeof t.input === 'object' && t.input !== null ? (t.input as Record<string, unknown>).to : null
         return typeof to === 'string' ? 'SendMessage → ' + to : t.name
       }))].join(', ') + (failed ? ' · ⛔ ' + failed + ' failed' : '')} />
@@ -211,11 +211,11 @@ const Pictures = ({ images }: { images?: Img[] }) => !images?.length ? null : (
   <span className="mt-1 flex flex-wrap gap-2">
     {/* click = the full-size image in its own tab, URL and all */}
     {images.map((im, i) => im.kind === 'b64'
-      ? <a key={i} href={'data:' + im.mediaType + ';base64,' + im.data} target="_blank" rel="noreferrer" title="open full size">
-          <AIImage base64={im.data} uint8Array={new Uint8Array()} mediaType={im.mediaType} alt="pasted image" className="max-h-72 cursor-zoom-in" /></a>
+      ? <button key={i} type="button" title="open full size" onClick={() => window.dispatchEvent(new CustomEvent('office-lightbox', { detail: { src: 'data:' + im.mediaType + ';base64,' + im.data, name: 'image' } }))}>
+          <AIImage base64={im.data} uint8Array={new Uint8Array()} mediaType={im.mediaType} alt="pasted image" className="max-h-72 cursor-zoom-in" /></button>
       : im.kind === 'path'
-        ? <a key={i} href={'api/imgfile?p=' + encodeURIComponent(im.path)} target="_blank" rel="noreferrer" title="open full size">
-            <img src={'api/imgfile?p=' + encodeURIComponent(im.path)} alt={im.path.split('/').pop()} className="h-auto max-h-72 max-w-full cursor-zoom-in overflow-hidden rounded-md" /></a>
+        ? <button key={i} type="button" title="open full size" onClick={() => window.dispatchEvent(new CustomEvent('office-lightbox', { detail: { src: 'api/imgfile?p=' + encodeURIComponent(im.path), name: im.path.split('/').pop() } }))}>
+            <img src={'api/imgfile?p=' + encodeURIComponent(im.path)} alt={im.path.split('/').pop()} className="h-auto max-h-72 max-w-full cursor-zoom-in overflow-hidden rounded-md" /></button>
         : <Badge key={i} variant="secondary" className="gap-1 font-normal text-muted-foreground"><ImageIcon className="size-3" /> {im.label}</Badge>)}
   </span>
 )
@@ -252,6 +252,12 @@ export default function App() {
   // the phone drawer is CONTROLLED so choosing anything inside it dismisses
   // it — a drawer that stays over the thing you just chose is a wall
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [fabOpen, setFabOpen] = useState(false)
+  useEffect(() => {
+    const h = (e: Event) => { const d = (e as CustomEvent).detail; setFile({ path: d.name ?? 'image', kind: 'imageurl', content: d.src }) }
+    window.addEventListener('office-lightbox', h)
+    return () => window.removeEventListener('office-lightbox', h)
+  }, [])
   // typing "/" in the box suggests inline, the way the CLI does — the
   // dropdown button was a second place to look for a first-class behavior
   const [slashQ, setSlashQ] = useState<string | null>(null)
@@ -331,8 +337,9 @@ export default function App() {
     const p = JSON.parse(text)
     setPane(p); paneRef.current = p
     // an echo leaves the outbox the moment the transcript itself shows it
-    const recent = new Set((p?.messages ?? []).slice(-12).filter((m: Msg) => m.role === 'user').map((m: Msg) => m.text))
-    setOutbox((o) => o.filter((x) => !recent.has(x.text) && Date.now() - x.at < 120000))
+    const norm = (t: string) => t.replace(/\s+/g, ' ').trim().slice(0, 80)
+    const recent = (p?.messages ?? []).slice(-12).filter((m: Msg) => m.role === 'user').map((m: Msg) => norm(m.text))
+    setOutbox((o) => o.filter((x) => !recent.some((r) => r.startsWith(norm(x.text)) || norm(x.text).startsWith(r)) && Date.now() - x.at < 90000))
   }, [sel])
 
   // moved BELOW office/poll: referencing office above its const was a TDZ
@@ -385,11 +392,20 @@ export default function App() {
   }, [sel])
   // the WHOLE browser, not one tab: the strip lists every page the desk has
   // open and a click picks which one the mirror shows
+  const [beat, setBeat] = useState<{ declared: boolean; ok?: boolean; last?: string; lines?: string[] } | null>(null)
+  useEffect(() => {
+    const go = () => fetch('api/heartbeat').then((r) => r.json()).then(setBeat).catch(() => {})
+    go(); const t = setInterval(go, 20000); return () => clearInterval(t)
+  }, [])
   const [checks, setChecks] = useState<{ code: number; rows: { name: string; code: number; why: string; applicable: boolean }[] } | null>(null)
+  const [agents, setAgents] = useState<{ name: string; description: string; model?: string; effort?: string; source: string }[] | null>(null)
+  const [skills, setSkills] = useState<{ name: string; description: string; kind?: string; source: string }[] | null>(null)
   const [hooks, setHooks] = useState<{ source: string; event: string; matcher: string; command: string }[] | null>(null)
   useEffect(() => {
     if (!sel) return
-    setHooks(null)
+    setHooks(null); setAgents(null); setSkills(null)
+    fetch('api/agents?key=' + encodeURIComponent(sel)).then((r) => r.json()).then((j) => setAgents(j.items ?? [])).catch(() => setAgents([]))
+    fetch('api/skills?key=' + encodeURIComponent(sel)).then((r) => r.json()).then((j) => setSkills(j.items ?? [])).catch(() => setSkills([]))
     fetch('api/hooks?key=' + encodeURIComponent(sel)).then((r) => r.json()).then((j) => setHooks(j.hooks ?? [])).catch(() => setHooks([]))
   }, [sel])
   const [tabs, setTabs] = useState<{ id: string; title: string; url: string }[]>([])
@@ -438,16 +454,16 @@ export default function App() {
           {d.waiting && <Badge className="h-4 flex-none gap-0.5 bg-amber-500 px-1 text-[9px] text-black"><CircleHelp className="size-2.5" /> waiting</Badge>}
         </span>
         {d.agents?.map((a, i) => (
-          <span key={i} title={(a.kind === 'session' ? 'teammate session: ' : 'subagent: ') + a.label} className="flex w-full items-center gap-1.5 overflow-hidden pl-3.5 text-[10px] font-normal text-muted-foreground">
+          <span key={i} title={(a.kind === 'session' ? 'teammate session: ' : 'subagent: ') + a.label} className="mt-1 flex w-full items-center gap-2 overflow-hidden pl-7 text-[11px] font-normal text-muted-foreground">
             {a.kind === 'session'
-              ? <Users className={'size-2.5 flex-none ' + (a.activeMin < 2 ? 'text-sky-400' : '')} />
-              : <Bot className={'size-2.5 flex-none ' + (a.activeMin < 2 ? 'animate-pulse text-sky-400' : '')} />}
+              ? <Users className={'size-3 flex-none ' + (a.activeMin < 2 ? 'text-sky-400' : 'opacity-70')} />
+              : <Sparkles className={'size-3 flex-none ' + (a.activeMin < 2 ? 'animate-pulse text-amber-300' : 'opacity-70')} />}
             <span className="truncate">{a.label}</span>
           </span>
         ))}
         {d.jobs?.map((j) => (
-          <span key={j.id} title={'background job ' + j.id + ' · output ' + j.size + 'B'} className="flex w-full items-center gap-1.5 overflow-hidden pl-3.5 text-[10px] font-normal text-muted-foreground">
-            <Clock className={'size-2.5 flex-none ' + (j.ageSec < 60 ? 'animate-pulse text-amber-400' : '')} />
+          <span key={j.id} title={'background job ' + j.id + ' · output ' + j.size + 'B'} className="mt-1 flex w-full items-center gap-2 overflow-hidden pl-7 text-[11px] font-normal text-muted-foreground">
+            <Clock className={'size-3 flex-none ' + (j.ageSec < 60 ? 'animate-pulse text-amber-400' : 'opacity-70')} />
             <span className="truncate">{j.label || 'background · ' + j.id} · {j.ageSec < 60 ? 'running' : Math.round(j.ageSec / 60) + 'm ago'}</span>
           </span>
         ))}
@@ -531,38 +547,59 @@ export default function App() {
     }
   }, [canSend, sel, poll])
 
-  // one rail, two homes: the desktop side panel and the phone's drawer
+  // one rail, two homes: the desktop side panel and the phone's drawer. Every
+  // tab is a READ of the desk's .claude: its files, its agents, its skills and
+  // commands, its hooks. Nothing here is invented; the files are the truth.
+  const bySource = <T extends { source: string }>(xs: T[]) => [...new Set(xs.map((x) => x.source))].map((src) => [src, xs.filter((x) => x.source === src)] as const)
   const railTabs = (
     <Tabs defaultValue="workspace" className="flex h-full flex-col gap-0">
       <TabsList className="m-2">
         <TabsTrigger value="workspace" className="text-xs">workspace</TabsTrigger>
-        <TabsTrigger value="scratchpad" className="text-xs">scratchpad</TabsTrigger>
+        <TabsTrigger value="agents" className="text-xs">agents</TabsTrigger>
+        <TabsTrigger value="skills" className="text-xs">skills</TabsTrigger>
         <TabsTrigger value="hooks" className="text-xs">hooks</TabsTrigger>
-        <TabsTrigger value="checks" className="text-xs" onClick={() => {
-          if (checks !== null) return
-          fetch('api/checks').then((r) => r.json()).then(setChecks).catch(() => setChecks({ code: 7, rows: [] }))
-        }}>checks</TabsTrigger>
       </TabsList>
-      <TabsContent value="checks" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-        <ScrollArea className="h-full px-1 pb-2">
-          {checks === null
+      <TabsContent value="agents" className="min-h-0 flex-1 data-[state=inactive]:hidden">
+        <ScrollArea className="h-full px-2 pb-2">
+          {agents === null
             ? <div className="px-2 py-2 text-xs text-muted-foreground">…</div>
-            : (
-              <TestResults className="border-0 bg-transparent">
-                <TestResultsHeader className="px-2 py-2">
-                  <TestResultsSummary passed={checks.rows.filter((r) => r.code === 0).length} failed={checks.rows.filter((r) => r.code === 4).length} skipped={checks.rows.filter((r) => r.code === 7).length} total={checks.rows.length} />
-                </TestResultsHeader>
-                <TestResultsContent>
-                  {checks.rows.map((r) => (
-                    <Test key={r.name} name={r.name} status={r.code === 0 ? 'passed' : r.code === 4 ? 'failed' : 'skipped'}
-                      className="grid grid-cols-[auto_minmax(7rem,max-content)_1fr] items-baseline gap-x-2 px-2 py-1 text-left text-xs">
-                      <TestStatus /><TestName className="whitespace-nowrap text-left" />
-                      <span className="truncate text-left text-[10px] text-muted-foreground" title={r.why}>{r.why}</span>
-                    </Test>
-                  ))}
-                </TestResultsContent>
-              </TestResults>
-            )}
+            : agents.length === 0
+              ? <div className="px-2 py-2 text-xs text-muted-foreground">no agents defined for this desk</div>
+              : bySource(agents).map(([src, xs]) => (
+                  <div key={src} className="mb-3">
+                    <div className="px-1 py-1 text-[10px] font-medium uppercase tracking-wide text-blue-400">{src}</div>
+                    {xs.map((a, i) => (
+                      <div key={i} className="flex items-start gap-2 px-1 py-1.5" title={a.description}>
+                        <DeskAvatar name={a.name} size={18} />
+                        <div className="min-w-0">
+                          <div className="flex items-baseline gap-2 text-[12px] font-medium"><span className="truncate">{a.name}</span>
+                            {a.model && <span className="flex-none font-mono text-[10px] text-muted-foreground">{a.model.replace('claude-', '')}{a.effort ? ' · ' + a.effort : ''}</span>}</div>
+                          <div className="line-clamp-2 text-[11px] text-muted-foreground">{a.description}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+        </ScrollArea>
+      </TabsContent>
+      <TabsContent value="skills" className="min-h-0 flex-1 data-[state=inactive]:hidden">
+        <ScrollArea className="h-full px-2 pb-2">
+          {skills === null
+            ? <div className="px-2 py-2 text-xs text-muted-foreground">…</div>
+            : skills.length === 0
+              ? <div className="px-2 py-2 text-xs text-muted-foreground">no skills or commands for this desk</div>
+              : bySource(skills).map(([src, xs]) => (
+                  <div key={src} className="mb-3">
+                    <div className="px-1 py-1 text-[10px] font-medium uppercase tracking-wide text-blue-400">{src}</div>
+                    {xs.map((k, i) => (
+                      <button key={i} type="button" className="grid w-full grid-cols-[minmax(6rem,max-content)_1fr] items-baseline gap-x-2 rounded-md px-1 py-1 text-left hover:bg-accent" title={k.description + ' — click to type it'}
+                        onClick={() => pickCommand(k.name)}>
+                        <span className="whitespace-nowrap font-mono text-[12px]">{k.name}</span>
+                        <span className="truncate text-[11px] text-muted-foreground">{k.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                ))}
         </ScrollArea>
       </TabsContent>
       <TabsContent value="hooks" className="min-h-0 flex-1 data-[state=inactive]:hidden">
@@ -591,15 +628,6 @@ export default function App() {
             : <div className="px-2 py-2 text-xs text-muted-foreground">…</div>}
         </ScrollArea>
       </TabsContent>
-      <TabsContent value="scratchpad" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-        <ScrollArea className="h-full px-2 pb-2">
-          {pane?.folder?.length
-            ? <FileTree className="border-0 bg-transparent">
-                {pane.folder.map((f) => <FileTreeFile key={f.name} name={f.name} path={f.name} title={kb(f.size) + ' · ' + age(f.ageMin)} />)}
-              </FileTree>
-            : <div className="px-2 py-2 text-xs text-muted-foreground">empty — the scratchpad starts clean each session</div>}
-        </ScrollArea>
-      </TabsContent>
     </Tabs>
   )
 
@@ -609,19 +637,16 @@ export default function App() {
       {isDesktop && <ResizablePanel defaultSize="13%" minSize="9%" maxSize="24%" collapsible collapsedSize="0%" className="bg-sidebar">
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between py-2 pl-4 pr-2 font-semibold">
-            <span className="py-1">🏢 the office</span>
-            <span className="flex items-center">
-              <Button variant="ghost" size="sm" className="px-1.5" title="Upgrade Claude Code to latest (running sessions keep their version until restarted)"
-                onClick={async () => {
-                  if (!window.confirm('Run `claude update` on the host?')) return
-                  setNote('upgrading Claude Code…')
-                  const r = await (await fetch('api/upgrade', { method: 'POST' })).json()
-                  setNote((r.ok ? '✓ ' : '⛔ ') + (r.before === r.after ? 'already latest: ' + r.after : r.before + ' → ' + r.after) + ' — ' + r.note)
-                }}><ArrowUpCircle className="size-4" /></Button>
-              <Button variant="ghost" size="sm" className="px-1.5" title="Hire a desk" onClick={() => setHireOpen(true)}><Plus className="size-4" /></Button>
-            </span>
+            <span className="flex items-center gap-1.5 whitespace-nowrap py-1"><Building2 className="size-4 flex-none text-blue-400" /> the office</span>
+            <Button variant="ghost" size="sm" className="px-1.5" title="Hire a desk" onClick={() => setHireOpen(true)}><Plus className="size-4" /></Button>
           </div>
           <ScrollArea className="min-h-0 flex-1">{deskList}</ScrollArea>
+          {beat?.declared && (
+            <div className={'flex items-center gap-2 border-t border-border/40 px-3 py-2 text-[11px] ' + (beat.ok ? 'text-muted-foreground' : 'text-red-400')} title={beat.lines?.join('\n')}>
+              <HeartPulse className={'size-3.5 flex-none ' + (beat.ok ? 'text-emerald-400' : 'animate-pulse text-red-400')} />
+              <span className="truncate">{beat.last || (beat.ok ? 'office heartbeat OK' : 'office heartbeat RED')}</span>
+            </div>
+          )}
         </div>
       </ResizablePanel>}
       {isDesktop && <ResizableHandle className="w-0 bg-transparent" />}
@@ -642,6 +667,7 @@ export default function App() {
             </Sheet>
             {pane?.label && <DeskAvatar name={pane.label} size={22} />}
             <span className="min-w-0 truncate whitespace-nowrap font-semibold">{pane?.label ?? '…'}</span>
+            {pane?.mode && <Badge variant="outline" className="hidden h-5 flex-none gap-1 whitespace-nowrap px-1.5 font-mono text-[10px] sm:inline-flex" title="permission mode, from the session record">⇧⇥ {pane.mode === 'bypassPermissions' ? 'bypass' : pane.mode === 'acceptEdits' ? 'accept edits' : pane.mode}</Badge>}
             {pane?.model && (
               <HoverCard openDelay={100}>
                 <HoverCardTrigger render={<Badge variant="secondary" className="hidden cursor-default gap-1 whitespace-nowrap text-[11px] sm:inline-flex"><DollarSign className="size-3" />{pane.model}</Badge>} />
@@ -789,7 +815,7 @@ export default function App() {
                       onClick={() => (document.querySelector('input[type=file]') as HTMLInputElement | null)?.click()}>
                       <ImageIcon className="size-4" /></Button>
                     <Button variant="ghost" size="sm" className="h-8 px-2 font-mono text-xs" title="Shift-Tab into this desk's terminal — the CLI cycles its permission mode there; watch the terminal for the result"
-                      onClick={async () => { const r = await (await fetch('api/key', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: sel, k: 'shift-tab' }) })).json(); setNote(r.ok ? 'Shift-Tab sent — the mode shows in the desk terminal' : '⛔ ' + r.why) }}>⇧⇥</Button>
+                      onClick={async () => { const r = await (await fetch('api/key', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: sel, k: 'shift-tab' }) })).json(); setNote(r.ok ? 'Shift-Tab sent — the mode badge updates from the record on the next turn' : '⛔ ' + r.why) }}>⇧⇥</Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="h-8 text-xs">/ commands</Button>} />
                       <DropdownMenuContent className="max-h-72 w-[30rem] max-w-[92vw] overflow-y-auto">
@@ -859,6 +885,31 @@ export default function App() {
       {isDesktop && <ResizablePanel data-rail="files" defaultSize="22%" minSize="14%" maxSize="34%" collapsible collapsedSize="0%" className="bg-card">
         {railTabs}
       </ResizablePanel>}
+      {/* updates live in one corner, folded until wanted: the host's Claude
+          Code, and this plugin. Neither touches a running session. */}
+      <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
+        {fabOpen && (
+          <div className="flex flex-col gap-1 rounded-lg border border-border/60 bg-card p-1.5 shadow-lg">
+            <Button variant="ghost" size="sm" className="justify-start gap-2 text-xs" title="claude update — running sessions keep their version until restarted"
+              onClick={async () => {
+                if (!window.confirm('Run `claude update` on the host?')) return
+                setNote('updating Claude Code…'); setFabOpen(false)
+                const r = await (await fetch('api/upgrade', { method: 'POST' })).json()
+                setNote((r.ok ? '✓ ' : '⛔ ') + (r.before === r.after ? 'Claude Code already latest: ' + r.after : r.before + ' → ' + r.after) + ' — ' + r.note)
+              }}><ArrowUpCircle className="size-4" /> update Claude Code</Button>
+            <Button variant="ghost" size="sm" className="justify-start gap-2 text-xs" title="claude plugin update office-anything — the board picks it up on its next start"
+              onClick={async () => {
+                if (!window.confirm('Run `claude plugin update office-anything`?')) return
+                setNote('updating the office plugin…'); setFabOpen(false)
+                const r = await (await fetch('api/upgrade-plugin', { method: 'POST' })).json()
+                setNote((r.ok ? '✓ ' : '⛔ ') + (r.note || r.why || 'done'))
+              }}><Building2 className="size-4" /> update the office plugin</Button>
+          </div>
+        )}
+        <Button variant={fabOpen ? 'secondary' : 'outline'} size="sm" className="h-9 w-9 rounded-full p-0 shadow-md" title="updates" onClick={() => setFabOpen((v) => !v)}>
+          <ArrowUpCircle className="size-4" />
+        </Button>
+      </div>
       <Dialog open={hireOpen} onOpenChange={setHireOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>Hire a desk</DialogTitle></DialogHeader>

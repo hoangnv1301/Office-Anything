@@ -61,7 +61,10 @@ export function subagentsOf(projectDir, mainSessionPath, { now = Date.now(), act
       if (now - st.mtimeMs > activeMs) continue
       const tail = readTail(p, { limit: 4 })
       if (!tail) continue
-      const first = tail.messages.find((m) => m.role === 'user' && m.text)
+      // the label is what the human first SAID, never a session slug like
+      // "alibaba-claude-runbook-v2-40" or a harness envelope that happened
+      // to be the first line
+      const first = tail.messages.find((m) => m.role === 'user' && m.text && !/^[\w.-]+-\d+$/.test(m.text.trim()) && !/^</.test(m.text.trim()))
       // ⛔ TWO KINDS OF COMPANY: an sdk-spawned SUBAGENT (a task, disposable)
       // and a full peer SESSION (a teammate, a second window). The transcript
       // head says which; conflating them made every teammate look like a bot.
@@ -73,7 +76,7 @@ export function subagentsOf(projectDir, mainSessionPath, { now = Date.now(), act
       } catch {}
       out.push({
         kind,
-        label: (first?.text ?? 'agent').replace(/\s+/g, ' ').slice(0, 64),
+        label: (first?.text ?? (kind === 'session' ? 'another session at this desk' : 'agent')).replace(/\s+/g, ' ').slice(0, 64),
         activeMin: Math.round((now - st.mtimeMs) / 60000),
         turns: tail.stats.turns,
         model: tail.stats.model,

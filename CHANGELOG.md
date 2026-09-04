@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.7.22
+
+The owner's second burst, every item a read of something Claude Code already writes.
+
+- The EXACT permission mode in the header (⇧⇥ bypass / auto / plan …),
+  from the permissionMode the CLI stamps on every entry it records. The
+  button's note stopped saying "watch the terminal".
+- The rail is workspace · agents · skills · hooks: the desk's .claude,
+  displayed. Agents with model · effort and description from frontmatter
+  (folded YAML scalars included); skills and commands from the desk, the
+  office, the user and every plugin, click to type. Scratchpad and checks
+  left the rail; the checks stay in `checks/run.mjs` and CI.
+- An office heartbeat: the root desk.json may declare "heartbeat": a
+  command; the board runs it every 20s and shows the last line at the
+  sidebar's foot, green or red. Wiring it found the fault behind "I don't
+  see things running": 8 of 12 keeper loops were DOWN. All up now.
+- The update FAB, bottom-right, folded until wanted: update Claude Code,
+  update the office plugin. Neither touches a running session, both say so.
+- Subagent and job rows got air and honest icons (Sparkles, Users, Clock);
+  the default robot is gone. Teammate sessions stop reading as a session
+  slug like "…-v2-40" and say what the human first asked, or "another
+  session at this desk".
+- Tool folds wear a wrench, not the registry's search icon; the office
+  wears Building2, not an emoji. "Open full size" opens a lightbox: a data:
+  URL cannot open top-level, so the link did nothing. The outbox echo
+  dissolves on a normalized prefix, since terminals re-wrap what they type.
+
 ## 0.7.21
 
 - A new README hero: a product shot of the actual board (assets/board-hero.svg)

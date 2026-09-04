@@ -167,6 +167,16 @@ export function makeServer(root) {
         })
         return
       }
+      if (url.pathname === '/api/upgrade-plugin' && req.method === 'POST') {
+        // this plugin's own update, through the CLI that owns the cache. The
+        // board serving this page keeps running its current code until its
+        // next start, and the reply says so.
+        execFile('claude', ['plugin', 'update', 'office-anything'], { timeout: 180000, encoding: 'utf8' }, (e, out, err) => {
+          const text = String(out || err || '').trim().split('\n').filter(Boolean).at(-1) ?? ''
+          json(res, 200, { ok: !e, note: (text || (e ? String(e.message) : 'updated')).slice(0, 240) + (e ? '' : ' — the board picks it up on its next start') })
+        })
+        return
+      }
       if (url.pathname === '/api/upgrade' && req.method === 'POST') {
         // `claude update`, run by the board, versions before and after. It
         // updates the INSTALL; running sessions keep their version until
@@ -185,13 +195,85 @@ export function makeServer(root) {
         })
         return
       }
+      if (url.pathname === '/api/heartbeat') {
+        // an office that keeps itself alive (a keeper, loops, a daemon) may say
+        // HOW to ask: desk.json at the root, "heartbeat": "<command>". The board
+        // runs it, reports the exit code and the last line, cached 20s. No
+        // heartbeat declared: honest null, never a green light nobody earned.
+        let lead = null
+        try { lead = leadDesk(root) } catch { lead = null }
+        const cmd = lead?.heartbeat
+        if (!cmd || typeof cmd !== 'string') return json(res, 200, { declared: false })
+        const now = Date.now()
+        if (globalThis.__oaBeat && now - globalThis.__oaBeat.at < 20000) return json(res, 200, globalThis.__oaBeat.out)
+        execFile('/bin/sh', ['-c', cmd], { cwd: root, timeout: 20000, encoding: 'utf8' }, (e, stdout, stderr) => {
+          const text = String(stdout || stderr || '').trim()
+          const lines = text.split('\n').filter(Boolean)
+          const out = { declared: true, ok: !e, code: e?.code ?? 0, last: lines.at(-1) ?? '', lines: lines.slice(-12), at: now }
+          globalThis.__oaBeat = { at: now, out }
+          json(res, 200, out)
+        })
+        return
+      }
+      if (url.pathname === '/api/agents' || url.pathname === '/api/skills') {
+        // the desk's .claude, DISPLAYED: agents (frontmatter name/model/effort/
+        // description) and skills + commands (name/description), from the same
+        // places Claude Code loads them - the desk, the office root, the user,
+        // every installed plugin. Nothing invented; the files are the truth.
+        const key = url.searchParams.get('key') ?? ''
+        const row = chatRosterCheap(root).find((r) => r.key === key)
+        if (!row) return json(res, 404, { items: [] })
+        const deskDir = row.key === slugFor(root) ? root : join(root, 'desks', row.desk)
+        const fm = (file) => {
+          try {
+            const t = readFileSync(file, 'utf8').slice(0, 4000)
+            const g = (k) => {
+              const m = t.match(new RegExp('^' + k + ':[ \\t]*(.*)$', 'm'))
+              if (!m) return ''
+              let v = m[1].trim()
+              // YAML folded/literal scalars (>- | >) put the text on the indented lines below
+              if (/^[>|]-?$/.test(v)) {
+                const after = t.slice(m.index + m[0].length).split('\n')
+                const body = []
+                for (const ln of after) { if (/^\s+\S/.test(ln)) body.push(ln.trim()); else if (body.length) break }
+                v = body.join(' ')
+              }
+              return v.replace(/^["']|["']$/g, '')
+            }
+            return { name: g('name'), description: g('description').slice(0, 160), model: g('model'), effort: g('effort') }
+          } catch { return null }
+        }
+        const items = []
+        const agentsIn = (d, source) => { try { for (const f of readdirSync(d)) if (f.endsWith('.md')) { const m = fm(join(d, f)); if (m) items.push({ name: m.name || f.replace(/\.md$/, ''), description: m.description, model: m.model, effort: m.effort, source }) } } catch {} }
+        const skillsIn = (d, source) => { try { for (const f of readdirSync(d)) { const m = fm(join(d, f, 'SKILL.md')); if (m) items.push({ name: '/' + (m.name || f), description: m.description, kind: 'skill', source }) } } catch {} }
+        const commandsIn = (d, source) => { try { for (const f of readdirSync(d)) if (f.endsWith('.md')) { const m = fm(join(d, f)); items.push({ name: '/' + f.replace(/\.md$/, ''), description: m?.description ?? '', kind: 'command', source }) } } catch {} }
+        const plugins = []
+        try {
+          const cache = join(homedir(), '.claude', 'plugins', 'cache')
+          for (const mkt of readdirSync(cache)) for (const plug of readdirSync(join(cache, mkt))) {
+            try { const vers = readdirSync(join(cache, mkt, plug)).sort().reverse(); if (vers.length) plugins.push([plug, join(cache, mkt, plug, vers[0])]) } catch {}
+          }
+        } catch {}
+        if (url.pathname === '/api/agents') {
+          agentsIn(join(deskDir, '.claude', 'agents'), 'this desk')
+          if (deskDir !== root) agentsIn(join(root, '.claude', 'agents'), 'the office')
+          agentsIn(join(homedir(), '.claude', 'agents'), 'user')
+          for (const [plug, base] of plugins) agentsIn(join(base, 'agents'), 'plugin: ' + plug)
+        } else {
+          skillsIn(join(deskDir, '.claude', 'skills'), 'this desk'); commandsIn(join(deskDir, '.claude', 'commands'), 'this desk')
+          if (deskDir !== root) { skillsIn(join(root, '.claude', 'skills'), 'the office'); commandsIn(join(root, '.claude', 'commands'), 'the office') }
+          skillsIn(join(homedir(), '.claude', 'skills'), 'user'); commandsIn(join(homedir(), '.claude', 'commands'), 'user')
+          for (const [plug, base] of plugins) { skillsIn(join(base, 'skills'), 'plugin: ' + plug); commandsIn(join(base, 'commands'), 'plugin: ' + plug) }
+        }
+        return json(res, 200, { items })
+      }
       if (url.pathname === '/api/checks') {
         // the plugin's own structural checks, run live against this office:
         // 0 = pass, 4 = fail, 7 = unknown (an empty walk is never clean)
         const c = collect(root)
         return json(res, 200, {
           code: c.code,
-          rows: c.rows.map((r) => ({ name: r.name, code: r.code, why: r.why ?? '', applicable: r.applicable !== false })),
+          rows: c.rows.map((r) => ({ name: r.name, answers: r.answers ?? '', code: r.code, why: r.why ?? '', applicable: r.applicable !== false })),
         })
       }
       if (url.pathname === '/api/hooks') {
@@ -432,7 +514,7 @@ export function makeServer(root) {
         const lastUser = [...messages].reverse().find((m) => m.role !== 'assistant')
         const elapsedSec = lastUser?.at ? Math.max(0, Math.round((now - Date.parse(lastUser.at)) / 1000)) : null
         const turn = { elapsedSec: elapsedSec != null && elapsedSec < 14400 ? elapsedSec : null, output: tail?.stats?.turnOutput ?? 0 }
-        return json(res, 200, { label, model: tail?.stats?.model ?? null, count: messages.length, messages, folder, workspace, usage, turn, pending: pendingAsk(messages) })
+        return json(res, 200, { label, model: tail?.stats?.model ?? null, mode: tail?.stats?.permissionMode ?? null, count: messages.length, messages, folder, workspace, usage, turn, pending: pendingAsk(messages) })
       }
       if (url.pathname === '/api/hire' && req.method === 'POST') {
         // ⛔ THE GUARDED ENTRY, NEVER THE PARTS. hire() owns the name rules,

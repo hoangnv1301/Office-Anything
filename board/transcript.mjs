@@ -226,6 +226,10 @@ export function readTail(path, { limit = 80 } = {}) {
       // a human message starts a TURN; its output tokens accumulate until
       // the next one, which is exactly the number the CLI status line shows
       if (line.includes('"type":"user"') && !line.includes('"tool_result"')) stats.turnOutput = 0
+      // the CLI's permission mode rides every entry it writes; the newest one
+      // IS the current mode, so the board can show it exactly, no guessing
+      const pm = /"permissionMode":"([A-Za-z]+)"/.exec(line)
+      if (pm) stats.permissionMode = pm[1]
       if (!line.includes('"usage"')) continue
       try {
         const j = JSON.parse(line); const u = j?.message?.usage
