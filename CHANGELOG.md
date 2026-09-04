@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.18
+
+- "running for 4,000 minutes" is gone. The turn timer anchored on the last
+  role:user message only, so once desk-to-desk peers and system events
+  stopped counting as the turn's start, it measured from something days
+  old. It now anchors on whatever last SPOKE TO the desk (human, peer, or
+  system) and clamps anything over 4 hours to no-counter rather than a
+  fantasy number. Verified end to end: a live send read 2s, not thousands.
+
 ## 0.7.17
 
 - Desk-to-desk messages read as CONVERSATION: an attributed left bubble,

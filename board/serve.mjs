@@ -426,8 +426,12 @@ export function makeServer(root) {
         const usage = tail ? { ...tail.stats, cost: costOf({ model: tail.stats.model, input: tail.stats.input, output: tail.stats.output, cacheRead: tail.stats.cacheRead, cacheWrite: tail.stats.cacheWrite ?? 0 }) } : null
         // the CLI status line's numbers: elapsed since the human's message
         // that started this turn, and the tokens it has produced so far
-        const lastUser = [...messages].reverse().find((m) => m.role === 'user')
-        const turn = { elapsedSec: lastUser?.at ? Math.max(0, Math.round((now - Date.parse(lastUser.at)) / 1000)) : null, output: tail?.stats?.turnOutput ?? 0 }
+        // the turn starts at whatever last SPOKE TO the desk: a human, a
+        // peer desk, or a system event. Anchoring on role user alone read
+        // "running for 4,000 minutes" the moment peers stopped counting.
+        const lastUser = [...messages].reverse().find((m) => m.role !== 'assistant')
+        const elapsedSec = lastUser?.at ? Math.max(0, Math.round((now - Date.parse(lastUser.at)) / 1000)) : null
+        const turn = { elapsedSec: elapsedSec != null && elapsedSec < 14400 ? elapsedSec : null, output: tail?.stats?.turnOutput ?? 0 }
         return json(res, 200, { label, model: tail?.stats?.model ?? null, count: messages.length, messages, folder, workspace, usage, turn, pending: pendingAsk(messages) })
       }
       if (url.pathname === '/api/hire' && req.method === 'POST') {
