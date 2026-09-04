@@ -195,6 +195,54 @@ const drawerClosed = await until(`!document.querySelector('[data-slot="sheet-con
 check('phone: a desk tap closes the drawer and switches', drawerClosed.ok, drawerClosed.ms + 'ms')
 await call('Emulation.clearDeviceMetricsOverride')
 
+
+// 15. THE / FLOW, EVERY KEY, the way the CLI behaves. All real key events.
+const key = async (k, code = k, vk) => {
+  await call('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, windowsVirtualKeyCode: vk, text: k.length === 1 ? k : undefined })
+  await call('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, windowsVirtualKeyCode: vk })
+}
+const typeText = async (t) => { for (const ch of t) await call('Input.insertText', { text: ch }) }
+const taValue = () => evalJs(`document.querySelector('textarea')?.value ?? ''`)
+await mouseClick(`document.querySelector('textarea')`)
+await evalJs(`(()=>{const t=document.querySelector('textarea'); t.value=''; t.dispatchEvent(new Event('input',{bubbles:true})); return true})()`)
+
+// a) typing "/mo" opens a filtered list containing /model
+await typeText('/mo')
+const listMo = await until(`[...document.querySelectorAll('form button span.font-mono')].some(s=>s.textContent==='/model')`, 2500)
+check('/ typing filters the list live (/mo → /model)', listMo.ok, listMo.ms + 'ms')
+
+// b) ArrowDown moves the highlight, Enter completes the highlighted entry — never submits a partial
+const names = await evalJs(`[...document.querySelectorAll('form button span.font-mono')].map(s=>s.textContent)`)
+await key('ArrowDown', 'ArrowDown', 40)
+const hl = await evalJs(`(()=>{const b=[...document.querySelectorAll('form button')].find(b=>/bg-accent\\/50/.test(b.className)); return b?.querySelector('span.font-mono')?.textContent ?? ''})()`)
+check('↓ moves the highlight to the second entry', names.length > 1 ? hl === names[1] : hl === names[0], 'highlight=' + hl)
+await key('Enter', 'Enter', 13)
+const afterEnter = await taValue()
+check('Enter on a PARTIAL completes, never sends', afterEnter === hl + ' ', JSON.stringify(afterEnter))
+
+// c) a picker command shows its ARGUMENT list; Tab completes the first argument
+await evalJs(`(()=>{const t=document.querySelector('textarea'); t.value='/model '; t.dispatchEvent(new Event('input',{bubbles:true})); return true})()`)
+const argList = await until(`[...document.querySelectorAll('form button span.font-mono')].some(s=>/^claude-/.test(s.textContent))`, 2500)
+check('/model shows its argument list instead of a blind picker', argList.ok, argList.ms + 'ms')
+await key('Tab', 'Tab', 9)
+const afterTab = await taValue()
+check('Tab completes the argument inline', /^\/model claude-[\w-]+ $/.test(afterTab), JSON.stringify(afterTab))
+
+// d) Escape closes the menu, text stays
+await evalJs(`(()=>{const t=document.querySelector('textarea'); t.value='/sta'; t.dispatchEvent(new Event('input',{bubbles:true})); return true})()`)
+await until(`document.querySelectorAll('form button span.font-mono').length > 0`, 2000)
+await key('Escape', 'Escape', 27)
+const gone = await until(`document.querySelectorAll('form button span.font-mono').length === 0`, 2000)
+check('Escape closes the / menu, text stays', gone.ok && (await taValue()) === '/sta', JSON.stringify(await taValue()))
+
+// e) a BARE picker command is refused at send with the inline form offered
+await evalJs(`(()=>{const t=document.querySelector('textarea'); t.value='/model'; t.dispatchEvent(new Event('input',{bubbles:true})); return true})()`)
+await key('Escape', 'Escape', 27)
+await mouseClick(`document.querySelector('form button[type=submit]')`)
+const refused = await until(`/opens an interactive picker/.test(document.body.innerText)`, 3000)
+check('a bare /model is refused at send, with the inline form offered', refused.ok && (await taValue()) === '/model', refused.ms + 'ms')
+await evalJs(`(()=>{const t=document.querySelector('textarea'); t.value=''; t.dispatchEvent(new Event('input',{bubbles:true})); return true})()`)
+
 // 8. back to lead + chat for the closing screenshot
 
 await mouseClick(`[...document.querySelectorAll('button')].find(b=>/team-lead/.test(b.textContent))`)

@@ -184,21 +184,34 @@ localhost. The front page IS the conversation view, built on real
 components, nothing hand-rolled:
 
 - **Every desk in a sidebar**, each with its own colored shape, its name
-  grayed when offline and shimmering while it works — read from the desks'
-  own transcripts, never from self-report.
+  grayed when offline and shimmering while it works. Busy, idle and *waiting
+  on a human* come from Claude Code's own live session state, never from
+  self-report; an amber badge lights the moment a desk needs you.
 - **Its live transcript as chat**: markdown, tool calls with their diffs and
   results, images, a message *from* another desk in that desk's own color,
-  the working line showing elapsed and tokens like the CLI status bar.
-- **A composer that types into the desk's real terminal** — `/` commands,
-  Tab-complete, image drop, Shift-Tab for mode — where the host supports it.
-- **The Computer tab mirrors the desk's own browser**, display only, through
-  a zero-dependency CDP client. A rail switches between the desk's workspace
-  tree, its scratchpad, its configured hooks, and the live checks board.
+  the working line showing elapsed and tokens like the CLI status bar, and
+  the exact permission mode and context-window fill from the record.
+  What the CLI never renders, the board never renders.
+- **A composer that types into the desk's real terminal** — `/` commands
+  with descriptions and Tab-complete, image drop with visible chips,
+  Shift-Tab for mode, an instant echo while the terminal catches up. Sends
+  land in about a second; replies arrive by push the moment Claude writes.
+- **The Computer pane mirrors the desk's whole browser**, every tab, display
+  only, through a zero-dependency CDP client. A rail reads the desk's
+  `.claude`: its workspace tree, its agents, its skills and commands, the
+  plugins installed, and every hook that can fire, in lifecycle order.
+- **The office's own pulse**: a root `desk.json` may declare a `heartbeat`
+  command; the board runs it and shows the answer (`13/13 loops up`), red
+  when it is not. Wiring it found eight dead keeper loops nobody had noticed.
 
-Loopback only, stateless, re-gathered per request, and it can be mounted
-behind an existing app's auth to reach it from a phone. It cannot know
-something `node checks/run.mjs` does not, which is the rule that let it exist
-at all.
+Loopback only, stateless, re-gathered per request. Mount it behind an
+existing app's login (nginx `auth_request`, one location block) and it is
+the same office from a phone. It cannot know something `node checks/run.mjs`
+does not, which is the rule that let it exist at all.
+
+Every fault the board ever showed a human is now a rig check: `board/ui/e2e.mjs`
+walks 21 functions against the live page with hit-tested input — real clicks,
+real clipboard reads, a real phone viewport — and names the one that broke.
 
 ## Design philosophy
 
@@ -228,18 +241,19 @@ statement, including what `hire`/`fire` may write and where: [SECURITY.md](SECUR
 ## In production
 
 The contract runs a real customer-service office: seven desks across five channels
-(web chat, email, three marketplaces) in front of a 2,500-test suite. v0.3.0 exists
-because that deployment found faults that reading never would — see the
-[release notes](https://github.com/hoangnv1301/Office-Anything/releases/tag/v0.3.0).
+(web chat, email, three marketplaces) in front of a 2,500-test suite, with the board
+served as a kept loop and reached from a phone behind the company app's own login.
+Every release since the first exists because that deployment found faults that reading
+never would; the [changelog](CHANGELOG.md) is that list, one entry per fault.
 
 ## Roadmap
 
 - **`state-shape`** — state files sorted by lifetime (the FHS names: `run/ lib/ log/
   cache/ spool/`), so "can I delete this" has an answer by construction.
-- **A home for the `lead` kind** — a root-level desk, so the desk that runs the office
-  stops being invisible to its own checks.
-- **A local dashboard** — the office on one page, read-only, served from what the checks
-  already know.
+- **A task panel** — each desk's own TaskList, the CLI's todo list, on the board.
+- **Session picker** — a desk's older sessions, not only its newest.
+- **Restart on latest, resumed** — one button that updates Claude Code and reopens every
+  desk exactly where it was, with `--resume`.
 - **Other harnesses** — the contract is one JSON file per desk on purpose. Nothing in
   `desk.json` is Claude-specific; adapters for other agent CLIs are a matter of hooks,
   not of contract.

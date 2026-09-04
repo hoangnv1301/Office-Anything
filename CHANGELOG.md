@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.27
+
+- THE / FLOW BEHAVES LIKE THE CLI: ↑↓ move a highlight, Enter or Tab
+  complete the highlighted entry and never submit a partial, Escape closes
+  the menu and keeps the text. Tested key by key with real key events; seven
+  new rig checks, 28 in all.
+- Built-ins that open a PICKER in the terminal (/model, /effort, /config,
+  /permissions, /resume, …) are handled honestly: the transcript never
+  records a TUI menu, so a bare one sent from the board opened a menu
+  nobody watched and parked the desk on "waiting". The board now shows the
+  ARGUMENT list inline (/model → the model ids, /effort → the levels),
+  completes it, and refuses to send the bare form, handing the text back
+  with the inline example.
+- README rewritten to what the board is now: live session state, the
+  .claude rail, the heartbeat, the phone mount, the 21-then-28 check rig.
+
 ## 0.7.26
 
 - THE RIG GREW FROM 9 TO 21 CHECKS, one per thing the owner caught by hand

@@ -92,6 +92,15 @@ const hookName = (cmd: string) => {
   const first = cmd.trim().replace(/^["']+|["']+$/g, '').split(/\s+/)[0] ?? cmd
   return first.length > 40 ? first.slice(0, 40) + '…' : first
 }
+// ⛔ BUILT-INS THAT OPEN A PICKER IN THE TERMINAL. The picker is a TUI the
+// transcript never records: sent bare from the board it opens a menu nobody
+// is watching and the desk sits "waiting" on it. So the board completes the
+// ARGUMENT inline and refuses to send the bare form.
+const PICKERS: Record<string, string[]> = {
+  '/model': ['claude-fable-5', 'claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5', 'claude-opus-4-8', 'claude-sonnet-4-6'],
+  '/effort': ['low', 'medium', 'high', 'xhigh', 'max'],
+  '/config': [], '/permissions': [], '/resume': [], '/agents': [], '/hooks': [], '/mcp': [], '/plugin': [], '/memory': [],
+}
 const kb = (n: number) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'
 const age = (m: number) => (m < 60 ? `${m}m` : `${Math.round(m / 60)}h`) + ' ago'
 
@@ -291,12 +300,16 @@ export default function App() {
   // typing "/" in the box suggests inline, the way the CLI does — the
   // dropdown button was a second place to look for a first-class behavior
   const [slashQ, setSlashQ] = useState<string | null>(null)
+  const [slashIdx, setSlashIdx] = useState(0)
+  const slashIdxRef = useRef(0)
   useEffect(() => {
     const h = (e: Event) => {
       const ta = e.target as HTMLTextAreaElement
       if (ta?.tagName !== 'TEXTAREA') return
       const v = ta.value
-      setSlashQ(v.startsWith('/') && !v.includes(' ') && v.length < 40 ? v : null)
+      const argOpen = /^(\/[a-z-]+)\s+(\S*)$/i.exec(v)
+      setSlashQ((v.startsWith('/') && !v.includes(' ') && v.length < 40) || (argOpen && PICKERS[argOpen[1]]?.length) ? v : null)
+      slashIdxRef.current = 0; setSlashIdx(0)
     }
     document.addEventListener('input', h, true)
     return () => document.removeEventListener('input', h, true)
@@ -304,7 +317,8 @@ export default function App() {
   const pickCommand = useCallback((c: string) => {
     const ta = document.querySelector('textarea')
     if (ta) { ta.value = c + ' '; ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus() }
-    setSlashQ(null)
+    // a bare picker keeps its argument list open; anything else closes the menu
+    if (!Object.prototype.hasOwnProperty.call(PICKERS, c.trim()) || !PICKERS[c.trim()].length) setSlashQ(null)
   }, [])
   const [hireWhy, setHireWhy] = useState('')
   const hireName = useRef<HTMLInputElement>(null)
@@ -512,10 +526,27 @@ export default function App() {
       const ta = e.target as HTMLTextAreaElement
       if (ta?.tagName !== 'TEXTAREA' || !sel) return
       // Tab completes the top slash suggestion, exactly like the CLI
-      if (e.key === 'Tab' && ta.value.startsWith('/') && !ta.value.includes(' ')) {
-        const hit = commandsRef.current.find((c) => c.name.startsWith(ta.value))
-        if (hit) { ta.value = hit.name + ' '; ta.dispatchEvent(new Event('input', { bubbles: true })) }
-        e.preventDefault(); return
+      const v = ta.value
+      const cmdOpen = v.startsWith('/') && !v.includes(' ')
+      const argM = /^(\/[a-z-]+)\s+(\S*)$/i.exec(v)
+      const argOpen = !!(argM && PICKERS[argM[1]]?.length)
+      if (cmdOpen || argOpen) {
+        const list = cmdOpen
+          ? commandsRef.current.filter((c) => c.name.startsWith(v)).slice(0, 12).map((c) => c.name)
+          : PICKERS[argM![1]].filter((a) => a.startsWith(argM![2])).slice(0, 12)
+        const complete = () => {
+          const pick = list[Math.min(slashIdxRef.current, Math.max(list.length - 1, 0))]
+          if (!pick) return
+          ta.value = cmdOpen ? pick + ' ' : argM![1] + ' ' + pick + ' '
+          ta.dispatchEvent(new Event('input', { bubbles: true })); slashIdxRef.current = 0; setSlashIdx(0)
+        }
+        if (e.key === 'ArrowDown' && list.length) { slashIdxRef.current = (slashIdxRef.current + 1) % list.length; setSlashIdx(slashIdxRef.current); e.preventDefault(); e.stopPropagation(); return }
+        if (e.key === 'ArrowUp' && list.length) { slashIdxRef.current = (slashIdxRef.current - 1 + list.length) % list.length; setSlashIdx(slashIdxRef.current); e.preventDefault(); e.stopPropagation(); return }
+        if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey && list.length && (cmdOpen ? !list.includes(v) : !list.includes(argM![2])))) {
+          // Enter on a PARTIAL completes; it never submits half a command
+          complete(); e.preventDefault(); e.stopPropagation(); return
+        }
+        if (e.key === 'Escape') { setSlashQ(null); e.preventDefault(); e.stopPropagation(); return }
       }
       let hist: string[] = []
       try { hist = JSON.parse(localStorage.getItem('office-hist-' + sel) ?? '[]') } catch { hist = [] }
@@ -561,6 +592,15 @@ export default function App() {
       else setNote('⛔ ' + r.why)
     }
     if (!text) return
+    // ⛔ a bare picker command would open a terminal menu nobody is watching and
+    // park the desk on it. Refused here, with the inline form offered instead.
+    const bare = text.trim().split(/\s+/)[0]
+    if (text.trim() === bare && Object.prototype.hasOwnProperty.call(PICKERS, bare)) {
+      setNote('⛔ ' + bare + ' opens an interactive picker in the desk\'s terminal, which the board cannot show. Give the value inline' + (PICKERS[bare].length ? ', e.g. ' + bare + ' ' + PICKERS[bare][0] : ', or run it in the terminal itself') + '.')
+      // the component clears the box on submit; a refusal must hand the text back
+      setTimeout(() => { const ta = document.querySelector('textarea'); if (ta) { ta.value = text; ta.dispatchEvent(new Event('input', { bubbles: true })) } }, 0)
+      return
+    }
     const r = await (await fetch('api/send', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ key: sel, text }),
@@ -844,24 +884,48 @@ export default function App() {
               <PromptInput onSubmit={onSubmit} accept="image/*" multiple globalDrop>
                 <PromptInputBody>
                   <PromptInputHeader><AttachChips /></PromptInputHeader>
-                  {slashQ && (
-                    <div className="max-h-56 overflow-y-auto px-1 pt-1">
-                      {/* two honest columns, CLI-style: the NAME gets the room
-                          it needs and never hides; the description takes the
-                          rest and fades with a truncate, left-aligned */}
-                      {commands.filter((c) => c.name.startsWith(slashQ)).slice(0, 12).map((c, i) => (
-                        <button key={c.name} type="button" onClick={() => pickCommand(c.name)}
-                          className={'grid w-full grid-cols-[minmax(9rem,max-content)_1fr_auto] items-baseline gap-x-3 rounded-md px-2 py-1 text-left text-xs hover:bg-accent ' + (i === 0 ? 'bg-accent/50' : '')}>
-                          <span className="whitespace-nowrap text-left font-mono">{c.name}</span>
-                          <span className="truncate text-left text-muted-foreground" title={c.desc}>{c.desc}</span>
-                          <span className="text-[9px] text-muted-foreground">{i === 0 ? 'tab' : ''}</span>
-                        </button>
-                      ))}
-                      {commands.filter((c) => c.name.startsWith(slashQ)).length === 0 && (
-                        <span className="px-1 text-[11px] text-muted-foreground">no matching command — Enter sends it as typed</span>
-                      )}
-                    </div>
-                  )}
+                  {slashQ && (() => {
+                    const argM = /^(\/[a-z-]+)\s+(\S*)$/i.exec(slashQ)
+                    const bareCmd = slashQ.trim().split(/\s+/)[0]
+                    const isPicker = Object.prototype.hasOwnProperty.call(PICKERS, bareCmd)
+                    if (argM && PICKERS[argM[1]]?.length) {
+                      const args = PICKERS[argM[1]].filter((a) => a.startsWith(argM[2])).slice(0, 12)
+                      return (
+                        <div className="max-h-56 overflow-y-auto px-1 pt-1">
+                          <div className="px-2 py-0.5 text-[10px] text-muted-foreground">{argM[1]} opens a picker in the terminal that the board cannot show — pick the value here instead</div>
+                          {args.map((a, i) => (
+                            <button key={a} type="button" onClick={() => pickCommand(argM[1] + ' ' + a)}
+                              className={'grid w-full grid-cols-[1fr_auto] items-baseline gap-x-3 rounded-md px-2 py-1 text-left text-xs hover:bg-accent ' + (i === slashIdx ? 'bg-accent/50' : '')}>
+                              <span className="whitespace-nowrap text-left font-mono">{a}</span>
+                              <span className="text-[9px] text-muted-foreground">{i === slashIdx ? 'enter' : ''}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )
+                    }
+                    const list = commands.filter((c) => c.name.startsWith(slashQ)).slice(0, 12)
+                    return (
+                      <div className="max-h-56 overflow-y-auto px-1 pt-1">
+                        {/* two honest columns, CLI-style: the NAME gets the room
+                            it needs and never hides; the description takes the
+                            rest and fades with a truncate, left-aligned */}
+                        {list.map((c, i) => (
+                          <button key={c.name} type="button" onClick={() => pickCommand(c.name)}
+                            className={'grid w-full grid-cols-[minmax(9rem,max-content)_1fr_auto] items-baseline gap-x-3 rounded-md px-2 py-1 text-left text-xs hover:bg-accent ' + (i === slashIdx ? 'bg-accent/50' : '')}>
+                            <span className="whitespace-nowrap text-left font-mono">{c.name}</span>
+                            <span className="truncate text-left text-muted-foreground" title={c.desc}>{c.desc}</span>
+                            <span className="text-[9px] text-muted-foreground">{i === slashIdx ? '↵ / tab' : ''}</span>
+                          </button>
+                        ))}
+                        {list.length === 0 && !isPicker && (
+                          <span className="px-1 text-[11px] text-muted-foreground">no matching command — Enter sends it as typed</span>
+                        )}
+                        {isPicker && list.length <= 1 && (
+                          <div className="px-2 py-1 text-[11px] text-amber-400">{bareCmd} opens an interactive picker in the desk's terminal. The board cannot show it, so give the value inline (e.g. {bareCmd} {PICKERS[bareCmd]?.[0] ?? '<value>'}).</div>
+                        )}
+                      </div>
+                    )
+                  })()}
                   <PromptInputTextarea placeholder={canSend ? "Message this desk's live terminal — / for commands, drop images anywhere" : 'Read-only on this host (no orca CLI)'} disabled={!canSend} />
                 </PromptInputBody>
                 <PromptInputFooter>
