@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.7.24
+
+- THE CLI'S OWN LIVE STATE, adopted: ~/.claude/sessions/<pid>.json carries
+  status busy|idle|waiting, cwd, version, name. Liveness is the pid, not the
+  timestamp (updatedAt only moves on status changes). "waiting" is the CLI
+  itself saying a human is needed — a permission prompt or a question — so
+  the amber badge now lights from the source even though the prompt's
+  content is not recorded anywhere on disk. The 45s mtime heuristic remains
+  only for sessions older than the file.
+- The Context element in the header: how full the window is (88% ctx),
+  tokens and cost on hover. The 1M window is inferred from evidence (a
+  prompt over 200k) because the record's model id drops the [1m] tag.
+- Pending questions and plan approvals ride the Confirmation element;
+  WebSearch/WebFetch results list their URLs on the Sources element.
+- A failed tool count is a red badge, not a glyph. Subagents wear a nested
+  arrow, not the AI sparkle, and their row says what task spawned them,
+  read from the head of their transcript.
+- The agents tab lists the office's root .claude/agents alone (owner's
+  ruling); the toast belongs to the desk that earned it and clears on switch.
+- A failed UI build no longer blanks the live board: Vite emptied dist
+  before building, and one bad import served an empty page to every
+  self-healing tab for a minute ("page crashed"). emptyOutDir is off;
+  index.html is written last, so the previous build keeps serving.
+
 ## 0.7.23
 
 - The rail is workspace · agents · skills · plugins · hooks. Agents and

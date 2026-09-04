@@ -69,14 +69,28 @@ export function subagentsOf(projectDir, mainSessionPath, { now = Date.now(), act
       // and a full peer SESSION (a teammate, a second window). The transcript
       // head says which; conflating them made every teammate look like a bot.
       let kind = 'agent'
+      // the task that spawned an agent is its FIRST user line, at the head of
+      // the file, not in the tail: read the head once for both the kind and
+      // the label, so a row never has to say just "agent"
+      let headLabel = null
       try {
-        const fd = openSync(p, 'r'); const b = Buffer.alloc(4096)
-        const n = readSync(fd, b, 0, 4096, 0); closeSync(fd)
-        if (b.slice(0, n).toString('utf8').includes('"entrypoint":"cli"')) kind = 'session'
+        const fd = openSync(p, 'r'); const b = Buffer.alloc(16384)
+        const n = readSync(fd, b, 0, 16384, 0); closeSync(fd)
+        const head = b.slice(0, n).toString('utf8')
+        if (head.includes('"entrypoint":"cli"')) kind = 'session'
+        for (const line of head.split('\n')) {
+          if (!line.includes('"type":"user"')) continue
+          try {
+            const j = JSON.parse(line); const c = j?.message?.content
+            const t = typeof c === 'string' ? c : Array.isArray(c) ? c.filter((x) => x.type === 'text').map((x) => x.text).join(' ') : ''
+            const clean = t.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+            if (clean && !/^[\w.-]+-\d+$/.test(clean)) { headLabel = clean; break }
+          } catch { /* a torn head line is not a label */ }
+        }
       } catch {}
       out.push({
         kind,
-        label: (first?.text ?? (kind === 'session' ? 'another session at this desk' : 'agent')).replace(/\s+/g, ' ').slice(0, 64),
+        label: (headLabel ?? first?.text ?? (kind === 'session' ? 'another session at this desk' : 'agent')).replace(/\s+/g, ' ').slice(0, 64),
         activeMin: Math.round((now - st.mtimeMs) / 60000),
         turns: tail.stats.turns,
         model: tail.stats.model,

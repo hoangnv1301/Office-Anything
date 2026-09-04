@@ -56,7 +56,33 @@ export function chatRosterCheap(root) {
   ]
 }
 
+// ⛔ THE CLI KEEPS A LIVE SESSION FILE: ~/.claude/sessions/<pid>.json with
+// status busy|idle, cwd, version, name. That is the truth about "working",
+// and it replaces the mtime heuristic wherever a file exists for the cwd.
+// It carries NO permission mode; the mode is stamped on the next transcript
+// entry and nowhere else, so the badge reads the record and says so.
+export function liveSessions(home = homedir()) {
+  const out = new Map()
+  try {
+    const dir = join(home, '.claude', 'sessions')
+    for (const f of readdirSync(dir)) {
+      if (!f.endsWith('.json')) continue
+      try {
+        const j = JSON.parse(readFileSync(join(dir, f), 'utf8'))
+        if (!j.cwd || !j.pid) continue
+        // updatedAt only moves on status changes (hours stale is normal); the
+        // pid is the liveness test, and a dead pid is a crashed CLI's leftover
+        try { process.kill(j.pid, 0) } catch { continue }
+        const prev = out.get(j.cwd)
+        if (!prev || (j.updatedAt ?? 0) > (prev.updatedAt ?? 0)) out.set(j.cwd, j)
+      } catch {}
+    }
+  } catch {}
+  return out
+}
+
 export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
+  const live = liveSessions(home)
   const { desks } = rosterSafe(join(root, 'desks'))
   const rows = [
     { key: slugFor(root), label: 'team-lead', sub: 'the repo root · this machine\'s lead session', desk: 'team-lead' },
@@ -93,7 +119,16 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
     // with a tool call or a result. Without this, "working" outlived every
     // turn by the whole mtime window and the owner watched a done desk brew.
     const endedOnText = lastMsg?.role === 'assistant' && !(lastMsg.tools?.length)
-    r.busy = t ? ((now - statSafe(t)) < 45000 && !endedOnText) : null
+    const deskCwd = r.desk === 'team-lead' ? root : join(root, 'desks', r.desk)
+    const ls = live.get(deskCwd)
+    // a live session file within the last two minutes is the truth; older
+    // ones are a crashed CLI's leftovers and the heuristic takes over
+    if (ls) {
+      r.busy = ls.status === 'busy'
+      // "waiting" is the CLI itself saying a human is needed (a prompt, a question)
+      if (ls.status === 'waiting') r.waiting = true
+      r.claudeVersion = ls.version ?? null; r.sessionName = ls.name ?? null; r.status = ls.status ?? null
+    } else r.busy = t ? ((now - statSafe(t)) < 45000 && !endedOnText) : null
     if (st) {
       const k = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
       r.sub += ' · ' + st.turns + ' turns · ' + k(st.input + st.cacheRead) + '/' + k(st.output) + ' tok'
@@ -284,9 +319,8 @@ export function makeServer(root) {
           }
         } catch {}
         if (url.pathname === '/api/agents') {
-          agentsIn(join(deskDir, '.claude', 'agents'), 'this desk')
-          if (deskDir !== root) agentsIn(join(root, '.claude', 'agents'), 'the office')
-          agentsIn(join(homedir(), '.claude', 'agents'), 'user')
+          // owner's ruling: the office's agents live in the ROOT .claude; that is the list
+          agentsIn(join(root, '.claude', 'agents'), 'the office')
         } else {
           skillsIn(join(deskDir, '.claude', 'skills'), 'this desk'); commandsIn(join(deskDir, '.claude', 'commands'), 'this desk')
           if (deskDir !== root) { skillsIn(join(root, '.claude', 'skills'), 'the office'); commandsIn(join(root, '.claude', 'commands'), 'the office') }
@@ -532,7 +566,11 @@ export function makeServer(root) {
         const sessionId = basename(t, '.jsonl')
         const folder = filesUnder(join('/private/tmp', 'claude-' + process.getuid(), key, sessionId, 'scratchpad'))
           .map((x) => ({ name: x.name, size: x.size, ageMin: Math.round((now - x.at) / 60000) }))
-        const usage = tail ? { ...tail.stats, cost: costOf({ model: tail.stats.model, input: tail.stats.input, output: tail.stats.output, cacheRead: tail.stats.cacheRead, cacheWrite: tail.stats.cacheWrite ?? 0 }) } : null
+        // the context WINDOW: what the newest turn carried in (input + both
+        // caches) against the model's window; 1M when the model id says so
+        // the record's model id drops the [1m] tag, so a prompt over 200k IS the evidence of the 1M window
+        const ctxMax = (/\[1m\]|-1m\b/i.test(tail?.stats?.model ?? '') || (tail?.stats?.ctxUsed ?? 0) > 200_000) ? 1_000_000 : 200_000
+        const usage = tail ? { ...tail.stats, ctxMax, cost: costOf({ model: tail.stats.model, input: tail.stats.input, output: tail.stats.output, cacheRead: tail.stats.cacheRead, cacheWrite: tail.stats.cacheWrite ?? 0 }) } : null
         // the CLI status line's numbers: elapsed since the human's message
         // that started this turn, and the tokens it has produced so far
         // the turn starts at whatever last SPOKE TO the desk: a human, a

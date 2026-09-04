@@ -235,6 +235,8 @@ export function readTail(path, { limit = 80 } = {}) {
         const j = JSON.parse(line); const u = j?.message?.usage
         if (!u) continue
         stats.turnOutput = (stats.turnOutput ?? 0) + (u.output_tokens ?? 0)
+        // the newest turn's whole prompt = how full the context window is now
+        stats.ctxUsed = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0)
         stats.turns += 1; stats.input += u.input_tokens ?? 0; stats.output += u.output_tokens ?? 0
         stats.cacheRead += u.cache_read_input_tokens ?? 0
         stats.cacheWrite += u.cache_creation_input_tokens ?? 0

@@ -20,7 +20,7 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai-elements/web-preview'
-import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, DollarSign, CircleHelp, Users, Clock, ArrowUpCircle, Wrench, Sparkles, HeartPulse } from 'lucide-react'
+import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, DollarSign, CircleHelp, Users, Clock, ArrowUpCircle, Wrench, CornerDownRight, HeartPulse, ChevronDown, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Button } from '@/components/ui/button'
@@ -37,13 +37,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { Shimmer } from '@/components/ai-elements/shimmer'
 import { QueueList, QueueItem, QueueItemIndicator, QueueItemContent, QueueItemDescription } from '@/components/ai-elements/queue'
-import { TestResults, TestResultsHeader, TestResultsSummary, TestResultsContent, Test, TestStatus, TestName } from '@/components/ai-elements/test-results'
+import { Context, ContextTrigger, ContextContent, ContextContentHeader, ContextContentBody, ContextContentFooter, ContextInputUsage, ContextOutputUsage, ContextCacheUsage } from '@/components/ai-elements/context'
+import { Confirmation, ConfirmationTitle, ConfirmationRequest, ConfirmationActions, ConfirmationAction } from '@/components/ai-elements/confirmation'
+import { Sources, SourcesTrigger, SourcesContent, Source } from '@/components/ai-elements/sources'
 
 type Desk = { key: string; label: string; sub: string; activeMin: number | null; online?: boolean | null; busy?: boolean | null; waiting?: boolean; agents?: { kind?: string; label: string; activeMin: number; turns: number }[]; jobs?: { id: string; ageSec: number; size: number; label?: string }[] }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string } | { kind: 'marker'; label: string }
 export type Msg = { role: 'user' | 'assistant' | 'system' | 'peer'; from?: string; text: string; label?: string; tools?: ToolRow[]; images?: Img[]; reasoning?: string | null }
 type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
-type Usage = { turns: number; input: number; output: number; cacheRead: number; cacheWrite: number; model: string | null; sessions?: number; cost: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number; asOf: string } | null }
+type Usage = { turns: number; input: number; output: number; cacheRead: number; cacheWrite: number; model: string | null; sessions?: number; ctxUsed?: number; ctxMax?: number; cost: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number; asOf: string } | null }
 type PendingAsk = { type: 'question'; questions: { question: string; header?: string; multiSelect?: boolean; options: { label: string; description?: string }[] }[] } | { type: 'plan'; plan: string }
 type Pane = { label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null; usage?: Usage | null; turn?: { elapsedSec: number | null; output: number } | null; mode?: string | null; pending?: PendingAsk | null }
 type CdpTab = { title: string; url: string; devtools: string }
@@ -166,10 +168,17 @@ const ToolsBlock = memo(function ToolsBlock({ tools }: { tools: ToolRow[] }) {
   const failed = tools.filter((t) => t.isError).length
   return (
     <Task defaultOpen={false} className="my-0.5">
-      <TaskTrigger icon={<Wrench className="size-3.5" />} title={tools.length + ' tool call' + (tools.length > 1 ? 's' : '') + ' — ' + [...new Set(tools.map((t) => {
-        const to = t.name === 'SendMessage' && typeof t.input === 'object' && t.input !== null ? (t.input as Record<string, unknown>).to : null
-        return typeof to === 'string' ? 'SendMessage → ' + to : t.name
-      }))].join(', ') + (failed ? ' · ⛔ ' + failed + ' failed' : '')} />
+      <TaskTrigger title="tools">
+        <div className="flex w-full cursor-pointer items-center justify-start gap-2 text-left text-sm text-muted-foreground transition-colors hover:text-foreground">
+          <Wrench className="size-3.5 flex-none" />
+          <span className="text-left">{tools.length + ' tool call' + (tools.length > 1 ? 's' : '') + ' — ' + [...new Set(tools.map((t) => {
+            const to = t.name === 'SendMessage' && typeof t.input === 'object' && t.input !== null ? (t.input as Record<string, unknown>).to : null
+            return typeof to === 'string' ? 'SendMessage → ' + to : t.name
+          }))].join(', ')}</span>
+          {failed > 0 && <Badge variant="destructive" className="h-4 gap-1 px-1.5 text-[10px]"><XCircle className="size-3" />{failed} failed</Badge>}
+          <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+        </div>
+      </TaskTrigger>
       <TaskContent>
         {tools.map((t, k) => {
           const isDiff = (t.name === 'Edit' || t.name === 'Write') && typeof t.input === 'object' && t.input !== null
@@ -178,6 +187,15 @@ const ToolsBlock = memo(function ToolsBlock({ tools }: { tools: ToolRow[] }) {
               <ToolHeader type="dynamic-tool" state={t.isError ? 'output-error' : t.output ? 'output-available' : 'input-available'} toolName={t.name} />
               <ToolContent>
                 {isDiff ? <EditDiff input={t.input as Record<string, unknown>} /> : <ToolInput input={t.input} />}
+                {(t.name === 'WebSearch' || t.name === 'WebFetch') && t.output && (() => {
+                  const urls = [...new Set((t.output.match(/https?:\/\/[^\s)\]"'<>]+/g) ?? []))].slice(0, 12)
+                  return urls.length ? (
+                    <Sources className="px-2 pb-1">
+                      <SourcesTrigger count={urls.length} />
+                      <SourcesContent>{urls.map((u) => <Source key={u} href={u} title={u.replace(/^https?:\/\//, '').slice(0, 80)} />)}</SourcesContent>
+                    </Sources>
+                  ) : null
+                })()}
                 <ToolOutput output={t.isError ? undefined : (t.output || undefined)} errorText={t.isError ? (t.output || 'failed') : undefined} />
               </ToolContent>
             </Tool>
@@ -387,7 +405,7 @@ export default function App() {
   // screen — a few seconds of the wrong desk reads as the wrong truth
   useEffect(() => {
     setPane(null); paneRef.current = null
-    setOutbox([])
+    setOutbox([]); setNote('') // a toast belongs to the desk that earned it
     setScreen((old) => { if (old.src) URL.revokeObjectURL(old.src); return { src: null, url: '', why: 'connecting to this desk’s computer…' } })
   }, [sel])
   // the WHOLE browser, not one tab: the strip lists every page the desk has
@@ -459,7 +477,7 @@ export default function App() {
           <span key={i} title={(a.kind === 'session' ? 'teammate session: ' : 'subagent: ') + a.label} className="mt-1 flex w-full items-center gap-2 overflow-hidden pl-7 text-[11px] font-normal text-muted-foreground">
             {a.kind === 'session'
               ? <Users className={'size-3 flex-none ' + (a.activeMin < 2 ? 'text-sky-400' : 'opacity-70')} />
-              : <Sparkles className={'size-3 flex-none ' + (a.activeMin < 2 ? 'animate-pulse text-amber-300' : 'opacity-70')} />}
+              : <CornerDownRight className={'size-3 flex-none ' + (a.activeMin < 2 ? 'text-amber-300' : 'opacity-60')} />}
             <span className="truncate">{a.label}</span>
           </span>
         ))}
@@ -692,9 +710,16 @@ export default function App() {
             <span className="min-w-0 truncate whitespace-nowrap font-semibold">{pane?.label ?? '…'}</span>
             {pane?.mode && <Badge variant="outline" className="hidden h-5 flex-none gap-1 whitespace-nowrap px-1.5 font-mono text-[10px] sm:inline-flex" title="permission mode, from the session record">⇧⇥ {pane.mode === 'bypassPermissions' ? 'bypass' : pane.mode === 'acceptEdits' ? 'accept edits' : pane.mode}</Badge>}
             {pane?.model && (
-              <HoverCard openDelay={100}>
-                <HoverCardTrigger render={<Badge variant="secondary" className="hidden cursor-default gap-1 whitespace-nowrap text-[11px] sm:inline-flex"><DollarSign className="size-3" />{pane.model}</Badge>} />
-                <HoverCardContent className="w-72 text-xs">
+              <Context usedTokens={pane.usage?.ctxUsed ?? 0} maxTokens={pane.usage?.ctxMax ?? 200000} modelId={pane.model ?? undefined}
+                usage={{ inputTokens: pane.usage?.input ?? 0, outputTokens: pane.usage?.output ?? 0, totalTokens: (pane.usage?.input ?? 0) + (pane.usage?.output ?? 0), cachedInputTokens: pane.usage?.cacheRead ?? 0 } as never}
+                openDelay={100}>
+                <ContextTrigger><Badge variant="secondary" className="hidden cursor-default gap-1 whitespace-nowrap text-[11px] sm:inline-flex" title="context window used · hover for tokens and cost">
+                  <DollarSign className="size-3" />{pane.model}<span className="text-muted-foreground">· {Math.round(((pane.usage?.ctxUsed ?? 0) / (pane.usage?.ctxMax ?? 200000)) * 100)}% ctx</span></Badge></ContextTrigger>
+                <ContextContent className="w-80 text-xs">
+                  <ContextContentHeader />
+                  <ContextContentBody><ContextInputUsage /><ContextOutputUsage /><ContextCacheUsage /></ContextContentBody>
+                  <ContextContentFooter />
+                <HoverCardContent className="hidden">
                   {pane.usage ? (() => {
                     const u = pane.usage!
                     const k = (n: number) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
@@ -713,7 +738,8 @@ export default function App() {
                     </div>)
                   })() : <span className="text-muted-foreground">no session yet</span>}
                 </HoverCardContent>
-              </HoverCard>
+                </ContextContent>
+              </Context>
             )}
             <span className="hidden whitespace-nowrap text-xs text-muted-foreground md:inline">{pane ? pane.count + ' messages' : ''}</span>
             <Button variant={showComputer ? 'secondary' : 'ghost'} size="sm" className="ml-auto h-8 text-xs"
@@ -766,11 +792,12 @@ export default function App() {
 
             {pane?.pending && (
               <div className="mx-auto w-full max-w-3xl px-4 pb-2">
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
-                  <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-amber-500">
+                <Confirmation approval={{ id: 'pending' } as never} state="approval-requested" className="border-amber-500/40 bg-amber-500/5">
+                  <ConfirmationTitle className="flex items-center gap-1.5 text-xs font-medium text-amber-500">
                     <CircleHelp className="size-3.5" />
                     {pane.pending.type === 'question' ? 'This desk is waiting on YOUR answer' : 'This desk is waiting for plan approval'}
-                  </div>
+                  </ConfirmationTitle>
+                  <ConfirmationRequest>
                   {pane.pending.type === 'question' ? pane.pending.questions.map((q, i) => (
                     <div key={i} className="mb-1">
                       <div className="mb-1.5 text-sm">{q.question}</div>
@@ -785,13 +812,14 @@ export default function App() {
                   )) : (
                     <div>
                       <pre className="mb-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-xs">{pane.pending.plan}</pre>
-                      <div className="flex gap-1.5">
-                        <Button size="sm" className="h-7 text-xs" onClick={() => answer('yes, proceed with this plan')}>Approve</Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => answer('no, do not proceed yet — wait for me')}>Hold</Button>
-                      </div>
+                      <ConfirmationActions className="justify-start">
+                        <ConfirmationAction size="sm" className="h-7 text-xs" onClick={() => answer('yes, proceed with this plan')}>Approve</ConfirmationAction>
+                        <ConfirmationAction size="sm" variant="outline" className="h-7 text-xs" onClick={() => answer('no, do not proceed yet — wait for me')}>Hold</ConfirmationAction>
+                      </ConfirmationActions>
                     </div>
                   )}
-                </div>
+                  </ConfirmationRequest>
+                </Confirmation>
               </div>
             )}
             {note && <div className="px-6 pb-1 text-xs text-destructive">{note}</div>}
@@ -838,7 +866,7 @@ export default function App() {
                       onClick={() => (document.querySelector('input[type=file]') as HTMLInputElement | null)?.click()}>
                       <ImageIcon className="size-4" /></Button>
                     <Button variant="ghost" size="sm" className="h-8 px-2 font-mono text-xs" title="Shift-Tab into this desk's terminal — the CLI cycles its permission mode there; watch the terminal for the result"
-                      onClick={async () => { const r = await (await fetch('api/key', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: sel, k: 'shift-tab' }) })).json(); setNote(r.ok ? 'Shift-Tab sent — the mode badge updates from the record on the next turn' : '⛔ ' + r.why) }}>⇧⇥</Button>
+                      onClick={async () => { const r = await (await fetch('api/key', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: sel, k: 'shift-tab' }) })).json(); setNote(r.ok ? 'Shift-Tab sent · the CLI keeps no live mode file, so the badge reads the recorded mode and refreshes the moment the desk writes' : '⛔ ' + r.why) }}>⇧⇥</Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="h-8 text-xs">/ commands</Button>} />
                       <DropdownMenuContent className="max-h-72 w-[30rem] max-w-[92vw] overflow-y-auto">
