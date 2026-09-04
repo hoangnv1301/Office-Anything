@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.17
+
+- Desk-to-desk messages read as CONVERSATION: an attributed left bubble,
+  "from manufacturing: ACK", sky-edged. The envelope and the harness's
+  security boilerplate are display plumbing and stay out of the chat -
+  same native record, seen from the owner's seat. Outgoing folds name
+  their recipient: "SendMessage → manufacturing".
+
 ## 0.7.16
 
 - The tab heals itself. no-store protects the NEXT load, not the one

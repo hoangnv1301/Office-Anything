@@ -41,7 +41,7 @@ import { TestResults, TestResultsHeader, TestResultsSummary, TestResultsContent,
 
 type Desk = { key: string; label: string; sub: string; activeMin: number | null; online?: boolean | null; busy?: boolean | null; waiting?: boolean; agents?: { kind?: string; label: string; activeMin: number; turns: number }[]; jobs?: { id: string; ageSec: number; size: number; label?: string }[] }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string } | { kind: 'marker'; label: string }
-export type Msg = { role: 'user' | 'assistant' | 'system'; text: string; label?: string; tools?: ToolRow[]; images?: Img[]; reasoning?: string | null }
+export type Msg = { role: 'user' | 'assistant' | 'system' | 'peer'; from?: string; text: string; label?: string; tools?: ToolRow[]; images?: Img[]; reasoning?: string | null }
 type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
 type Usage = { turns: number; input: number; output: number; cacheRead: number; cacheWrite: number; model: string | null; sessions?: number; cost: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number; asOf: string } | null }
 type PendingAsk = { type: 'question'; questions: { question: string; header?: string; multiSelect?: boolean; options: { label: string; description?: string }[] }[] } | { type: 'plan'; plan: string }
@@ -59,6 +59,20 @@ const MsgBlock = memo(function MsgBlock({ m, rich }: { m: Msg; rich: boolean }) 
         <TaskTrigger title={(isErr ? '⛔ ' : '⚑ ') + (m.label ?? 'system')} icon={<Flag className={'size-3.5 ' + (isErr ? 'text-red-400' : '')} />} />
         <TaskContent><pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs">{m.text}</pre></TaskContent>
       </Task>
+    )
+  }
+  if (m.role === 'peer') {
+    // a message from another desk reads like a message from a colleague:
+    // attributed, left-aligned, no envelope, no harness boilerplate
+    return (
+      <div className="max-w-[85%]">
+        <div className="mb-0.5 flex items-center gap-1 text-[11px] text-sky-400"><Users className="size-3" /> from {m.from}</div>
+        <Message from="assistant">
+          <MessageContent className="rounded-lg border-l-2 border-sky-500/60 bg-sky-950/20 px-3 py-2">
+            {rich ? <MessageResponse>{m.text}</MessageResponse> : <span className="whitespace-pre-wrap break-words">{m.text}</span>}
+          </MessageContent>
+        </Message>
+      </div>
     )
   }
   return (
@@ -122,7 +136,10 @@ const ToolsBlock = memo(function ToolsBlock({ tools }: { tools: ToolRow[] }) {
   const failed = tools.filter((t) => t.isError).length
   return (
     <Task defaultOpen={false} className="my-0.5">
-      <TaskTrigger title={'⚙ ' + tools.length + ' tool call' + (tools.length > 1 ? 's' : '') + ' — ' + [...new Set(tools.map((t) => t.name))].join(', ') + (failed ? ' · ⛔ ' + failed + ' failed' : '')} />
+      <TaskTrigger title={'⚙ ' + tools.length + ' tool call' + (tools.length > 1 ? 's' : '') + ' — ' + [...new Set(tools.map((t) => {
+        const to = t.name === 'SendMessage' && typeof t.input === 'object' && t.input !== null ? (t.input as Record<string, unknown>).to : null
+        return typeof to === 'string' ? 'SendMessage → ' + to : t.name
+      }))].join(', ') + (failed ? ' · ⛔ ' + failed + ' failed' : '')} />
       <TaskContent>
         {tools.map((t, k) => {
           const isDiff = (t.name === 'Edit' || t.name === 'Write') && typeof t.input === 'object' && t.input !== null

@@ -127,8 +127,12 @@ export function chatFrom(jsonlText, { limit = 80, toolIndex = new Map() } = {}) 
       const images = imagesOf(m.content)
       const clean = text.replace(IMG_MARKER, '').trim()
       if (!isToolResult && (clean || images.length)) {
+        // a desk-to-desk message is CONVERSATION, not plumbing: strip the
+        // envelope and the harness's boilerplate, keep who said what
+        const xs = /<cross-session-message[^>]*from-name="([^"]+)"[^>]*>([\s\S]*?)<\/cross-session-message>/.exec(text)
         // eslint-disable-next-line no-control-regex -- ANSI color codes ride local-command stdout
-        if (isSystemText(text)) out.push({ role: 'system', label: systemLabel(text), text: text.replace(/\x1b\[[0-9;]*m/g, '').slice(0, 2500), at: j.timestamp ?? null })
+        if (xs) out.push({ role: 'peer', from: xs[1], text: xs[2].trim().slice(0, 4000), at: j.timestamp ?? null })
+        else if (isSystemText(text)) out.push({ role: 'system', label: systemLabel(text), text: text.replace(/\x1b\[[0-9;]*m/g, '').slice(0, 2500), at: j.timestamp ?? null })
         else out.push({ role: 'user', text: clean.slice(0, 4000), images, at: j.timestamp ?? null })
       } else if (isToolResult && images.length) {
         // tool results stay plumbing EXCEPT their pictures: a screenshot a
