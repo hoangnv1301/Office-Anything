@@ -149,11 +149,17 @@ export function chatFrom(jsonlText, { limit = 80, toolIndex = new Map() } = {}) 
         else if (/^\s*<system-reminder>/i.test(text) || /^\s*Caveat: /i.test(text) || /^\s*<local-command-caveat>/i.test(text)) { /* invisible in the CLI, invisible here */ }
         else if (bareCmd) out.push({ role: 'system', label: 'local command · ' + clean.split(/\s+/)[0], text: clean, at: j.timestamp ?? null })
         else if (isSystemText(text)) out.push({ role: 'system', label: systemLabel(text), text: text.replace(/\x1b\[[0-9;]*m/g, '').slice(0, 2500), at: j.timestamp ?? null })
+        else if (!clean && images.length && /\[Image: original /.test(text))
+          // the echo of an image a TOOL read, typed 'user' by the harness --
+          // it is the desk's picture, and it sat right-aligned as the owner's
+          out.push({ role: 'assistant', text: '', images, at: j.timestamp ?? null })
         else out.push({ role: 'user', text: clean.slice(0, 4000), images, at: j.timestamp ?? null })
       } else if (isToolResult && images.length) {
         // tool results stay plumbing EXCEPT their pictures: a screenshot a
-        // tool returned is something the human should see, not skip
-        out.push({ role: 'user', text: '', images, at: j.timestamp ?? null })
+        // tool returned is something the human should see, not skip.
+        // ⛔ THE DESK'S side, not the owner's: role 'user' rendered every
+        // screenshot a tool returned as if the OWNER had sent it
+        out.push({ role: 'assistant', text: '', images, at: j.timestamp ?? null })
       }
     } else if (j.type === 'assistant' && m) {
       const text = textOf(m.content)

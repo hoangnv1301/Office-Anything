@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.29
+
+- A SCREENSHOT A TOOL RETURNED NO LONGER RENDERS AS THE OWNER'S MESSAGE.
+  The harness records a tool-read image as a user-typed echo, so every
+  picture the desk itself took sat right-aligned as if the human had sent
+  it. Both shapes (the tool_result image and its marker echo) now render on
+  the desk's side. Images the human actually attached still render as theirs.
+- Cross-desk peer bubbles name the sender by DESK (team-lead, design), not
+  by the harness's raw session handle.
+
 ## 0.7.28
 
 - MODE AND CONTEXT LIVE AT THE PROMPT, like the CLI status line: the

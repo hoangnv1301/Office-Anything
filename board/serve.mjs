@@ -81,6 +81,22 @@ export function liveSessions(home = homedir()) {
   return out
 }
 
+// a cross-session message envelope carries the SENDER's OWN session name
+// (the harness-assigned handle, like "alibaba-claude-runbook-v2-d1" for a
+// second root session), never the desk label the board shows everywhere
+// else. Resolved the same way a desk's own row is: match the live
+// session's cwd back to the root or a desks/<name> folder.
+function friendlyFromName(root, home = homedir()) {
+  const map = new Map()
+  for (const [cwd, j] of liveSessions(home)) {
+    if (!j.name) continue
+    if (cwd === root) { map.set(j.name, 'team-lead'); continue }
+    const desksDir = join(root, 'desks') + '/'
+    if (cwd.startsWith(desksDir)) map.set(j.name, cwd.slice(desksDir.length).split('/')[0])
+  }
+  return map
+}
+
 export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
   const live = liveSessions(home)
   const { desks } = rosterSafe(join(root, 'desks'))
@@ -552,7 +568,8 @@ export function makeServer(root) {
         const t = newestSession(join(homedir(), '.claude', 'projects', key))
         if (!t) return json(res, 200, { label: key, model: null, count: 0, messages: [] })
         const tail = readTail(t)
-        const messages = tail?.messages ?? []
+        const nameMap = friendlyFromName(root)
+        const messages = (tail?.messages ?? []).map((m) => (m.role === 'peer' && nameMap.has(m.from)) ? { ...m, from: nameMap.get(m.from) } : m)
         const row = chatRosterCheap(root).find((r) => r.key === key)
         const label = row?.label ?? key
         // the session's WORKING folder: the desk's own tree, or the repo root
