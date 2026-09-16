@@ -57,6 +57,20 @@ the skill by name instead: "use your office-anything desk-hire skill".) The plug
 quiet until your repo has a `desks/` directory — hire your first desk and
 everything switches on together.
 
+## Updating
+
+This is a community marketplace, so updates are not automatic. To pull a new
+version:
+
+```bash
+/plugin marketplace update office-anything
+/plugin update office-anything@office-anything
+```
+
+Then `/reload-plugins` (or restart Claude Code) to run the new version in the
+current session. Only official Anthropic marketplaces auto-update in the
+background; everything else, including this one, updates on demand.
+
 ## Hire someone
 
 ```

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.30
+
+- README gains an Updating section: this is a community marketplace, so
+  installs do not auto-update. Users run /plugin marketplace update then
+  /plugin update to pull a new version, and /reload-plugins to apply it in the
+  session. Only official Anthropic marketplaces update in the background.
+
 ## 0.7.29
 
 - A SCREENSHOT A TOOL RETURNED NO LONGER RENDERS AS THE OWNER'S MESSAGE.
