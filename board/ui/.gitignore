@@ -8,7 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
+# dist is NOT ignored: serve.mjs serves it and a GitHub install copies only
+# what git tracks (tests/ui-dist.test.mjs)
 dist-ssr
 *.local
 

@@ -658,6 +658,12 @@ export function makeServer(root) {
       res.writeHead(404, { 'content-type': 'text/plain' })
       res.end('nothing here. The office lives at /')
     } catch (e) {
+      // ⛔ A ROUTE THAT THROWS AFTER ITS HEADERS WENT OUT KILLED THE BOARD:
+      // writeHead here threw ERR_HTTP_HEADERS_SENT outside any handler and
+      // took the process, and every open page, down with it. Say what broke;
+      // only answer if nobody has answered yet.
+      console.error('board error on ' + req.url + ': ' + (e?.stack ?? e))
+      if (res.headersSent) { try { res.end() } catch {} return }
       res.writeHead(500, { 'content-type': 'text/plain' })
       res.end('board error: ' + e.message)
     }

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.32
+
+- THE BOARD SHIPS ITS PAGE. board/ui/dist sat in board/ui/.gitignore, and an
+  install from GitHub copies only what git tracks: the first 0.7.31 install
+  had a board with no UI. The directory-sourced marketplace had hidden this
+  by copying the maintainer's untracked build. dist is tracked now, rebuilt
+  clean (1.6 MB, down from 16 MB of stale chunks), and a test pins it.
+- A route that throws after its headers went out no longer kills the board.
+  The catch-all called writeHead a second time, threw ERR_HTTP_HEADERS_SENT
+  outside any handler and took the server down with every open page. It
+  logs the real error now and ends the response.
+
 ## 0.7.31
 
 - THE LEAD'S CHAT FOLLOWS THE LIVE TURN AGAIN. A transcript larger than the
