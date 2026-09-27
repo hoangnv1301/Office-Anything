@@ -73,8 +73,11 @@ export function liveSessions(home = homedir()) {
         // updatedAt only moves on status changes (hours stale is normal); the
         // pid is the liveness test, and a dead pid is a crashed CLI's leftover
         try { process.kill(j.pid, 0) } catch { continue }
+        // a desk restored at the repo root (Orca's --resume drops its cd)
+        // shares the lead's cwd; it must never become the lead's row
         const prev = out.get(j.cwd)
-        if (!prev || (j.updatedAt ?? 0) > (prev.updatedAt ?? 0)) out.set(j.cwd, j)
+        const desky = (s) => /^desk-/i.test(s?.name ?? '')
+        if (!prev || (desky(prev) && !desky(j)) || (desky(prev) === desky(j) && (j.updatedAt ?? 0) > (prev.updatedAt ?? 0))) out.set(j.cwd, j)
       } catch {}
     }
   } catch {}
@@ -90,6 +93,7 @@ function friendlyFromName(root, home = homedir()) {
   const map = new Map()
   for (const [cwd, j] of liveSessions(home)) {
     if (!j.name) continue
+    if (/^desk-/i.test(j.name)) { map.set(j.name, j.name.slice(5)); continue }
     if (cwd === root) { map.set(j.name, 'team-lead'); continue }
     const desksDir = join(root, 'desks') + '/'
     if (cwd.startsWith(desksDir)) map.set(j.name, cwd.slice(desksDir.length).split('/')[0])

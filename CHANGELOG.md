@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.31
+
+- THE LEAD'S CHAT FOLLOWS THE LIVE TURN AGAIN. A transcript larger than the
+  64 MB read window was parsed from its FIRST byte to the cap and then marked
+  as read, so a 74.5 MB lead session showed a turn from hours earlier and
+  never moved past it. The reader now takes the newest window, starting at a
+  whole line.
+- A live session beats a newer transcript. With two live CLI sessions at one
+  repo root, newest-mtime flipped the lead's view between them; the session
+  registry decides now, and the remote-controlled session leads.
+- Tabs titled `desk-<name>` in lower case are recognised: such desks read as
+  offline and could not be sent to. The lead's folder fallback never picks a
+  tab that names itself a desk, and a desk restored at the repo root never
+  takes the lead's live row.
+- A subagent hand-back (`Another Claude session sent a message: <agent-message>`)
+  renders as a system event, not as the owner typing.
+
 ## 0.7.30
 
 - README gains an Updating section: this is a community marketplace, so

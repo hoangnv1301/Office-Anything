@@ -86,6 +86,24 @@ test('a desk retitles its own tab; normalize sees through EVERY spinner glyph', 
     assert.equal(normalizeTitle(g + 'design'), 'design', JSON.stringify(g))
   }
   assert.equal(normalizeTitle('DESK-design'), 'design')
+  // start.mjs names tabs `desk-<name>` in lower case (2026-09-25): the board
+  // called every such desk offline and could not send to it
+  assert.equal(normalizeTitle('✳ desk-customer'), 'customer')
+})
+
+test('the lead fallback never lands on a tab that names itself a desk', () => {
+  // every tab start.mjs opens shares the repo root as worktreePath, so "newest
+  // output in the lead's folder" picked whichever DESK had just spoken
+  const run = (cmd, args) => {
+    if (args.includes('--version')) return ''
+    if (args.includes('list')) return JSON.stringify({ result: { terminals: [
+      { handle: 'H_DESK', title: '✳ desk-customer', worktreePath: '/work/office', writable: true, lastOutputAt: 900 },
+      { handle: 'H_LEAD', title: '◑ some task summary', worktreePath: '/work/office', writable: true, lastOutputAt: 500 },
+    ] } })
+    return ''
+  }
+  assert.equal(send('team-lead', 'hi', run, '/work/office').handle, 'H_LEAD')
+  assert.equal(send('customer', 'hi', run, '/work/office/desks/customer').handle, 'H_DESK')
 })
 
 test('no orca means read-only, said plainly, never a fallback', () => {
@@ -155,6 +173,24 @@ test('the newest HUMAN session wins over a newer robot one', () => {
   assert.ok(newestSession(dir).endsWith('human.jsonl'))
 })
 
+test('a LIVE session beats a newer transcript, and the remote-controlled one leads', () => {
+  // 2026-09-25: two live CLI sessions at one repo root. Newest-mtime flipped
+  // the lead's view to whichever of them wrote last
+  const dir = mkdtempSync(join(tmpdir(), 'oa-live-'))
+  const home = mkdtempSync(join(tmpdir(), 'oa-home-'))
+  mkdirSync(join(home, '.claude', 'sessions'), { recursive: true })
+  const line = JSON.stringify({ type: 'user', entrypoint: 'cli', message: { content: 'hi' } }) + '\n'
+  for (const f of ['lead', 'other', 'dead']) writeFileSync(join(dir, f + '.jsonl'), line)
+  const past = new Date(Date.now() - 60000)
+  utimesSync(join(dir, 'lead.jsonl'), past, past)
+  const reg = (pid, sessionId, extra = {}) => writeFileSync(join(home, '.claude', 'sessions', pid + '.json'), JSON.stringify({ pid, sessionId, cwd: '/x', ...extra }))
+  reg(process.pid, 'lead', { bridgeSessionId: 'b1' })
+  reg(process.ppid, 'other')
+  assert.ok(newestSession(dir, home).endsWith('lead.jsonl'), 'the phone-driven live session is the lead')
+  // no live registration at all: the old rule (newest human session) stands
+  assert.ok(newestSession(dir, mkdtempSync(join(tmpdir(), 'oa-none-'))).match(/(other|dead)\.jsonl$/))
+})
+
 test('what the CLI never renders, the board never renders: system-reminders and caveats', () => {
   const jsonl =
     L({ type: 'user', message: { content: '<system-reminder>\nAs you answer, the memory dir is…\n</system-reminder>' } })
@@ -164,4 +200,40 @@ test('what the CLI never renders, the board never renders: system-reminders and 
   const m = chatFrom(jsonl)
   assert.equal(m.length, 1, 'three context injections produce nothing; the human line stays')
   assert.equal(m[0].role, 'user')
+})
+
+test('a desk restored at the repo root never becomes the lead\'s live row', async () => {
+  // Orca relaunched desks with `claude --resume` from the root: same cwd as the
+  // lead, newer status change, and the lead's row showed a desk's state
+  const { liveSessions } = await import('../board/serve.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'oa-rows-'))
+  mkdirSync(join(home, '.claude', 'sessions'), { recursive: true })
+  const reg = (pid, name, updatedAt) => writeFileSync(join(home, '.claude', 'sessions', pid + '.json'), JSON.stringify({ pid, name, cwd: '/repo', updatedAt }))
+  reg(process.pid, 'desk-customer', 2000)
+  reg(process.ppid, 'repo-37', 1000)
+  assert.equal(liveSessions(home).get('/repo').name, 'repo-37')
+})
+
+test('a transcript bigger than the read window shows its NEWEST turns, not the first window', async () => {
+  // 2026-09-25: the lead's jsonl hit 74.5 MB; the reader parsed bytes 0..64 MB,
+  // called the file read, and the board sat on a turn from hours before
+  const { readTail } = await import('../board/transcript.mjs')
+  const dir = mkdtempSync(join(tmpdir(), 'oa-big-'))
+  const p = join(dir, 's.jsonl')
+  const lines = Array.from({ length: 200 }, (_, i) => L({ type: 'user', message: { content: 'msg ' + i } })).join('')
+  writeFileSync(p, lines)
+  const t = readTail(p, { cap: 1500 })
+  assert.equal(t.messages.at(-1).text, 'msg 199', 'the newest line is on screen')
+  assert.ok(t.messages.every((m) => /^msg \d+$/.test(m.text)), 'the window starts at a whole line, never a torn one')
+  // and it keeps following: an append past the window is read too
+  const { appendFileSync } = await import('node:fs')
+  appendFileSync(p, Array.from({ length: 100 }, (_, i) => L({ type: 'user', message: { content: 'late ' + i } })).join(''))
+  assert.equal(readTail(p, { cap: 1500 }).messages.at(-1).text, 'late 99')
+})
+
+test('an agent hand-back envelope is system traffic, not the owner typing', () => {
+  // seen live 2026-09-25 on the lead: the newer envelope opens with prose
+  // before the tag, so the tag-anchored shapes let it through as a user bubble
+  const m = chatFrom(L({ type: 'user', message: { content: 'Another Claude session sent a message:\n<agent-message from="a33b">\n[Subagent hand-back] report\n</agent-message>' } }))
+  assert.equal(m.filter((x) => x.role === 'user').length, 0)
 })

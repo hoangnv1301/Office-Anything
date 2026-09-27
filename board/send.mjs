@@ -10,7 +10,10 @@ import { execFileSync, execFile } from 'node:child_process'
 // ⛔ THE SPINNER GLYPH CYCLES while a desk works (✳ ✶ ✽ ...), so stripping
 // one literal star called the BUSIEST desks offline and made send miss them.
 // Strip any leading symbol run; a desk name starts with a letter.
-export const normalizeTitle = (t) => String(t ?? '').replace(/^[^A-Za-z0-9]+/, '').replace(/^DESK-/, '').trim()
+// The prefix is case-blind: a launcher that names tabs `desk-<name>` must match too.
+const DESK_PREFIX = /^desk-/i
+export const normalizeTitle = (t) => String(t ?? '').replace(/^[^A-Za-z0-9]+/, '').replace(DESK_PREFIX, '').trim()
+const namesADesk = (t) => DESK_PREFIX.test(String(t ?? '').replace(/^[^A-Za-z0-9]+/, ''))
 
 export function orcaAvailable(run = execFileSync) {
   try { run('orca', ['--version'], { encoding: 'utf8', stdio: 'pipe' }); return true } catch { return false }
@@ -48,9 +51,11 @@ export function terminalFor(desk, run = execFileSync, dir = null) {
   // The LEAD's tab is titled with its task summary, never "team-lead", so a
   // title match cannot find it. The terminal's own working directory can:
   // exact worktreePath equality, which also makes v1's terminal (a different
-  // path) unreachable by construction. Newest output wins a tie.
+  // path) unreachable by construction. Newest output wins a tie. A tab that
+  // names itself a desk is never the lead's: launchers that open every desk
+  // at the repo root would otherwise hand the lead's message to a desk.
   if (dir) {
-    const byDir = terminals.filter((t) => t.worktreePath === dir && t.writable !== false)
+    const byDir = terminals.filter((t) => t.worktreePath === dir && t.writable !== false && !namesADesk(t.title))
       .sort((a, b) => (b.lastOutputAt ?? 0) - (a.lastOutputAt ?? 0))
     if (byDir[0]) return byDir[0].handle
   }

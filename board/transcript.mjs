@@ -1,7 +1,8 @@
 // TRANSCRIPT → CHAT. The session's jsonl is the native record of the
 // conversation; this renders its tail as messages and never invents one.
 import { readdirSync, readFileSync, statSync, openSync, readSync, closeSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, basename } from 'node:path'
+import { homedir } from 'node:os'
 
 // ⛔ NEWEST-BY-MTIME PICKED A ROBOT. Subagents and SDK runs write transcripts
 // into the same project directory, and a review bot that finished a minute
@@ -20,12 +21,38 @@ const isCli = (path) => {
   } catch { return false }
 }
 
-export function newestSession(projectDir) {
+// ⛔ TWO LIVE HUMANS AT ONE ROOT FLIPPED THE VIEW. A second terminal at the
+// repo root out-mtimed the lead every time it wrote, and the lead's chat
+// jumped back and forth between two conversations. The CLI registers every
+// live session in ~/.claude/sessions/<pid>.json with its sessionId, so a
+// transcript that belongs to a LIVE session wins, and among live ones the
+// remote-controlled (phone-driven) session is the lead. mtime only breaks ties.
+function liveIds(home) {
+  const ids = new Map()
   try {
+    const dir = join(home, '.claude', 'sessions')
+    for (const f of readdirSync(dir)) {
+      if (!f.endsWith('.json')) continue
+      try {
+        const j = JSON.parse(readFileSync(join(dir, f), 'utf8'))
+        if (!j.sessionId || !j.pid) continue
+        try { process.kill(j.pid, 0) } catch (e) { if (e.code !== 'EPERM') continue }
+        ids.set(j.sessionId, j.bridgeSessionId ? 2 : 1)
+      } catch {}
+    }
+  } catch {}
+  return ids
+}
+
+export function newestSession(projectDir, home = homedir()) {
+  try {
+    const live = liveIds(home)
+    const rank = (p) => live.get(basename(p, '.jsonl')) ?? 0
     const files = readdirSync(projectDir).filter((f) => f.endsWith('.jsonl'))
       .map((f) => ({ p: join(projectDir, f), at: statSync(join(projectDir, f)).mtimeMs }))
-      .sort((a, b) => b.at - a.at)
+      .sort((a, b) => rank(b.p) - rank(a.p) || b.at - a.at)
     if (!files.length) return null
+    if (rank(files[0].p) > 0) return files[0].p
     return files.find((x) => isCli(x.p))?.p ?? files[0].p
   } catch { return null }
 }
@@ -46,10 +73,13 @@ const SYSTEM_SHAPES = [
   /^\s*Base directory for this skill:/i, /^\s*<command-message>/i,
   // /compact's summary re-enters as a user turn; it is machinery, not a message
   /^\s*This session is being continued from a previous conversation/i,
+  // the newer peer/agent envelope opens with a line of prose before its tag
+  /^\s*Another Claude session sent a message:/i, /^\s*<agent-message/i,
 ]
 export const isSystemText = (t) => SYSTEM_SHAPES.some((r) => r.test(t))
 const systemLabel = (t) => {
   if (/task-notification|SYSTEM NOTIFICATION/i.test(t)) return 'background task'
+  if (/<agent-message/i.test(t)) return 'message from a subagent'
   if (/cross-session-message/i.test(t)) {
     const m = /from-name="([^"]+)"/.exec(t)
     return 'message from ' + (m?.[1] ?? 'another session')
@@ -219,19 +249,27 @@ export function pendingAsk(messages) {
 // appended since last time; an unchanged file costs one stat.
 const tailCache = new Map() // path -> { size, mtimeMs, carry, messages, stats }
 
-export function readTail(path, { limit = 80 } = {}) {
+export function readTail(path, { limit = 80, cap = 64 * 1024 * 1024 } = {}) {
   let st
   try { st = statSync(path) } catch { return null }
   const c = tailCache.get(path)
   if (c && c.size === st.size && c.mtimeMs === st.mtimeMs) return c
   let from = 0, carry = '', messages = [], stats = { turns: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, model: null }, toolIndex = new Map()
   if (c && st.size > c.size) { from = c.size; carry = c.carry; messages = c.messages.slice(); stats = { ...c.stats }; toolIndex = c.toolIndex ?? new Map() }
+  // ⛔ THE WINDOW IS THE NEWEST `cap` BYTES, NEVER THE FIRST. Reading from
+  // `from` and stopping at the cap parsed bytes 0..64 MB of a 74.5 MB lead
+  // transcript, recorded the whole size as read, and the board sat on a turn
+  // from hours before, forever. Jump to the last window and start at a whole
+  // line; totals then cover the window only, which is the honest trade.
+  let skipTorn = false
+  if (st.size - from > cap) { from = st.size - cap; carry = ''; skipTorn = true }
   const fd = openSync(path, 'r')
   try {
     const len = st.size - from
-    const buf = Buffer.alloc(Math.min(len, 64 * 1024 * 1024))
+    const buf = Buffer.alloc(len)
     readSync(fd, buf, 0, buf.length, from)
-    const text = carry + buf.toString('utf8')
+    let text = carry + buf.toString('utf8')
+    if (skipTorn) text = text.slice(text.indexOf('\n') + 1)
     const nl = text.lastIndexOf('\n')
     carry = nl >= 0 ? text.slice(nl + 1) : text
     const body = nl >= 0 ? text.slice(0, nl) : ''
