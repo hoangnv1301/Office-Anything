@@ -20,6 +20,19 @@
   option's number, which the CLI's choice list takes and submits (verified on
   a live dialog). A plan approval, several questions on tabs and multi-select
   are refused with where to answer them instead of being approximated.
+- REVIEW FIXES, before release:
+  - Delivered means the desk's own record shows the words queued (its
+    enqueue entry); a socket that merely closed is not delivery, and the
+    terminal fallback runs instead.
+  - The session, its transcript and its terminal tab are resolved together;
+    the tab is the one named for that session, never just one at its folder.
+    A named lead that is not running gets nothing.
+  - An answer carries the id of the question it answers, and is refused
+    unless the live session says it is waiting on that very question.
+  - Every writing request must come from this board: its own Host (or one
+    `office.json` lists under `board.hosts`), a same-host Origin when the
+    browser sends one, and `application/json`. A page on another site could
+    otherwise POST text/plain to 127.0.0.1 and type into a desk.
 
 ## 0.7.33
 

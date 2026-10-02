@@ -19,7 +19,8 @@ import { newestSession, chatFrom, readTail, pendingAsk } from './transcript.mjs'
 import { subagentsOf, jobsOf } from './read.mjs'
 import { transcriptStats, worktop, filesUnder, treeOf } from './read.mjs'
 import { basename } from 'node:path'
-import { orcaAvailable, normalizeTitle, terminalFor, keepTerminalsWarm, inboxOf, sendToInbox, routeFor } from './send.mjs'
+import { orcaAvailable, normalizeTitle, terminalFor, keepTerminalsWarm, inboxOf, sendToInbox, routeFor, confirmDelivery, terminalForSession, requestGuard } from './send.mjs'
+import { createHash } from 'node:crypto'
 import { execFileSync, execFile } from 'node:child_process'
 
 // ⛔ ONLINE MEANS A LIVE TERMINAL, not "spoke recently". A desk sitting
@@ -136,6 +137,25 @@ export function stateOf(ls) {
     // a status this board has never seen is said as-is, never guessed into one it knows
     default: return { state: ls.status ? String(ls.status) : 'unknown', busy: null, waiting: false, detail: ls.detail ?? null }
   }
+}
+
+// The id of a pending question: the UI sends it back with the answer, and a
+// different question on screen by then means the answer is refused.
+export const askId = (pending) => pending ? createHash('sha256').update(JSON.stringify(pending)).digest('hex').slice(0, 16) : null
+
+// ⛔ ONE SESSION, RESOLVED ONCE: its live record, its own transcript and its
+// own terminal tab. Picked separately (newest transcript here, any tab at the
+// folder there) they could name three different sessions.
+export function reach(root, key) {
+  const row = chatRosterCheap(root).find((r) => r.key === key)
+  if (!row) return null
+  const deskDir = row.key === slugFor(root) ? root : join(root, 'desks', row.desk)
+  const ls = officeSessions(root).get(deskDir) ?? null
+  const named = row.desk === 'team-lead' && !!leadSessionName(root)
+  const dir = join(homedir(), '.claude', 'projects', key)
+  const own = ls?.sessionId && /^[A-Za-z0-9-]+$/.test(ls.sessionId) && existsSync(join(dir, ls.sessionId + '.jsonl')) ? join(dir, ls.sessionId + '.jsonl') : null
+  const terminal = !orcaAvailable() ? null : ls ? terminalForSession(ls) : named ? null : terminalFor(row.desk, undefined, deskDir)
+  return { row, deskDir, ls, named, transcript: own, terminal }
 }
 
 // What one keystroke can answer: a single question, single choice, an option
@@ -285,7 +305,7 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
     // how the board would reach this desk right now, said per row so the
     // composer can tell the owner before they type, not after
     r.mode = tp?.stats?.permissionMode ?? null
-    r.route = routeFor({ inbox: r.inbox, mode: r.mode, terminal: !!(titles && (titles.has(r.desk) || r.desk === 'team-lead')) }).via
+    r.route = routeFor({ inbox: r.inbox, mode: r.mode, terminal: ls ? !!(orcaAvailable() && terminalForSession(ls)) : named ? false : !!(titles && (titles.has(r.desk) || r.desk === 'team-lead')) }).via
     if (st) {
       const k = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
       r.sub += ' · ' + st.turns + ' turns · ' + k(st.input + st.cacheRead) + '/' + k(st.output) + ' tok'
@@ -295,6 +315,7 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
 }
 import { statSync } from 'node:fs'
 const statSafe = (p) => { try { return statSync(p).mtimeMs } catch { return 0 } }
+const statSafeSize = (p) => { try { return statSync(p).size } catch { return 0 } }
 
 const json = (res, code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)) }
 
@@ -303,6 +324,11 @@ export function makeServer(root) {
   return createServer((req, res) => {
     const url = new URL(req.url, 'http://x')
     try {
+      if (req.method !== 'GET' && req.method !== 'HEAD' && url.pathname.startsWith('/api/')) {
+        const hosts = Array.isArray(officeConfig(root).board?.hosts) ? officeConfig(root).board.hosts : []
+        const bad = requestGuard(req, { port: req.socket.localPort, hosts })
+        if (bad) return json(res, 403, { ok: false, why: bad })
+      }
       // ⛔ CHAT IS THE FRONT DOOR, owner's ruling — and it is the REAL
       // component build (shadcn/ui + AI Elements), compiled once by the
       // maintainer and shipped as static files in board/ui/dist. Users build
@@ -350,8 +376,7 @@ export function makeServer(root) {
             if (!KEYS[k]) return json(res, 400, { ok: false, why: 'unknown key' })
             const row = chatRosterCheap(root).find((r) => r.key === key)
             if (!row) return json(res, 404, { ok: false, why: 'unknown desk' })
-            const deskDir = row.key === slugFor(root) ? root : join(root, 'desks', row.desk)
-            const handle = terminalFor(row.desk, undefined, deskDir)
+            const handle = reach(root, key)?.terminal
             if (!handle) return json(res, 200, { ok: false, why: 'no live terminal for this desk' })
             execFile('orca', ['terminal', 'send', '--terminal', handle, '--text', KEYS[k], '--json'], { timeout: 15000 }, () => {})
             return json(res, 200, { ok: true, sent: k })
@@ -738,7 +763,7 @@ export function makeServer(root) {
         const lastUser = [...messages].reverse().find((m) => m.role !== 'assistant')
         const elapsedSec = lastUser?.at ? Math.max(0, Math.round((now - Date.parse(lastUser.at)) / 1000)) : null
         const turn = { elapsedSec: elapsedSec != null && elapsedSec < 14400 ? elapsedSec : null, output: tail?.stats?.turnOutput ?? 0 }
-        return json(res, 200, { label, model: tail?.stats?.model ?? null, mode: tail?.stats?.permissionMode ?? null, count: messages.length, messages, folder, workspace, usage, turn, pending: pendingAsk(messages) })
+        return json(res, 200, { label, model: tail?.stats?.model ?? null, mode: tail?.stats?.permissionMode ?? null, count: messages.length, messages, folder, workspace, usage, turn, pending: (() => { const p = pendingAsk(messages); return p ? { ...p, id: askId(p) } : null })() })
       }
       if (url.pathname === '/api/hire' && req.method === 'POST') {
         // ⛔ THE GUARDED ENTRY, NEVER THE PARTS. hire() owns the name rules,
@@ -771,12 +796,13 @@ export function makeServer(root) {
             const row = chatRosterCheap(root).find((r) => r.key === key)
             if (!row) return json(res, 404, { ok: false, why: 'unknown desk' })
             if (!text || typeof text !== 'string' || text.length > 8000) return json(res, 400, { ok: false, why: 'no text, or too long' })
-            const deskDir = row.key === slugFor(root) ? root : join(root, 'desks', row.desk)
-            const ls = officeSessions(root).get(deskDir)
+            const R = reach(root, key)
+            if (R.named && !R.ls) return json(res, 200, { ok: false, why: 'the lead (' + leadSessionName(root) + ') is not running; nothing was sent' })
+            const { ls, terminal } = R
             const inbox = inboxOf(ls)
-            const t = transcriptFor(root, key)
-            const tail = t ? readTail(t) : null
-            const terminal = orcaAvailable() ? terminalFor(row.desk, undefined, deskDir) : null
+            // a desk with no live record (an older CLI) is judged by its newest transcript
+            const tp = R.transcript ?? (ls ? null : transcriptFor(root, key))
+            const tail = tp ? readTail(tp) : null
             const route = routeFor({ inbox, mode: tail?.stats?.permissionMode ?? null, terminal })
             // ⛔ KEYSTROKES INTO AN OPEN DIALOG ARE ANSWERS. A message typed while
             // the desk shows a question or a permission prompt lands IN it: a
@@ -801,8 +827,11 @@ export function makeServer(root) {
               })
             }
             if (route.via === 'inbox') {
+              const before = R.transcript ? statSafeSize(R.transcript) : 0
               const r = await sendToInbox(inbox, text)
-              if (r.ok) return json(res, 200, { ok: true, via: 'inbox' })
+              // delivered = the desk's own record shows it queued the words
+              if (r.ok && R.transcript && await confirmDelivery(R.transcript, text, before)) return json(res, 200, { ok: true, via: 'inbox' })
+              if (r.ok) r.why = 'the desk\'s inbox took the connection but its record never showed the message'
               // the inbox is the first road, never the only one
               if (terminal) return viaTerminal()
               return json(res, 200, { ok: false, why: r.why })
@@ -823,19 +852,18 @@ export function makeServer(root) {
         req.on('data', (c) => { body += c; if (body.length > 4096) req.destroy() })
         req.on('end', () => {
           try {
-            const { key, option } = JSON.parse(body)
-            const row = chatRosterCheap(root).find((r) => r.key === key)
-            if (!row) return json(res, 404, { ok: false, why: 'unknown desk' })
-            const deskDir = row.key === slugFor(root) ? root : join(root, 'desks', row.desk)
-            const ls = officeSessions(root).get(deskDir)
-            const t = transcriptFor(root, key)
-            const pending = t ? pendingAsk(readTail(t)?.messages ?? []) : null
+            const { key, option, ask } = JSON.parse(body)
+            const R = reach(root, key)
+            if (!R) return json(res, 404, { ok: false, why: 'unknown desk' })
+            const { ls, terminal } = R
             const where = remoteUrlOf(ls) ? ' Open the desk in the Claude app to answer it there.' : ' Answer it in the desk\'s terminal.'
+            // the CLI itself must say a human is needed, from a live record
+            if (!ls || ls.status !== 'waiting') return json(res, 200, { ok: false, why: 'the desk is not showing a question right now (' + (ls ? 'its status is ' + (ls.status ?? 'unknown') : 'no live session') + '), so a keystroke would land somewhere else.' })
+            const pending = R.transcript ? pendingAsk(readTail(R.transcript)?.messages ?? []) : null
+            if (!ask || ask !== askId(pending)) return json(res, 200, { ok: false, why: 'the question on the desk is not the one you answered; look again.' })
             const v = answerKeys(pending, option)
             if (!v.ok) return json(res, 200, { ok: false, why: v.why + where })
-            if (ls && ls.status !== 'waiting') return json(res, 200, { ok: false, why: 'the desk is not showing that question right now (its status is ' + (ls.status ?? 'unknown') + '), so a keystroke would land somewhere else.' })
-            const terminal = orcaAvailable() ? terminalFor(row.desk, undefined, deskDir) : null
-            if (!terminal) return json(res, 200, { ok: false, why: 'answering a question takes a keystroke in the desk\'s terminal, and no terminal is reachable from here.' + where })
+            if (!terminal) return json(res, 200, { ok: false, why: 'answering a question takes a keystroke in this session\'s own terminal tab, and none is reachable from here.' + where })
             execFile('orca', ['terminal', 'send', '--terminal', terminal, '--text', v.keys, '--json'], { timeout: 15000 }, () => {})
             return json(res, 200, { ok: true, via: 'terminal', answered: v.label })
           } catch (e) { return json(res, 500, { ok: false, why: e.message }) }

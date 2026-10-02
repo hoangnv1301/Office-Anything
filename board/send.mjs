@@ -87,7 +87,7 @@ export function send(desk, text, run = execFileSync, dir = null) {
 // permission decision. For such a desk the terminal is the honest route.
 import { createHash, randomUUID } from 'node:crypto'
 import { connect } from 'node:net'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, statSync, openSync, readSync, closeSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 
@@ -144,4 +144,70 @@ export function routeFor({ inbox, mode, terminal }) {
     ? 'this desk runs with permissions bypassed, so Claude Code holds a message from outside the session for approval at its own screen, and the board will not claim a mode it does not have. Type it in the desk\'s terminal, or open the desk in the Claude app.'
     : 'this desk\'s permission mode is not on record yet, so a message to its inbox may be held for approval at its screen. Type it in its terminal, or open it in the Claude app.' }
   return { via: null, why: 'this desk has no live session inbox and no terminal the board can reach' }
+}
+
+// ⛔ A CLOSED SOCKET IS NOT A DELIVERED MESSAGE. The receiving CLI writes no
+// acknowledgement on the connection, so "ok" used to mean only that the
+// write did not error: a refused token or a dropped frame looked delivered.
+// The receiver's own record is the acknowledgement: when it queues a message
+// it appends an enqueue entry carrying the words to its transcript. No such
+// entry within the window = not delivered, and the caller falls back.
+// ponytail: a session with transcript saving turned off can never confirm,
+// so it always takes the fallback road.
+export function confirmDelivery(transcript, text, fromSize, { timeoutMs = 4000, stepMs = 150 } = {}) {
+  const needle = JSON.stringify(envelope(text)).slice(1, -1)
+  return new Promise((resolve) => {
+    const t0 = Date.now()
+    const look = () => {
+      try {
+        const size = statSync(transcript).size
+        if (size > fromSize) {
+          const fd = openSync(transcript, 'r'); const buf = Buffer.alloc(Math.min(size - fromSize, 4 << 20))
+          readSync(fd, buf, 0, buf.length, fromSize); closeSync(fd)
+          if (buf.toString('utf8').includes(needle)) return resolve(true)
+        }
+      } catch {}
+      if (Date.now() - t0 >= timeoutMs) return resolve(false)
+      setTimeout(look, stepMs)
+    }
+    look()
+  })
+}
+
+// ⛔ THE TERMINAL OF *THIS* SESSION. Matching by folder alone found any tab
+// working at the repo root: a developer's, when the lead was down. A live
+// session is reached through the tab that carries its own name (launchers
+// title a desk's tab with the session name), or not at all.
+export function terminalForSession(ls, run = execFileSync) {
+  if (!ls?.name) return null
+  let terminals
+  if (run === execFileSync && listCache.terminals && Date.now() - listCache.at < 15000) terminals = listCache.terminals
+  else {
+    try { terminals = JSON.parse(run('orca', ['terminal', 'list', '--json'], { encoding: 'utf8', stdio: 'pipe' }))?.result?.terminals ?? [] } catch { return null }
+  }
+  const want = String(ls.name).replace(/^[^\p{L}\p{N}]+/u, '').trim()
+  const hits = terminals.filter((t) => t.writable !== false && String(t.title ?? '').replace(/^[^\p{L}\p{N}]+/u, '').trim() === want)
+  // two tabs with one name is not one session; refuse to guess between them
+  return hits.length === 1 ? hits[0].handle : null
+}
+
+// ⛔ THE BOARD TYPES INTO TERMINALS; ANY WEB PAGE COULD ASK IT TO. A page on
+// any site can POST text/plain to 127.0.0.1 without a preflight, and the
+// board parsed JSON whatever the type. A writing request now needs: a Host
+// that is this board (loopback on its port, or a host the office lists), an
+// Origin, if the browser sent one, that is the same host, and
+// application/json, which a cross-site page cannot send without a preflight
+// this server never grants.
+export function requestGuard(req, { port, hosts = [] } = {}) {
+  const allowed = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`, ...hosts.map((h) => String(h).toLowerCase())])
+  const host = String(req.headers.host ?? '').toLowerCase()
+  if (!allowed.has(host)) return 'this board answers only on its own address'
+  const origin = req.headers.origin
+  if (origin !== undefined) {
+    let o
+    try { o = new URL(origin) } catch { return 'unreadable Origin' }
+    if (!/^https?:$/.test(o.protocol) || !allowed.has(o.host.toLowerCase())) return 'a page from another site cannot drive the board'
+  }
+  if (!/^application\/json\b/i.test(String(req.headers['content-type'] ?? ''))) return 'requests must be application/json'
+  return null
 }

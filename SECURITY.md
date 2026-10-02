@@ -14,6 +14,8 @@
   `~/.claude/sessions/<pid>.<hash>.key` and presents it on the session's own
   local socket. The key never leaves the machine, is never logged, and is
   never sent to the page. Loopback only, as the whole board is.
+  Writing requests are accepted only from the board's own host and origin,
+  as `application/json`, so another site's page cannot drive a desk.
 - **Network**: none. No telemetry, no calls out.
 
 ## Reporting
