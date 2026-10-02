@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-171%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-175%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -143,7 +143,7 @@ capability is absent, not switched off.
 
 | gets | channel | knowledge | lead |
 |---|---|---|---|
-| its own browser, visible on screen | ✅ | — | ✅ |
+| its own browser, started when it first browses | ✅ | — | ✅ |
 | a reader for its channel | ✅ | — | — |
 | a voice standard it has to pass | ✅ | — | — |
 | **a way to send** | only once you make it live | **never** | never |
@@ -178,6 +178,7 @@ node checks/run.mjs ~/code/some-repo    # every check, one exit code
 | `stated-numbers` | does every number this project states about itself match reality |
 | `desk-literals` | can a desk be added or removed without editing a root test |
 | `commit-convention` | does every commit since adoption say what kind of change it is |
+| `browser-on-demand` | does anything open a browser just because a session started |
 
 Exit 0 clean, 4 finding, 7 UNKNOWN — and **an empty walk is UNKNOWN, never clean**.
 
@@ -229,6 +230,12 @@ components, nothing hand-rolled:
 - **The office's own pulse**: a root `desk.json` may declare a `heartbeat`
   command; the board runs it and shows the answer (`13/13 loops up`), red
   when it is not. Wiring it found eight dead keeper loops nobody had noticed.
+
+**Browsers start on demand.** Opening the board opens nothing: `/desk-board`
+hands you the link, and a desk's Chrome starts when one of its tools needs
+it, never because the session started. `browser-on-demand` holds that for
+every start-up hook in the office; a launchd job or keeper loop outside the
+repo is the other place to look if windows still appear on their own.
 
 Loopback only, stateless, re-gathered per request. Mount it behind an
 existing app's login (nginx `auth_request`, one location block) and it is

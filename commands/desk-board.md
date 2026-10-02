@@ -10,7 +10,11 @@ Get the board up and in front of the user, in this order:
    `nohup node board/serve.mjs --port 7719 > /tmp/office-board.log 2>&1 &`
    (run from the plugin directory; pass the repo path as the last argument when
    the user's repo is not the cwd)
-3. Open it in their browser: `open http://127.0.0.1:7719`
+3. Do NOT open a browser for them. Give them the links; they open the page
+   where they want it (their own browser, their phone). Run `open
+   http://127.0.0.1:7719` only if they ask you to open it.
+   ⛔ Opening a window is the user's call: an office that put windows on the
+   screen whenever it started was the owner's first complaint.
 4. Tell them both views and stop — do not keep polling the page:
    - http://127.0.0.1:7719 — every desk with its live conversation, send box included
    - http://127.0.0.1:7719/board — the table view: usage, worktops, and every check
