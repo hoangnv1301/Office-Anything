@@ -16,6 +16,11 @@
 - THE EXTENSION POINT: `panels` in `office.json`. A project lists a read-only
   command per panel and the board shows its items beside the desks; the
   board itself stays free of any one business's nouns.
+- ⛔ ONLY THE BOARD PAGE MAY WRITE (review). Each board process mints a
+  token and hands it only to the page it serves; every writing request
+  carries it back, on top of the Host/Origin/JSON guard. A panel command runs
+  only on that guarded POST, never on a GET a link or image tag could fire.
+  An answer sends the id of the question it answers.
 - /model offers the aliases and today's ids (claude-opus-5-5,
   claude-fable-5-1, claude-sonnet-5, claude-haiku-4-5-20251001).
 - RATES RECHECKED against the reference (as of 2026-06-24): Opus 5.5 is

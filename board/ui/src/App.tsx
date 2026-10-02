@@ -46,7 +46,7 @@ type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; pa
 export type Msg = { role: 'user' | 'assistant' | 'system' | 'peer'; from?: string; text: string; label?: string; queued?: boolean; at?: string | null; tools?: ToolRow[]; images?: Img[]; reasoning?: string | null }
 type WsNode = { dirs: Record<string, WsNode>; files: { name: string; size: number }[]; truncated?: boolean }
 type Usage = { turns: number; input: number; output: number; cacheRead: number; cacheWrite: number; model: string | null; sessions?: number; ctxUsed?: number; ctxMax?: number; cost: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number; asOf: string } | null }
-type PendingAsk = { type: 'question'; questions: { question: string; header?: string; multiSelect?: boolean; options: { label: string; description?: string }[] }[] } | { type: 'plan'; plan: string }
+type PendingAsk = { id?: string } & ({ type: 'question'; questions: { question: string; header?: string; multiSelect?: boolean; options: { label: string; description?: string }[] }[] } | { type: 'plan'; plan: string })
 type Pane = { ratesAsOf?: string; label: string; model: string | null; count: number; messages: Msg[]; folder: { name: string; size: number; ageMin: number }[]; workspace?: WsNode | null; usage?: Usage | null; turn?: { elapsedSec: number | null; output: number } | null; mode?: string | null; pending?: PendingAsk | null }
 type CdpTab = { title: string; url: string; devtools: string }
 
@@ -345,7 +345,7 @@ function PanelView({ id }: { id: string }) {
   useEffect(() => {
     let alive = true
     setD(null)
-    const go = () => fetch('api/panel?id=' + encodeURIComponent(id)).then((r) => r.json()).then((j) => { if (alive) setD(j) }).catch(() => { if (alive) setD({ ok: false, why: 'the board did not answer' }) })
+    const go = () => fetch('api/panel?id=' + encodeURIComponent(id), { method: 'POST' }).then((r) => r.json()).then((j) => { if (alive) setD(j) }).catch(() => { if (alive) setD({ ok: false, why: 'the board did not answer' }) })
     go(); const t = setInterval(go, 30000)
     return () => { alive = false; clearInterval(t) }
   }, [id])
@@ -738,9 +738,10 @@ export default function App() {
   // number), server-side, or refused with where it CAN be answered
   const answer = useCallback(async (option: number, label: string) => {
     if (!sel) return
+    // the answer names the question it answers; a different one on screen by now is refused
     const r = await (await fetch('api/answer', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ key: sel, option }),
+      body: JSON.stringify({ key: sel, option, ask: paneRef.current?.pending?.id }),
     })).json()
     setNote(r.ok ? '' : '⛔ ' + r.why)
     if (r.ok) { setOutbox((o) => [...o, { text: label, at: Date.now() }]); setTimeout(poll, 900) }

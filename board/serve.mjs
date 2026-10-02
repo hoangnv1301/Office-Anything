@@ -20,7 +20,7 @@ import { subagentsOf, jobsOf } from './read.mjs'
 import { transcriptStats, worktop, filesUnder, treeOf } from './read.mjs'
 import { basename } from 'node:path'
 import { orcaAvailable, normalizeTitle, terminalFor, keepTerminalsWarm, inboxOf, sendToInbox, routeFor, confirmDelivery, terminalForSession, requestGuard } from './send.mjs'
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { execFileSync, execFile } from 'node:child_process'
 
 // ⛔ ONLINE MEANS A LIVE TERMINAL, not "spoke recently". A desk sitting
@@ -351,12 +351,18 @@ const json = (res, code, obj) => { res.writeHead(code, { 'content-type': 'applic
 
 export function makeServer(root) {
   if (!globalThis.__oaWarmer && orcaAvailable()) globalThis.__oaWarmer = keepTerminalsWarm()
-  return createServer((req, res) => {
+  // ⛔ ONE TOKEN PER BOARD PROCESS, handed only to the page this board serves
+  // (a <meta> in its HTML, which another site cannot read). Every writing
+  // request must carry it back: the Host/Origin/JSON guard stops a foreign
+  // page, the token stops anything that is not this page.
+  const csrf = randomBytes(24).toString('hex')
+  const srv = createServer((req, res) => {
     const url = new URL(req.url, 'http://x')
     try {
       if (req.method !== 'GET' && req.method !== 'HEAD' && url.pathname.startsWith('/api/')) {
         const hosts = Array.isArray(officeConfig(root).board?.hosts) ? officeConfig(root).board.hosts : []
         const bad = requestGuard(req, { port: req.socket.localPort, hosts })
+          ?? (req.headers['x-oa-csrf'] === csrf ? null : 'this request did not come from the board page (missing or stale token; reload the page)')
         if (bad) return json(res, 403, { ok: false, why: bad })
       }
       // ⛔ CHAT IS THE FRONT DOOR, owner's ruling — and it is the REAL
@@ -367,7 +373,7 @@ export function makeServer(root) {
         try {
           // no-store: an open tab must not keep yesterday's UI after an update
           res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
-          return res.end(readFileSync(new URL('./ui/dist/index.html', import.meta.url)))
+          return res.end(String(readFileSync(new URL('./ui/dist/index.html', import.meta.url))).replace('<head>', `<head><meta name="oa-csrf" content="${csrf}">`))
         } catch {
           res.writeHead(503, { 'content-type': 'text/plain' })
           return res.end('board UI not built: run `npm run build` in board/ui (maintainers only; releases ship it prebuilt)')
@@ -770,7 +776,7 @@ export function makeServer(root) {
       if (url.pathname === '/api/panels') {
         return json(res, 200, { panels: panelsOf(root).map(({ id, title }) => ({ id, title })) })
       }
-      if (url.pathname === '/api/panel') {
+      if (url.pathname === '/api/panel' && req.method === 'POST') {
         const p = panelsOf(root).find((x) => x.id === url.searchParams.get('id'))
         if (!p) return json(res, 404, { why: 'no such panel in office.json' })
         const now = Date.now()
@@ -942,6 +948,8 @@ export function makeServer(root) {
       res.end('board error: ' + e.message)
     }
   })
+  srv.csrf = csrf
+  return srv
 }
 
 if (isMain(import.meta.url)) {

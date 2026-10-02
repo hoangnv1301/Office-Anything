@@ -15,10 +15,12 @@ const office = () => {
 const srv = async (root) => {
   const s = makeServer(root)
   await new Promise((r) => s.listen(0, '127.0.0.1', r))
+  TOKENS.set(s.address().port, s.csrf)
   return { s, port: s.address().port }
 }
+const TOKENS = new Map()
 const post = (port, body) => fetch(`http://127.0.0.1:${port}/api/hire`, {
-  method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+  method: 'POST', headers: { 'content-type': 'application/json', 'x-oa-csrf': TOKENS.get(port) }, body: JSON.stringify(body),
 })
 
 test('a clean hire creates the desk on disk', async () => {
