@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-161%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-171%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -206,8 +206,11 @@ components, nothing hand-rolled:
   the working line showing elapsed and tokens like the CLI status bar, and
   the exact permission mode and context-window fill from the record.
   What the CLI never renders, the board never renders.
-- **A composer that types into the desk's real terminal** — `/` commands
-  with descriptions and Tab-complete, image drop with visible chips,
+- **A composer that reaches the desk the way SendMessage does** — the
+  session's own messaging inbox first (it never claims a permission mode it
+  does not have), keystrokes into the desk's terminal as the fallback, and a
+  question's option answered with the one keystroke the CLI's dialog takes.
+  Plus `/` commands with descriptions and Tab-complete, image drop with visible chips,
   Shift-Tab for mode, an instant echo while the terminal catches up. Sends
   land in about a second; replies arrive by push the moment Claude writes.
 - **The Computer pane mirrors the desk's whole browser**, every tab, display

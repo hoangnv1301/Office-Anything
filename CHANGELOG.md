@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.7.34
+
+- THE BOARD TALKS THROUGH THE SESSION'S OWN INBOX. Every interactive Claude
+  Code session registers a messaging socket and a key beside its session
+  record; that is where SendMessage delivers. The board now sends there first
+  (one auth line, one message line in the CLI's own envelope, "from office
+  board"), so a message reaches a busy desk without typing into its terminal.
+  The orca keystrokes stay as the fallback.
+- ⛔ IT NEVER CLAIMS A PERMISSION MODE. A session running with permissions
+  bypassed holds a message that asserts no mode, for approval at its own
+  screen. Forging the mode would launder the owner's permission decision, so
+  for such a desk the board types into the terminal instead, or says plainly
+  why it cannot.
+- KEYSTROKES INTO AN OPEN DIALOG ARE ANSWERS. Typing a message while a desk
+  showed a question put the text into the dialog, where a leading digit picks
+  an option. The terminal road now refuses while a dialog is open.
+- ANSWERING A QUESTION IS ITS OWN ACT: `POST /api/answer` presses the chosen
+  option's number, which the CLI's choice list takes and submits (verified on
+  a live dialog). A plan approval, several questions on tabs and multi-select
+  are refused with where to answer them instead of being approximated.
+- REVIEW FIXES, before release:
+  - Delivered means the desk's own record shows the words queued (its
+    enqueue entry); a socket that merely closed is not delivery, and the
+    terminal fallback runs instead.
+  - The session, its transcript and its terminal tab are resolved together;
+    the tab is the one named for that session, never just one at its folder.
+    A named lead that is not running gets nothing.
+  - An answer carries the id of the question it answers, and is refused
+    unless the live session says it is waiting on that very question.
+  - Every writing request must come from this board: its own Host (or one
+    `office.json` lists under `board.hosts`), a same-host Origin when the
+    browser sends one, and `application/json`. A page on another site could
+    otherwise POST text/plain to 127.0.0.1 and type into a desk.
+
 ## 0.7.33
 
 - MESSAGES THAT ARRIVE MID-TURN ARE CHAT. Claude Code records a message that

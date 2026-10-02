@@ -1,10 +1,10 @@
 // SEND. Typing into a live desk terminal is a real act with a real blast
 // radius, so the adapter is explicit about what it can and cannot do.
 //
-// The only adapter today is the orca CLI, because it is the thing that
-// actually owns these terminals and its send verb is already trusted by the
-// system this contract came from. No orca on PATH means the board is
-// READ-ONLY and says so; it never falls back to something cleverer.
+// Two roads, both explicit (see the inbox section below): the session's own
+// messaging inbox, the way SendMessage reaches it, and the orca CLI that owns
+// the terminals, for keystrokes. Neither open means the board is READ-ONLY
+// for that desk and says why; it never falls back to something cleverer.
 import { execFileSync, execFile } from 'node:child_process'
 
 // ⛔ THE SPINNER GLYPH CYCLES while a desk works (✳ ✶ ✽ ...), so stripping
@@ -68,4 +68,146 @@ export function send(desk, text, run = execFileSync, dir = null) {
   if (!handle) return { ok: false, why: `no live terminal is titled "${desk}" or working in its folder` }
   run('orca', ['terminal', 'send', '--terminal', handle, '--text', text, '--enter', '--json'], { encoding: 'utf8', stdio: 'pipe' })
   return { ok: true, handle }
+}
+
+// ── THE SESSION'S OWN INBOX ─────────────────────────────────────────────────
+// Every interactive Claude Code session registers a messaging socket in
+// ~/.claude/sessions/<pid>.json (messagingSocketPath) and a key file beside it,
+// <pid>.<sha256(socket path)>.key, holding the peerToken a sender presents.
+// That is the inbox SendMessage delivers to: one auth line, one JSON line,
+// and the session queues the words for its next tool round, idle or busy,
+// with nothing typed into a terminal.
+//
+// ⛔ IT IS A PEER'S CHANNEL, AND THE BOARD SAYS SO. What arrives this way is
+// a cross-session message: the desk reads it as another session speaking,
+// never as its own user typing, so it is never an approval. And a session
+// running with permissions bypassed HOLDS a message that asserts no mode, for
+// its user's approval at its own screen. The board asserts no mode it does
+// not have: forging one to get past that hold would launder the owner's
+// permission decision. For such a desk the terminal is the honest route.
+import { createHash, randomUUID } from 'node:crypto'
+import { connect } from 'node:net'
+import { readFileSync, statSync, openSync, readSync, closeSync } from 'node:fs'
+import { join } from 'node:path'
+import { homedir } from 'node:os'
+
+export const BOARD_NAME = 'office board'
+
+export function inboxOf(ls, home = homedir()) {
+  const sock = ls?.messagingSocketPath
+  if (typeof sock !== 'string' || !sock.startsWith('/') || !ls.pid) return null
+  const keyFile = join(home, '.claude', 'sessions', `${ls.pid}.${createHash('sha256').update(sock).digest('hex')}.key`)
+  try {
+    const k = JSON.parse(readFileSync(keyFile, 'utf8'))
+    if (typeof k.peerToken !== 'string' || !k.peerToken) return null
+    return { sock, token: k.peerToken, pid: ls.pid }
+  } catch { return null }
+}
+
+// the envelope the CLI itself writes, minus the sender address and mode the
+// board does not have: the receiver shows "from office board"
+export const envelope = (text, fromName = BOARD_NAME) =>
+  `<cross-session-message from-name="${String(fromName).replace(/["<>\r\n]/g, '')}">\n${text}\n</cross-session-message>`
+
+export function frameFor(text, token, { fromName = BOARD_NAME, id = randomUUID() } = {}) {
+  const msg = { msgV: 1, msg_id: id, type: 'user', message: { role: 'user', content: envelope(text, fromName) }, priority: 'next' }
+  return JSON.stringify({ type: 'auth', token }) + '\n' + JSON.stringify(msg) + '\n'
+}
+
+export function sendToInbox(inbox, text, { dial = connect, timeoutMs = 5000, fromName } = {}) {
+  return new Promise((resolve) => {
+    let done = false
+    const finish = (r) => { if (!done) { done = true; resolve(r) } }
+    let s
+    try { s = dial({ path: inbox.sock }) } catch (e) { return finish({ ok: false, why: 'inbox unreachable: ' + e.message }) }
+    s.setTimeout?.(timeoutMs, () => { s.destroy(); finish({ ok: false, why: 'the desk\'s inbox did not answer in ' + timeoutMs / 1000 + 's' }) })
+    s.on('error', (e) => finish({ ok: false, why: 'inbox unreachable: ' + (e.code ?? e.message) }))
+    s.on('connect', () => {
+      s.write(frameFor(text, inbox.token, { fromName }))
+      // the CLI's own sender lingers before closing on macOS so the receiver
+      // reads the whole line before the FIN; the board does the same
+      setTimeout(() => { try { s.end() } catch {} }, 150)
+    })
+    s.on('close', () => finish({ ok: true, via: 'inbox' }))
+  })
+}
+
+// Which road a message to this desk takes, decided from what the CLI records,
+// never guessed: the inbox when the desk will take a peer message without a
+// human approving it there; the terminal otherwise; a plain refusal when
+// neither is open.
+export function routeFor({ inbox, mode, terminal }) {
+  const holds = mode === 'bypassPermissions' || !mode
+  if (inbox && !holds) return { via: 'inbox' }
+  if (terminal) return { via: 'terminal' }
+  if (inbox) return { via: null, why: mode === 'bypassPermissions'
+    ? 'this desk runs with permissions bypassed, so Claude Code holds a message from outside the session for approval at its own screen, and the board will not claim a mode it does not have. Type it in the desk\'s terminal, or open the desk in the Claude app.'
+    : 'this desk\'s permission mode is not on record yet, so a message to its inbox may be held for approval at its screen. Type it in its terminal, or open it in the Claude app.' }
+  return { via: null, why: 'this desk has no live session inbox and no terminal the board can reach' }
+}
+
+// ⛔ A CLOSED SOCKET IS NOT A DELIVERED MESSAGE. The receiving CLI writes no
+// acknowledgement on the connection, so "ok" used to mean only that the
+// write did not error: a refused token or a dropped frame looked delivered.
+// The receiver's own record is the acknowledgement: when it queues a message
+// it appends an enqueue entry carrying the words to its transcript. No such
+// entry within the window = not delivered, and the caller falls back.
+// ponytail: a session with transcript saving turned off can never confirm,
+// so it always takes the fallback road.
+export function confirmDelivery(transcript, text, fromSize, { timeoutMs = 4000, stepMs = 150 } = {}) {
+  const needle = JSON.stringify(envelope(text)).slice(1, -1)
+  return new Promise((resolve) => {
+    const t0 = Date.now()
+    const look = () => {
+      try {
+        const size = statSync(transcript).size
+        if (size > fromSize) {
+          const fd = openSync(transcript, 'r'); const buf = Buffer.alloc(Math.min(size - fromSize, 4 << 20))
+          readSync(fd, buf, 0, buf.length, fromSize); closeSync(fd)
+          if (buf.toString('utf8').includes(needle)) return resolve(true)
+        }
+      } catch {}
+      if (Date.now() - t0 >= timeoutMs) return resolve(false)
+      setTimeout(look, stepMs)
+    }
+    look()
+  })
+}
+
+// ⛔ THE TERMINAL OF *THIS* SESSION. Matching by folder alone found any tab
+// working at the repo root: a developer's, when the lead was down. A live
+// session is reached through the tab that carries its own name (launchers
+// title a desk's tab with the session name), or not at all.
+export function terminalForSession(ls, run = execFileSync) {
+  if (!ls?.name) return null
+  let terminals
+  if (run === execFileSync && listCache.terminals && Date.now() - listCache.at < 15000) terminals = listCache.terminals
+  else {
+    try { terminals = JSON.parse(run('orca', ['terminal', 'list', '--json'], { encoding: 'utf8', stdio: 'pipe' }))?.result?.terminals ?? [] } catch { return null }
+  }
+  const want = String(ls.name).replace(/^[^\p{L}\p{N}]+/u, '').trim()
+  const hits = terminals.filter((t) => t.writable !== false && String(t.title ?? '').replace(/^[^\p{L}\p{N}]+/u, '').trim() === want)
+  // two tabs with one name is not one session; refuse to guess between them
+  return hits.length === 1 ? hits[0].handle : null
+}
+
+// ⛔ THE BOARD TYPES INTO TERMINALS; ANY WEB PAGE COULD ASK IT TO. A page on
+// any site can POST text/plain to 127.0.0.1 without a preflight, and the
+// board parsed JSON whatever the type. A writing request now needs: a Host
+// that is this board (loopback on its port, or a host the office lists), an
+// Origin, if the browser sent one, that is the same host, and
+// application/json, which a cross-site page cannot send without a preflight
+// this server never grants.
+export function requestGuard(req, { port, hosts = [] } = {}) {
+  const allowed = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`, ...hosts.map((h) => String(h).toLowerCase())])
+  const host = String(req.headers.host ?? '').toLowerCase()
+  if (!allowed.has(host)) return 'this board answers only on its own address'
+  const origin = req.headers.origin
+  if (origin !== undefined) {
+    let o
+    try { o = new URL(origin) } catch { return 'unreadable Origin' }
+    if (!/^https?:$/.test(o.protocol) || !allowed.has(o.host.toLowerCase())) return 'a page from another site cannot drive the board'
+  }
+  if (!/^application\/json\b/i.test(String(req.headers['content-type'] ?? ''))) return 'requests must be application/json'
+  return null
 }
