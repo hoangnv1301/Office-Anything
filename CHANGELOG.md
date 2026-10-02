@@ -22,6 +22,12 @@
 - GIT IS READ-ONLY FOR A DESK BY ALLOWLIST (status, log, diff, show, …).
   The source office listed the writing subcommands and missed `branch -D`,
   `clean -fdx`, `config`, `tag`, `worktree`; review caught it.
+- THE WALL FOLLOWS THE SESSION OUT OF THE REPO (review). It found the
+  office only from the payload's cwd, so a desk that cd'd to /tmp had no
+  wall. It now asks CLAUDE_PROJECT_DIR first (the session's own folder,
+  which cd does not move), then the cwd, and the role variable from
+  `office.json`. With `failClosed`, a wall that breaks while judging refuses
+  (the `|| exit 2` the source office had), including an uncaught crash.
 - A NEW CHECK, `desk-wall`: a rule that does not compile (the gate cannot
   apply it), and any desk record running a command the office audits for.
 - MIGRATING an office that has its own copies: add the sections, install

@@ -161,3 +161,29 @@ test('the check: a rule that does not compile is a finding; a desk record with a
   assert.equal(wallCheck(ROOT, { home: mkdtempSync(join(tmpdir(), 'oa-h-')) }).code, 0)
   assert.equal(wallCheck(office(null)).applicable, false)
 })
+
+// ⛔ review: a desk that cd's out of the repo sent a cwd with no office above
+// it, and the wall let everything through. The session's project dir does
+// not move with cd.
+test('a desk that cd\'d out of the repo is still walled: CLAUDE_PROJECT_DIR, and the role variable', () => {
+  const runAt = (cwd, env, tool_name, tool_input) => spawnSync(process.execPath, [HOOK], { input: JSON.stringify({ tool_name, tool_input, cwd }), encoding: 'utf8', env, cwd: tmpdir() }).status
+  const outside = mkdtempSync(join(tmpdir(), 'oa-outside-'))
+  const byDir = { ...env0(), CLAUDE_PROJECT_DIR: join(ROOT, 'desks', 'inventory') }
+  assert.equal(runAt(outside, byDir, 'Write', { file_path: join(ROOT, 'lib', 'verbs.ts') }), 2, 'found by its project dir')
+  assert.equal(runAt(outside, byDir, 'Bash', { command: 'wrangler d1 execute x' }), 2)
+  const byRole = { ...env0(), CLAUDE_PROJECT_DIR: ROOT, OFFICE_ROLE: 'desk-inventory' }
+  assert.equal(runAt(outside, byRole, 'Write', { file_path: join(ROOT, 'lib', 'verbs.ts') }), 2, 'found by its role variable, office from the project dir')
+  assert.equal(runAt(outside, { ...env0(), CLAUDE_PROJECT_DIR: ROOT }, 'Write', { file_path: join(ROOT, 'lib', 'verbs.ts') }), 0, 'a developer at the root is still not judged')
+})
+
+test('a wall that breaks while judging fails closed when the office says so, open when it does not', async () => {
+  const { decide } = await import('../hooks/desk-wall.mjs')
+  const bad = (failClosed) => office({ ...CONFIG, wall: { ...CONFIG.wall, failClosed, deny: [{ pattern: '(unclosed', why: 'x' }] } })
+  const payload = (root) => JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'ls' }, cwd: join(root, 'desks', 'inventory') })
+  const env = (root) => ({ ...env0(), CLAUDE_PROJECT_DIR: join(root, 'desks', 'inventory') })
+  const closed = bad(true), open = bad(false)
+  const r = decide(payload(closed), env(closed), tmpdir())
+  assert.equal(r.code, 2)
+  assert.match(r.why, /fails closed/)
+  assert.equal(decide(payload(open), env(open), tmpdir()).code, 0)
+})
