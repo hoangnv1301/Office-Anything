@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.34
+
+- THE BOARD TALKS THROUGH THE SESSION'S OWN INBOX. Every interactive Claude
+  Code session registers a messaging socket and a key beside its session
+  record; that is where SendMessage delivers. The board now sends there first
+  (one auth line, one message line in the CLI's own envelope, "from office
+  board"), so a message reaches a busy desk without typing into its terminal.
+  The orca keystrokes stay as the fallback.
+- ⛔ IT NEVER CLAIMS A PERMISSION MODE. A session running with permissions
+  bypassed holds a message that asserts no mode, for approval at its own
+  screen. Forging the mode would launder the owner's permission decision, so
+  for such a desk the board types into the terminal instead, or says plainly
+  why it cannot.
+- KEYSTROKES INTO AN OPEN DIALOG ARE ANSWERS. Typing a message while a desk
+  showed a question put the text into the dialog, where a leading digit picks
+  an option. The terminal road now refuses while a dialog is open.
+- ANSWERING A QUESTION IS ITS OWN ACT: `POST /api/answer` presses the chosen
+  option's number, which the CLI's choice list takes and submits (verified on
+  a live dialog). A plan approval, several questions on tabs and multi-select
+  are refused with where to answer them instead of being approximated.
+
 ## 0.7.33
 
 - MESSAGES THAT ARRIVE MID-TURN ARE CHAT. Claude Code records a message that

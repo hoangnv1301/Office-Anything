@@ -9,6 +9,11 @@
 - **Secrets**: `hooks/no-secrets.mjs` exists to keep credentials OUT of
   commits. No check reads a credential, and there are none in this repo to
   read. Findings about a leak report the location, never the value.
+- **The board's send**: to deliver a message to a desk the way SendMessage
+  does, the board reads that session's messaging key from
+  `~/.claude/sessions/<pid>.<hash>.key` and presents it on the session's own
+  local socket. The key never leaves the machine, is never logged, and is
+  never sent to the page. Loopback only, as the whole board is.
 - **Network**: none. No telemetry, no calls out.
 
 ## Reporting
