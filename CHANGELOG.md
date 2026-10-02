@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.33
+
+- MESSAGES THAT ARRIVE MID-TURN ARE CHAT. Claude Code records a message that
+  reaches a busy session as an attachment (`queued_command`), not a user
+  entry, and the board read only user entries: one desk's session was missing
+  75 messages, another 41, the owner's own mid-turn corrections among them.
+  They are parsed by origin now (the owner, a peer by its envelope, a
+  background task as an event), through the same classifier as a user entry,
+  and de-duplicated by the command's own id across incremental reads.
+- EVERY LIVE STATUS, NOT TWO. The roster tested `busy` and `waiting` only, so
+  a desk in `shell` (a command running in the foreground) read as idle. Every
+  status the CLI writes now has a state, `waiting` says what it waits on, and
+  an unknown status is shown as-is rather than guessed.
+- THE REMOTE CONTROL LINK rides each row: a session the owner can drive from
+  the Claude app carries its link, built from the id the CLI registers.
+- THE LEAD IS A NAME. Several live sessions share the repo root, and the most
+  recent status change picked the lead's row. An optional root `office.json`
+  names the lead session; without it the remote-controlled session leads and
+  recency only breaks ties. The lead's chat reads that session's own
+  transcript, and a `desk-<name>` sender is named by its desk even after its
+  session ended.
+
 ## 0.7.32
 
 - THE BOARD SHIPS ITS PAGE. board/ui/dist sat in board/ui/.gitignore, and an

@@ -237,3 +237,99 @@ test('an agent hand-back envelope is system traffic, not the owner typing', () =
   const m = chatFrom(L({ type: 'user', message: { content: 'Another Claude session sent a message:\n<agent-message from="a33b">\n[Subagent hand-back] report\n</agent-message>' } }))
   assert.equal(m.filter((x) => x.role === 'user').length, 0)
 })
+
+// Shapes copied from a real desk session (Claude Code 2.1.280), names and
+// paths anonymised. A message that lands while the desk is busy is recorded
+// as an ATTACHMENT, never as a user entry, and the board used to drop them all.
+const queued = (attachment, extra = {}) => L({
+  parentUuid: 'p-1', isSidechain: false, type: 'attachment', uuid: extra.uuid ?? 'att-' + Math.random(),
+  timestamp: attachment.timestamp, attachment,
+  rendered: [{ content: '<system-reminder>\nThe user sent a new message while you were working:\n...\n</system-reminder>' }],
+  sessionId: 's-1', entrypoint: 'cli', version: '2.1.280',
+})
+
+test('queued commands are chat: the owner mid-turn, a peer by its envelope, a background task as an event', () => {
+  const jsonl =
+    L({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu_1', name: 'Bash', input: { command: 'ls' } }] } })
+    + queued({ type: 'queued_command', prompt: 'Owner rule, applies to all three jobs now: standard boxes + filler everywhere.',
+      source_uuid: 'src-human', commandMode: 'prompt', origin: { kind: 'human' }, timestamp: '2026-09-24T04:05:31.236Z', humanTurn: true })
+    + queued({ type: 'queued_command',
+      prompt: '<cross-session-message from="uds:/tmp/cc-socks/10270.sock" from-name="office-lead-86" from-mode="bypass">\nFrom lead: the customer desk opened three orders. Please design and price each one.\n</cross-session-message>',
+      source_uuid: 'src-peer', commandMode: 'prompt', origin: { kind: 'peer', from: 'uds:/tmp/cc-socks/10270.sock', verifiedPeerPid: 10270 }, timestamp: '2026-09-27T10:00:00.000Z' })
+    + queued({ type: 'queued_command', prompt: '<task-notification>\n<task-id>b3t02u87d</task-id>\n<status>completed</status>\n</task-notification>',
+      commandMode: 'task-notification', timestamp: '2026-09-27T10:01:00.000Z' }, { uuid: 'att-task' })
+    + queued({ type: 'queued_command', prompt: [{ type: 'text', text: 'the local version looks broken next to the remote one [Image #5]' }],
+      source_uuid: 'src-list', imagePasteIds: [5], commandMode: 'prompt', origin: { kind: 'human' }, timestamp: '2026-09-27T10:02:00.000Z' })
+  const m = chatFrom(jsonl)
+  assert.deepEqual(m.map((x) => x.role), ['assistant', 'user', 'peer', 'system', 'user'])
+  assert.equal(m[1].text, 'Owner rule, applies to all three jobs now: standard boxes + filler everywhere.')
+  assert.equal(m[1].queued, true, 'marked as said mid-turn')
+  assert.equal(m[1].at, '2026-09-24T04:05:31.236Z')
+  assert.equal(m[2].from, 'office-lead-86', 'the envelope names the sender, as for a peer user entry')
+  assert.equal(m[2].text, 'From lead: the customer desk opened three orders. Please design and price each one.')
+  assert.equal(m[3].label, 'background task')
+  assert.match(m[4].text, /^the local version looks broken/, 'a prompt recorded as content blocks reads its text')
+})
+
+test('a queued command recorded twice is one message, also across incremental reads', () => {
+  const a = { type: 'queued_command', prompt: 'please re-run the quote', source_uuid: 'src-dup', commandMode: 'prompt', origin: { kind: 'human' }, timestamp: '2026-09-27T10:00:00Z' }
+  assert.equal(chatFrom(queued(a) + queued(a)).length, 1, 'same source_uuid twice in one chunk')
+  const seen = new Set()
+  const first = chatFrom(queued(a), { seen })
+  const second = chatFrom(queued(a), { seen })
+  assert.equal(first.length + second.length, 1, 'the seen set rides the tail cache between chunks')
+  // and a copy the CLI ALSO wrote as a plain user entry does not double the bubble
+  const both = queued({ ...a, source_uuid: 'src-x' }) + L({ type: 'user', message: { content: 'please re-run the quote' } })
+  assert.equal(chatFrom(both).length, 1)
+})
+
+test('a peer message without an envelope is still the peer speaking, never the owner', () => {
+  const m = chatFrom(queued({ type: 'queued_command', prompt: 'status?', source_uuid: 'src-bare', commandMode: 'prompt',
+    origin: { kind: 'peer', from: 'uds:/tmp/cc-socks/1.sock' }, timestamp: '2026-09-27T10:00:00Z' }))
+  assert.equal(m.length, 1)
+  assert.equal(m[0].role, 'peer')
+  assert.equal(m[0].from, 'uds:/tmp/cc-socks/1.sock')
+})
+
+test('every live status the CLI writes has a state; shell is working, waiting says what for', async () => {
+  const { stateOf } = await import('../board/serve.mjs')
+  assert.equal(stateOf({ status: 'busy' }).busy, true)
+  assert.deepEqual([stateOf({ status: 'shell' }).state, stateOf({ status: 'shell' }).busy], ['shell', true], 'a running command is the desk working, not idle')
+  const w = stateOf({ status: 'waiting', waitingFor: 'permission prompt' })
+  assert.deepEqual([w.state, w.waiting, w.detail], ['waiting', true, 'permission prompt'])
+  assert.equal(stateOf({ status: 'waiting', waitingFor: 'dialog open', needs: 'choose: allow or deny' }).detail, 'choose: allow or deny', 'needs is the more specific of the two')
+  assert.deepEqual([stateOf({ status: 'idle' }).state, stateOf({ status: 'idle' }).busy], ['idle', false])
+  const odd = stateOf({ status: 'parked' })
+  assert.deepEqual([odd.state, odd.busy], ['parked', null], 'an unknown status is said as-is, never guessed into busy or idle')
+  assert.equal(stateOf(null), null)
+})
+
+test('the lead is the session the office NAMES, not the one that changed status last', async () => {
+  const { liveSessions, officeSessions, remoteUrlOf } = await import('../board/serve.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'oa-lead-'))
+  const root = mkdtempSync(join(tmpdir(), 'oa-root-'))
+  mkdirSync(join(home, '.claude', 'sessions'), { recursive: true })
+  const reg = (pid, name, updatedAt, extra = {}) => writeFileSync(join(home, '.claude', 'sessions', pid + '.json'), JSON.stringify({ pid, name, cwd: root, updatedAt, ...extra }))
+  reg(process.pid, 'root-dev-17', 9000, { bridgeSessionId: 'session_01Dev' })
+  reg(process.ppid, 'Factory ERP', 1000)
+  // without a declared name: the remote-controlled one, then recency
+  assert.equal(liveSessions(home).get(root).name, 'root-dev-17')
+  writeFileSync(join(root, 'office.json'), JSON.stringify({ lead: { session: 'Factory ERP' } }))
+  assert.equal(officeSessions(root, home).get(root).name, 'Factory ERP', 'the declared name wins over newer and remote-controlled')
+  assert.equal(remoteUrlOf({ bridgeSessionId: 'session_01Dev' }), 'https://claude.ai/code/session_01Dev')
+  assert.equal(remoteUrlOf({ bridgeSessionId: 'javascript:alert(1)' }), null, 'only a well-formed id becomes a link')
+  assert.equal(remoteUrlOf({}), null)
+})
+
+test('the roster carries state, detail and the Remote Control link per desk', async () => {
+  const { chatRoster } = await import('../board/serve.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'oa-rost-'))
+  const root = mkdtempSync(join(tmpdir(), 'oa-office-'))
+  mkdirSync(join(root, 'desks', 'pricing'), { recursive: true })
+  writeFileSync(join(root, 'desks', 'pricing', 'desk.json'), JSON.stringify({ name: 'pricing', kind: 'knowledge', port: 9240 }))
+  mkdirSync(join(home, '.claude', 'sessions'), { recursive: true })
+  writeFileSync(join(home, '.claude', 'sessions', process.pid + '.json'), JSON.stringify({ pid: process.pid, name: 'desk-pricing', cwd: join(root, 'desks', 'pricing'), status: 'shell', bridgeSessionId: 'session_01Abc' }))
+  const row = chatRoster(root, { home }).find((r) => r.desk === 'pricing')
+  assert.deepEqual([row.state, row.busy, row.online, row.sessionName], ['shell', true, true, 'desk-pricing'])
+  assert.equal(row.remoteUrl, 'https://claude.ai/code/session_01Abc')
+})

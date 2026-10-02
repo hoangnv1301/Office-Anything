@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-154%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-160%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -214,6 +214,15 @@ components, nothing hand-rolled:
   only, through a zero-dependency CDP client. A rail reads the desk's
   `.claude`: its workspace tree, its agents, its skills and commands, the
   plugins installed, and every hook that can fire, in lifecycle order.
+- **Every live state the CLI writes** — working, running a command, waiting
+  (and on what), idle — straight from Claude Code's session registry, plus
+  the desk's **Remote Control link** when it has one, so a desk opens in the
+  Claude app in one tap. Messages that reach a desk mid-turn (yours, and other
+  desks') show up where they landed, not only the ones typed at an idle prompt.
+- **Name your lead**: several sessions can share the repo root. An optional
+  `office.json` at the root says which one is the lead —
+  `{"lead": {"session": "<session name>"}}` — and the board follows that name
+  instead of whichever session changed status last.
 - **The office's own pulse**: a root `desk.json` may declare a `heartbeat`
   command; the board runs it and shows the answer (`13/13 loops up`), red
   when it is not. Wiring it found eight dead keeper loops nobody had noticed.
