@@ -25,3 +25,12 @@ test('⛔ an unknown model gets NO dollars, never a guess', () => {
 test('the as-of date rides every cost object', () => {
   assert.equal(costOf({ model: 'claude-haiku-4-5', input: 1 }).asOf, AS_OF)
 })
+
+test('opus 5.5 is its own row, not opus 5 by prefix; fable 5.1 reads cache at its own rate', () => {
+  assert.deepEqual([ratesFor('claude-opus-5-5').input, ratesFor('claude-opus-5-5').output], [4, 20])
+  assert.equal(ratesFor('claude-opus-5').input, 5, 'the older opus keeps its price')
+  assert.equal(costOf({ model: 'claude-opus-5-5', cacheRead: 1_000_000 }).cacheRead.toFixed(2), '0.20')
+  assert.equal(costOf({ model: 'claude-fable-5-1', cacheRead: 1_000_000 }).cacheRead.toFixed(2), '0.25')
+  assert.equal(costOf({ model: 'claude-fable-5', cacheRead: 1_000_000 }).cacheRead.toFixed(2), '1.00')
+  assert.equal(ratesFor('claude-haiku-4-5-20251001').input, 1, 'the dated haiku id the CLI records')
+})

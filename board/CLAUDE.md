@@ -5,6 +5,7 @@
 | `serve.mjs` | every route. Serves the built UI, `/api/*` for office, transcript, send, hire, upload, screen, commands, files. Loopback only. Reads the live session registry (every status, the Remote Control link) and the optional root `office.json` (the lead session's name) |
 | `read.mjs` | who is in the office and what surrounds them: roster rows, transcript stats, worktop, workspace tree, live subagents |
 | `transcript.mjs` | a session's jsonl as chat: incremental tail reader (62 MB re-reads froze the board once), message/system/image classification |
+| `timeline.mjs` | the office's own conversation: every desk-to-desk message from both ends' transcripts, merged, open asks marked |
 | `send.mjs` | the ONE path words reach a desk from here: the session's messaging inbox (as SendMessage does, never claiming a permission mode), or keystrokes through the orca CLI, or read-only with the reason said plainly |
 | `chat-page.mjs` | RETIRED to bk/ — the hand-rolled page the real component build replaced |
 | `ui/` | the React app: shadcn/ui + AI Elements, built by the maintainer, shipped as `ui/dist`. `ui/e2e.mjs` walks it hit-tested |

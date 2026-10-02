@@ -20,7 +20,7 @@ import { subagentsOf, jobsOf } from './read.mjs'
 import { transcriptStats, worktop, filesUnder, treeOf } from './read.mjs'
 import { basename } from 'node:path'
 import { orcaAvailable, normalizeTitle, terminalFor, keepTerminalsWarm, inboxOf, sendToInbox, routeFor, confirmDelivery, terminalForSession, requestGuard } from './send.mjs'
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { execFileSync, execFile } from 'node:child_process'
 
 // ⛔ ONLINE MEANS A LIVE TERMINAL, not "spoke recently". A desk sitting
@@ -40,7 +40,8 @@ import { screenshotOf } from '../lib/cdp.mjs'
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, watch } from 'node:fs'
 import { rosterSafe, leadDesk } from '../lib/desk.mjs'
 import { hire } from '../lib/hire.mjs'
-import { costOf } from '../lib/rates.mjs'
+import { costOf, AS_OF as RATES_AS_OF } from '../lib/rates.mjs'
+import { officeTimeline } from './timeline.mjs'
 import { collect } from '../checks/run.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
@@ -245,6 +246,35 @@ function friendlyFromName(root, home = homedir()) {
 }
 export const friendlyFrom = (map, from) => map.get(from) ?? (/^desk-/i.test(from ?? '') ? from.slice(5) : from)
 
+// ⛔ THE EXTENSION POINT FOR A PROJECT'S OWN PANELS. The board knows nothing
+// about any one business; an office that wants "pending approvals" or "orders
+// due today" on its board declares it in office.json:
+//   {"panels": [{"id": "approvals", "title": "Pending approvals", "command": "node scripts/approvals.mjs"}]}
+// The command runs at the repo root (like the heartbeat), read-only by
+// contract, and prints JSON {items: [{title, detail?, url?, at?}], note?}, or
+// plain lines, one item each. The board shows exactly that, nothing invented.
+export function panelsOf(root) {
+  const c = officeConfig(root)
+  if (!Array.isArray(c.panels)) return []
+  return c.panels.filter((p) => p && /^[a-z0-9][a-z0-9-]{0,39}$/.test(p.id ?? '') && typeof p.command === 'string' && p.command.trim())
+    .map((p) => ({ id: p.id, title: typeof p.title === 'string' && p.title.trim() ? p.title.trim().slice(0, 60) : p.id, command: p.command }))
+}
+export function panelBody(err, stdout, stderr) {
+  const text = String(stdout ?? '').trim()
+  const safeUrl = (u) => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : null)
+  let items = null, note = null
+  try {
+    const j = JSON.parse(text)
+    if (Array.isArray(j?.items)) {
+      items = j.items.slice(0, 200).map((x) => ({ title: String(x?.title ?? '').slice(0, 200), detail: x?.detail != null ? String(x.detail).slice(0, 600) : null, url: safeUrl(x?.url), at: typeof x?.at === 'string' ? x.at : null })).filter((x) => x.title)
+      if (typeof j.note === 'string') note = j.note.slice(0, 300)
+    }
+  } catch {}
+  if (!items) items = text.split('\n').map((l) => l.trim()).filter(Boolean).slice(0, 200).map((l) => ({ title: l.slice(0, 200), detail: null, url: null, at: null }))
+  if (err) return { ok: false, items, note: (String(stderr ?? '').trim().split('\n').at(-1) || err.message).slice(0, 300) }
+  return { ok: true, items, note }
+}
+
 export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
   const live = officeSessions(root, home)
   const { desks } = rosterSafe(join(root, 'desks'))
@@ -321,12 +351,18 @@ const json = (res, code, obj) => { res.writeHead(code, { 'content-type': 'applic
 
 export function makeServer(root) {
   if (!globalThis.__oaWarmer && orcaAvailable()) globalThis.__oaWarmer = keepTerminalsWarm()
-  return createServer((req, res) => {
+  // ⛔ ONE TOKEN PER BOARD PROCESS, handed only to the page this board serves
+  // (a <meta> in its HTML, which another site cannot read). Every writing
+  // request must carry it back: the Host/Origin/JSON guard stops a foreign
+  // page, the token stops anything that is not this page.
+  const csrf = randomBytes(24).toString('hex')
+  const srv = createServer((req, res) => {
     const url = new URL(req.url, 'http://x')
     try {
       if (req.method !== 'GET' && req.method !== 'HEAD' && url.pathname.startsWith('/api/')) {
         const hosts = Array.isArray(officeConfig(root).board?.hosts) ? officeConfig(root).board.hosts : []
         const bad = requestGuard(req, { port: req.socket.localPort, hosts })
+          ?? (req.headers['x-oa-csrf'] === csrf ? null : 'this request did not come from the board page (missing or stale token; reload the page)')
         if (bad) return json(res, 403, { ok: false, why: bad })
       }
       // ⛔ CHAT IS THE FRONT DOOR, owner's ruling — and it is the REAL
@@ -337,7 +373,7 @@ export function makeServer(root) {
         try {
           // no-store: an open tab must not keep yesterday's UI after an update
           res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
-          return res.end(readFileSync(new URL('./ui/dist/index.html', import.meta.url)))
+          return res.end(String(readFileSync(new URL('./ui/dist/index.html', import.meta.url))).replace('<head>', `<head><meta name="oa-csrf" content="${csrf}">`))
         } catch {
           res.writeHead(503, { 'content-type': 'text/plain' })
           return res.end('board UI not built: run `npm run build` in board/ui (maintainers only; releases ship it prebuilt)')
@@ -725,6 +761,35 @@ export function makeServer(root) {
           }))
           .catch(() => json(res, 200, { tabs: [], why: 'no headed Chrome answering on port ' + row.port + ' right now' }))
       }
+      if (url.pathname === '/api/timeline') {
+        // every desk-to-desk message in the office, both ends merged, with the
+        // asks nobody has answered marked; re-read from the transcripts
+        const live = officeSessions(root)
+        const nameMap = friendlyFromName(root)
+        const rows = chatRosterCheap(root)
+        const labels = new Set(rows.map((r) => r.desk))
+        const resolve = (n) => { if (!n) return null; const f = friendlyFrom(nameMap, String(n)); return labels.has(f) ? f : null }
+        const per = rows.map((r) => { const t = transcriptFor(root, r.key, homedir(), live); return { desk: r.desk, messages: t ? (readTail(t)?.messages ?? []) : [] } })
+        const items = officeTimeline(per, resolve)
+        return json(res, 200, { items, unanswered: items.filter((x) => x.unanswered).length })
+      }
+      if (url.pathname === '/api/panels') {
+        return json(res, 200, { panels: panelsOf(root).map(({ id, title }) => ({ id, title })) })
+      }
+      if (url.pathname === '/api/panel' && req.method === 'POST') {
+        const p = panelsOf(root).find((x) => x.id === url.searchParams.get('id'))
+        if (!p) return json(res, 404, { why: 'no such panel in office.json' })
+        const now = Date.now()
+        globalThis.__oaPanels ??= new Map()
+        const hit = globalThis.__oaPanels.get(p.id)
+        if (hit && now - hit.at < 20000) return json(res, 200, hit.out)
+        execFile('/bin/sh', ['-c', p.command], { cwd: root, timeout: 20000, encoding: 'utf8', maxBuffer: 2_000_000 }, (e, stdout, stderr) => {
+          const out = { id: p.id, title: p.title, at: now, ...panelBody(e, stdout, stderr) }
+          globalThis.__oaPanels.set(p.id, { at: now, out })
+          json(res, 200, out)
+        })
+        return
+      }
       if (url.pathname === '/api/office-chat') {
         const desks = chatRoster(root)
         return json(res, 200, { canSend: orcaAvailable() || desks.some((d) => d.inbox), desks })
@@ -763,7 +828,7 @@ export function makeServer(root) {
         const lastUser = [...messages].reverse().find((m) => m.role !== 'assistant')
         const elapsedSec = lastUser?.at ? Math.max(0, Math.round((now - Date.parse(lastUser.at)) / 1000)) : null
         const turn = { elapsedSec: elapsedSec != null && elapsedSec < 14400 ? elapsedSec : null, output: tail?.stats?.turnOutput ?? 0 }
-        return json(res, 200, { label, model: tail?.stats?.model ?? null, mode: tail?.stats?.permissionMode ?? null, count: messages.length, messages, folder, workspace, usage, turn, pending: (() => { const p = pendingAsk(messages); return p ? { ...p, id: askId(p) } : null })() })
+        return json(res, 200, { ratesAsOf: RATES_AS_OF, label, model: tail?.stats?.model ?? null, mode: tail?.stats?.permissionMode ?? null, count: messages.length, messages, folder, workspace, usage, turn, pending: (() => { const p = pendingAsk(messages); return p ? { ...p, id: askId(p) } : null })() })
       }
       if (url.pathname === '/api/hire' && req.method === 'POST') {
         // ⛔ THE GUARDED ENTRY, NEVER THE PARTS. hire() owns the name rules,
@@ -883,6 +948,8 @@ export function makeServer(root) {
       res.end('board error: ' + e.message)
     }
   })
+  srv.csrf = csrf
+  return srv
 }
 
 if (isMain(import.meta.url)) {
