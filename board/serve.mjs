@@ -9,7 +9,7 @@
 // something `node checks/run.mjs` does not. So it renders collect() and the
 // same native sources, and it can be wrong about nothing on its own.
 import { createServer } from 'node:http'
-import { existsSync } from 'node:fs'
+import { existsSync, openSync, readSync, closeSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -85,7 +85,13 @@ export function leadSessionName(root) {
 // carries NO permission mode; the mode is stamped on the next transcript
 // entry and nowhere else, so the badge reads the record and says so.
 const desky = (s) => /^desk-/i.test(s?.name ?? '')
-export function liveSessions(home = homedir(), { expect = new Map() } = {}) {
+// ⛔ A NAMED ROW IS THAT NAME OR NOTHING. Ranking by the expected name still
+// handed the lead's row to whatever else was live at the root when the lead
+// was not: the owner's message would have gone to a developer's session. A
+// cwd in `strict` matches its expected name exactly, or has no live session
+// ("not running"). A desk's folder never takes a session named for ANOTHER
+// desk either.
+export function liveSessions(home = homedir(), { expect = new Map(), strict = new Set() } = {}) {
   const all = new Map()
   try {
     const dir = join(home, '.claude', 'sessions')
@@ -103,8 +109,10 @@ export function liveSessions(home = homedir(), { expect = new Map() } = {}) {
     }
   } catch {}
   const out = new Map()
-  for (const [cwd, list] of all) {
+  for (const [cwd, all0] of all) {
     const want = expect.get(cwd) ?? null
+    const list = all0.filter((j) => (!strict.has(cwd) || j.name === want) && !(want && /^desk-/i.test(want) && desky(j) && j.name !== want))
+    if (!list.length) continue
     // ranked, in order: the name this cwd is expected to carry; not a desk's
     // name (a desk restored at the repo root must never become the lead's
     // row); remote-controlled; and only then the newest status change
@@ -144,7 +152,23 @@ function expectedNames(root) {
   for (const d of rosterSafe(join(root, 'desks')).desks) m.set(join(root, 'desks', d.name), 'desk-' + d.name)
   return m
 }
-export const officeSessions = (root, home = homedir()) => liveSessions(home, { expect: expectedNames(root) })
+export const officeSessions = (root, home = homedir()) => {
+  const lead = leadSessionName(root)
+  return liveSessions(home, { expect: expectedNames(root), strict: new Set(lead ? [root] : []) })
+}
+
+// the session name a transcript records for itself (agent-name / custom-title
+// entries); read from the newest bytes, where a rename lands
+export function recordedName(path) {
+  try {
+    const st = statSync(path)
+    const n = Math.min(st.size, 512 * 1024)
+    const fd = openSync(path, 'r'); const buf = Buffer.alloc(n)
+    readSync(fd, buf, 0, n, st.size - n); closeSync(fd)
+    const all = [...buf.toString('utf8').matchAll(/"(?:agentName|customTitle)":"((?:[^"\\]|\\.)*)"/g)]
+    return all.length ? JSON.parse('"' + all.at(-1)[1] + '"') : null
+  } catch { return null }
+}
 
 // the transcript a row shows: the LIVE session's own file when there is one,
 // so the lead's chat is the lead's and not the newest robot's; otherwise the
@@ -155,6 +179,14 @@ export function transcriptFor(root, key, home = homedir(), live = officeSessions
   const cwd = row ? (row.desk === 'team-lead' ? root : join(root, 'desks', row.desk)) : null
   const ls = cwd ? live.get(cwd) : null
   if (ls?.sessionId && /^[A-Za-z0-9-]+$/.test(ls.sessionId) && existsSync(join(dir, ls.sessionId + '.jsonl'))) return join(dir, ls.sessionId + '.jsonl')
+  // the named lead, not running: its own newest record, never another root session's
+  const lead = row?.desk === 'team-lead' ? leadSessionName(root) : null
+  if (lead) {
+    try {
+      const files = readdirSync(dir).filter((f) => f.endsWith('.jsonl')).map((f) => join(dir, f)).sort((a, b) => statSafe(b) - statSafe(a))
+      return files.find((f) => recordedName(f) === lead) ?? null
+    } catch { return null }
+  }
   return newestSession(dir, home)
 }
 
@@ -214,7 +246,8 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
     const titles = liveTitles()
     // a live session file IS a live session; orca titles are the fallback
     // for hosts where the CLI registers none
-    r.online = ls ? true : titles ? (titles.has(r.desk) || r.desk === 'team-lead') : null
+    const named = r.desk === 'team-lead' && !!leadName
+    r.online = ls ? true : named ? false : titles ? (titles.has(r.desk) || r.desk === 'team-lead') : null
     // WORKING, from the source that cannot lie about it: Claude Code appends
     // to the transcript every few seconds mid-turn. The tab glyph looked like
     // a spinner and is in fact a permanent marker; mtime is the honest pulse.
@@ -231,8 +264,8 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
       r.claudeVersion = ls.version ?? null; r.sessionName = ls.name ?? null; r.status = ls.status ?? null
       r.remoteUrl = remoteUrlOf(ls)
     } else {
-      r.busy = t ? ((now - statSafe(t)) < 45000 && !endedOnText) : null
-      r.state = r.busy ? 'working' : null; r.detail = null; r.remoteUrl = null
+      r.busy = named ? false : t ? ((now - statSafe(t)) < 45000 && !endedOnText) : null
+      r.state = named ? 'not running' : r.busy ? 'working' : null; r.detail = named ? 'no live session named ' + leadName : null; r.remoteUrl = null
     }
     if (st) {
       const k = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)

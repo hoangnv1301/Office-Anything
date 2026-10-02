@@ -21,6 +21,12 @@
   recency only breaks ties. The lead's chat reads that session's own
   transcript, and a `desk-<name>` sender is named by its desk even after its
   session ended.
+- ⛔ A NAMED ROW IS THAT NAME OR NOTHING (review). Ranking by the expected
+  name still gave the lead's row to a developer session at the root when the
+  lead was not running, and the owner's message would have gone there. A
+  named lead now matches exactly or reads "not running", and its chat is the
+  newest transcript that records that name. A desk's folder never takes a
+  session named for another desk.
 
 ## 0.7.32
 

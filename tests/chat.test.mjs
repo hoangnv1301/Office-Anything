@@ -333,3 +333,27 @@ test('the roster carries state, detail and the Remote Control link per desk', as
   assert.deepEqual([row.state, row.busy, row.online, row.sessionName], ['shell', true, true, 'desk-pricing'])
   assert.equal(row.remoteUrl, 'https://claude.ai/code/session_01Abc')
 })
+
+test('⛔ a named lead that is not running is "not running", never the other session at the root', async () => {
+  const { officeSessions, chatRoster, transcriptFor } = await import('../board/serve.mjs')
+  const { slugFor } = await import('../board/read.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'oa-strict-'))
+  const root = mkdtempSync(join(tmpdir(), 'oa-strict-root-'))
+  mkdirSync(join(home, '.claude', 'sessions'), { recursive: true })
+  writeFileSync(join(root, 'office.json'), JSON.stringify({ lead: { session: 'Office Lead' } }))
+  writeFileSync(join(home, '.claude', 'sessions', process.pid + '.json'), JSON.stringify({ pid: process.pid, name: 'repo-dev-3', cwd: root, status: 'idle', sessionId: 'dev' }))
+  assert.equal(officeSessions(root, home).get(root), undefined, 'the developer session is not the lead')
+  const row = chatRoster(root, { home }).find((r) => r.desk === 'team-lead')
+  assert.deepEqual([row.online, row.state, row.busy], [false, 'not running', false])
+  // its chat is the lead's own newest record, not the developer's
+  const dir = join(home, '.claude', 'projects', slugFor(root))
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'lead-old.jsonl'), JSON.stringify({ type: 'agent-name', agentName: 'Office Lead' }) + '\n')
+  writeFileSync(join(dir, 'dev.jsonl'), JSON.stringify({ type: 'agent-name', agentName: 'repo-dev-3' }) + '\n')
+  assert.ok(transcriptFor(root, slugFor(root), home).endsWith('lead-old.jsonl'))
+  // a desk folder never takes a session named for another desk
+  mkdirSync(join(root, 'desks', 'a'), { recursive: true })
+  writeFileSync(join(root, 'desks', 'a', 'desk.json'), JSON.stringify({ name: 'a', kind: 'knowledge', port: 9250 }))
+  writeFileSync(join(home, '.claude', 'sessions', process.ppid + '.json'), JSON.stringify({ pid: process.ppid, name: 'desk-b', cwd: join(root, 'desks', 'a') }))
+  assert.equal(officeSessions(root, home).get(join(root, 'desks', 'a')), undefined)
+})
