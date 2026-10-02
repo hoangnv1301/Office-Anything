@@ -130,13 +130,81 @@ const textOf = (content) => {
   return content.filter((b) => b.type === 'text').map((b) => b.text).join('\n')
 }
 
-export function chatFrom(jsonlText, { limit = 80, toolIndex = new Map() } = {}) {
+// One owner for "what is this user-typed text, as chat": a real user entry and
+// a queued command (below) both pass through here, so the two can never
+// disagree about what an envelope, a task notification or a bare /command is.
+function userTextMessage(text, images, at) {
+  const clean = text.replace(IMG_MARKER, '').trim()
+  if (!clean && !images.length) return null
+  // a desk-to-desk message is CONVERSATION, not plumbing: strip the
+  // envelope and the harness's boilerplate, keep who said what
+  const xs = /<cross-session-message[^>]*from-name="([^"]+)"[^>]*>([\s\S]*?)<\/cross-session-message>/.exec(text)
+  // /compact's own wrapper entries (the command-name for /compact and
+  // its "Compacted" stdout) are pure machinery; the "context compacted"
+  // event stands in for the whole thing, so these two folds are dropped
+  const isCompactMachinery = /<command-name>\s*\/compact/i.test(text) || /<local-command-stdout>[^<]*Compacted/i.test(text)
+  // a BARE slash command typed at the prompt is recorded as plain text in
+  // some paths; it is a command, never the human chatting
+  const bareCmd = /^\/[a-z][\w:-]*(\s+\S.*)?$/i.test(clean) && clean.length < 120
+  if (xs) return { role: 'peer', from: xs[1], text: xs[2].trim().slice(0, 4000), at }
+  if (isCompactMachinery || /^\/compact\b/i.test(clean)) return null /* the one compaction event says it all */
+  // the CLI never renders these: context injected for the model, not
+  // for the human. A board that shows them shows MORE than the terminal,
+  // and the owner's rule is 1:1 with what the terminal shows.
+  if (/^\s*<system-reminder>/i.test(text) || /^\s*Caveat: /i.test(text) || /^\s*<local-command-caveat>/i.test(text)) return null
+  if (bareCmd) return { role: 'system', label: 'local command · ' + clean.split(/\s+/)[0], text: clean, at }
+  // eslint-disable-next-line no-control-regex -- ANSI color codes ride local-command stdout
+  if (isSystemText(text)) return { role: 'system', label: systemLabel(text), text: text.replace(/\x1b\[[0-9;]*m/g, '').slice(0, 2500), at }
+  // the echo of an image a TOOL read, typed 'user' by the harness --
+  // it is the desk's picture, and it sat right-aligned as the owner's
+  if (!clean && images.length && /\[Image: original /.test(text)) return { role: 'assistant', text: '', images, at }
+  return { role: 'user', text: clean.slice(0, 4000), images, at }
+}
+
+// ⛔ A MESSAGE THAT ARRIVES WHILE THE DESK IS BUSY IS NOT A USER ENTRY. The CLI
+// folds it into the running turn and records it as an ATTACHMENT, type
+// queued_command, with its origin: {kind:"human"} is the owner typing (or
+// speaking from the phone) mid-turn, {kind:"peer"} is another session's
+// message, commandMode "task-notification" is a background job finishing.
+// Reading only `type:"user"` dropped every one of them: 75 in one desk's
+// session, 41 in another's, the owner's own mid-turn corrections among them.
+// They are the same words a user entry would carry, so they go through the
+// same classifier; the origin only decides what an UNWRAPPED text is.
+function queuedMessage(a, at) {
+  const p = a.prompt
+  const text = typeof p === 'string' ? p : textOf(p)
+  const images = Array.isArray(p) ? imagesOf(p) : imagesOf(text)
+  if (a.commandMode === 'task-notification') {
+    return text.trim() ? { role: 'system', label: 'background task', text: text.slice(0, 2500), at, queued: true } : null
+  }
+  const msg = userTextMessage(text, images, at)
+  if (!msg) return null
+  // a peer's words without the envelope (a sender that did not wrap them)
+  // are still a peer's: the origin says who, never the owner's bubble
+  if (a.origin?.kind === 'peer' && msg.role === 'user') return { role: 'peer', from: a.origin.from ?? 'another session', text: msg.text, images, at, queued: true }
+  return { ...msg, queued: true }
+}
+
+export function chatFrom(jsonlText, { limit = 80, toolIndex = new Map(), seen = new Set() } = {}) {
   const out = []
   for (const line of jsonlText.split('\n')) {
     if (!line.trim()) continue
     let j
     try { j = JSON.parse(line) } catch { continue }   // a torn tail line is a live session, not an error
     const m = j.message
+    if (j.type === 'attachment' && j.attachment?.type === 'queued_command') {
+      // de-duplicated by the queued prompt's own id: the same command can be
+      // recorded twice (seen in a real session), and the `seen` set rides the
+      // readTail cache so a later chunk cannot repeat an earlier one
+      const id = j.attachment.source_uuid ?? j.uuid
+      if (id && seen.has(id)) continue
+      if (id) { seen.add(id); if (seen.size > 2000) for (const k of [...seen].slice(0, 1000)) seen.delete(k) }
+      const q = queuedMessage(j.attachment, j.attachment.timestamp ?? j.timestamp ?? null)
+      // ...and by content: if a future CLI also writes the same words as a
+      // user entry, the second copy must not become a second bubble
+      if (q && !out.slice(-6).some((x) => x.role === q.role && x.text === q.text && x.text)) out.push(q)
+      continue
+    }
     if (j.type === 'user' && m) {
       const text = textOf(m.content)
       // tool results come back as user-typed entries; they are plumbing, not chat
@@ -158,33 +226,11 @@ export function chatFrom(jsonlText, { limit = 80, toolIndex = new Map() } = {}) 
         }
       }
       const images = imagesOf(m.content)
-      const clean = text.replace(IMG_MARKER, '').trim()
-      if (!isToolResult && (clean || images.length)) {
-        // a desk-to-desk message is CONVERSATION, not plumbing: strip the
-        // envelope and the harness's boilerplate, keep who said what
-        const xs = /<cross-session-message[^>]*from-name="([^"]+)"[^>]*>([\s\S]*?)<\/cross-session-message>/.exec(text)
-        // /compact's own wrapper entries (the command-name for /compact and
-        // its "Compacted" stdout) are pure machinery; the "context compacted"
-        // event stands in for the whole thing, so these two folds are dropped
-        const isCompactMachinery = /<command-name>\s*\/compact/i.test(text) || /<local-command-stdout>[^<]*Compacted/i.test(text)
-        // eslint-disable-next-line no-control-regex -- ANSI color codes ride local-command stdout
-        // a BARE slash command typed at the prompt is recorded as plain text in
-        // some paths; it is a command, never the human chatting
-        const bareCmd = /^\/[a-z][\w:-]*(\s+\S.*)?$/i.test(clean) && clean.length < 120
-        if (xs) out.push({ role: 'peer', from: xs[1], text: xs[2].trim().slice(0, 4000), at: j.timestamp ?? null })
-        else if (isCompactMachinery || /^\/compact\b/i.test(clean)) { /* the one compaction event says it all */ }
-        // the CLI never renders these: context injected for the model, not
-        // for the human. A board that shows them shows MORE than the terminal,
-        // and the owner's rule is 1:1 with what the terminal shows.
-        else if (/^\s*<system-reminder>/i.test(text) || /^\s*Caveat: /i.test(text) || /^\s*<local-command-caveat>/i.test(text)) { /* invisible in the CLI, invisible here */ }
-        else if (bareCmd) out.push({ role: 'system', label: 'local command · ' + clean.split(/\s+/)[0], text: clean, at: j.timestamp ?? null })
-        else if (isSystemText(text)) out.push({ role: 'system', label: systemLabel(text), text: text.replace(/\x1b\[[0-9;]*m/g, '').slice(0, 2500), at: j.timestamp ?? null })
-        else if (!clean && images.length && /\[Image: original /.test(text))
-          // the echo of an image a TOOL read, typed 'user' by the harness --
-          // it is the desk's picture, and it sat right-aligned as the owner's
-          out.push({ role: 'assistant', text: '', images, at: j.timestamp ?? null })
-        else out.push({ role: 'user', text: clean.slice(0, 4000), images, at: j.timestamp ?? null })
-      } else if (isToolResult && images.length) {
+      if (!isToolResult) {
+        const msg = userTextMessage(text, images, j.timestamp ?? null)
+        // the same words already shown as a queued command are not said twice
+        if (msg && !(msg.text && out.slice(-6).some((x) => x.queued && x.role === msg.role && x.text === msg.text))) out.push(msg)
+      } else if (images.length) {
         // tool results stay plumbing EXCEPT their pictures: a screenshot a
         // tool returned is something the human should see, not skip.
         // ⛔ THE DESK'S side, not the owner's: role 'user' rendered every
@@ -254,8 +300,8 @@ export function readTail(path, { limit = 80, cap = 64 * 1024 * 1024 } = {}) {
   try { st = statSync(path) } catch { return null }
   const c = tailCache.get(path)
   if (c && c.size === st.size && c.mtimeMs === st.mtimeMs) return c
-  let from = 0, carry = '', messages = [], stats = { turns: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, model: null }, toolIndex = new Map()
-  if (c && st.size > c.size) { from = c.size; carry = c.carry; messages = c.messages.slice(); stats = { ...c.stats }; toolIndex = c.toolIndex ?? new Map() }
+  let from = 0, carry = '', messages = [], stats = { turns: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, model: null }, toolIndex = new Map(), seen = new Set()
+  if (c && st.size > c.size) { from = c.size; carry = c.carry; messages = c.messages.slice(); stats = { ...c.stats }; toolIndex = c.toolIndex ?? new Map(); seen = c.seen ?? new Set() }
   // ⛔ THE WINDOW IS THE NEWEST `cap` BYTES, NEVER THE FIRST. Reading from
   // `from` and stopping at the cap parsed bytes 0..64 MB of a 74.5 MB lead
   // transcript, recorded the whole size as read, and the board sat on a turn
@@ -273,7 +319,7 @@ export function readTail(path, { limit = 80, cap = 64 * 1024 * 1024 } = {}) {
     const nl = text.lastIndexOf('\n')
     carry = nl >= 0 ? text.slice(nl + 1) : text
     const body = nl >= 0 ? text.slice(0, nl) : ''
-    for (const m of chatFrom(body, { limit: Infinity, toolIndex })) messages.push(m)
+    for (const m of chatFrom(body, { limit: Infinity, toolIndex, seen })) messages.push(m)
     for (const line of body.split('\n')) {
       // a human message starts a TURN; its output tokens accumulate until
       // the next one, which is exactly the number the CLI status line shows
@@ -297,7 +343,7 @@ export function readTail(path, { limit = 80, cap = 64 * 1024 * 1024 } = {}) {
     }
   } finally { closeSync(fd) }
   if (messages.length > limit) messages = messages.slice(-limit)
-  const entry = { size: st.size, mtimeMs: st.mtimeMs, carry, messages, toolIndex, stats: { ...stats, lastActiveMs: st.mtimeMs } }
+  const entry = { size: st.size, mtimeMs: st.mtimeMs, carry, messages, toolIndex, seen, stats: { ...stats, lastActiveMs: st.mtimeMs } }
   tailCache.set(path, entry)
   return entry
 }

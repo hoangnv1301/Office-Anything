@@ -2,7 +2,7 @@
 
 | file | answers |
 |---|---|
-| `serve.mjs` | every route. Serves the built UI, `/api/*` for office, transcript, send, hire, upload, screen, commands, files. Loopback only |
+| `serve.mjs` | every route. Serves the built UI, `/api/*` for office, transcript, send, hire, upload, screen, commands, files. Loopback only. Reads the live session registry (every status, the Remote Control link) and the optional root `office.json` (the lead session's name) |
 | `read.mjs` | who is in the office and what surrounds them: roster rows, transcript stats, worktop, workspace tree, live subagents |
 | `transcript.mjs` | a session's jsonl as chat: incremental tail reader (62 MB re-reads froze the board once), message/system/image classification |
 | `send.mjs` | the ONE path characters enter a desk terminal from here: the orca CLI, or read-only with the reason said plainly |

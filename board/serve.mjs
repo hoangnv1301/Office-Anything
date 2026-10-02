@@ -9,7 +9,7 @@
 // something `node checks/run.mjs` does not. So it renders collect() and the
 // same native sources, and it can be wrong about nothing on its own.
 import { createServer } from 'node:http'
-import { existsSync } from 'node:fs'
+import { existsSync, openSync, readSync, closeSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -56,41 +56,150 @@ export function chatRosterCheap(root) {
   ]
 }
 
+// The office's own settings, optional: <root>/office.json. Everything in it is
+// about how THIS office is run (what its lead session is called, which extra
+// panels it adds); the board must work identically without it.
+export function officeConfig(root) {
+  try {
+    const c = JSON.parse(readFileSync(join(root, 'office.json'), 'utf8'))
+    return c && typeof c === 'object' && !Array.isArray(c) ? c : {}
+  } catch { return {} }
+}
+
+// ⛔ THE LEAD IS A NAME, NOT "WHOEVER MOVED LAST". Several live sessions share
+// the repo root (the lead, a dev session, a desk restored there by --resume),
+// and "most recent status change" handed the lead's row to whichever of them
+// had just finished a turn. An office names its lead session once
+// (office.json {"lead": {"session": "<name>"}}); without that, the
+// remote-controlled session (the one the owner drives from the phone) leads,
+// and recency only breaks ties.
+export function leadSessionName(root) {
+  const c = officeConfig(root)
+  return typeof c.lead?.session === 'string' && c.lead.session.trim() ? c.lead.session.trim() : null
+}
+
 // ⛔ THE CLI KEEPS A LIVE SESSION FILE: ~/.claude/sessions/<pid>.json with
-// status busy|idle, cwd, version, name. That is the truth about "working",
-// and it replaces the mtime heuristic wherever a file exists for the cwd.
-// It carries NO permission mode; the mode is stamped on the next transcript
+// status (busy | shell | idle | waiting), waitingFor/needs, cwd, version,
+// name, the Remote Control id. That is the truth about "working", and it
+// replaces the mtime heuristic wherever a file exists for the cwd. It
+// carries NO permission mode; the mode is stamped on the next transcript
 // entry and nowhere else, so the badge reads the record and says so.
-export function liveSessions(home = homedir()) {
-  const out = new Map()
+const desky = (s) => /^desk-/i.test(s?.name ?? '')
+// ⛔ A NAMED ROW IS THAT NAME OR NOTHING. Ranking by the expected name still
+// handed the lead's row to whatever else was live at the root when the lead
+// was not: the owner's message would have gone to a developer's session. A
+// cwd in `strict` matches its expected name exactly, or has no live session
+// ("not running"). A desk's folder never takes a session named for ANOTHER
+// desk either.
+export function liveSessions(home = homedir(), { expect = new Map(), strict = new Set() } = {}) {
+  const all = new Map()
   try {
     const dir = join(home, '.claude', 'sessions')
     for (const f of readdirSync(dir)) {
-      if (!f.endsWith('.json')) continue
+      if (!/^\d+\.json$/.test(f)) continue
       try {
         const j = JSON.parse(readFileSync(join(dir, f), 'utf8'))
         if (!j.cwd || !j.pid) continue
         // updatedAt only moves on status changes (hours stale is normal); the
         // pid is the liveness test, and a dead pid is a crashed CLI's leftover
         try { process.kill(j.pid, 0) } catch { continue }
-        // a desk restored at the repo root (Orca's --resume drops its cd)
-        // shares the lead's cwd; it must never become the lead's row
-        const prev = out.get(j.cwd)
-        const desky = (s) => /^desk-/i.test(s?.name ?? '')
-        if (!prev || (desky(prev) && !desky(j)) || (desky(prev) === desky(j) && (j.updatedAt ?? 0) > (prev.updatedAt ?? 0))) out.set(j.cwd, j)
+        if (!all.has(j.cwd)) all.set(j.cwd, [])
+        all.get(j.cwd).push(j)
       } catch {}
     }
   } catch {}
+  const out = new Map()
+  for (const [cwd, all0] of all) {
+    const want = expect.get(cwd) ?? null
+    const list = all0.filter((j) => (!strict.has(cwd) || j.name === want) && !(want && /^desk-/i.test(want) && desky(j) && j.name !== want))
+    if (!list.length) continue
+    // ranked, in order: the name this cwd is expected to carry; not a desk's
+    // name (a desk restored at the repo root must never become the lead's
+    // row); remote-controlled; and only then the newest status change
+    const rank = (j) => [want && j.name === want ? 1 : 0, desky(j) && !(want && /^desk-/i.test(want)) ? 0 : 1, j.bridgeSessionId ? 1 : 0, j.updatedAt ?? 0]
+    const better = (a, b) => { const x = rank(a), y = rank(b); for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false }
+    out.set(cwd, list.reduce((best, j) => (better(j, best) ? j : best)))
+  }
   return out
+}
+
+// ⛔ EVERY STATUS THE CLI WRITES, NOT TWO OF THEM. `shell` (a foreground
+// command running) read as idle because only `busy` was tested, so the desk
+// running the longest job looked like the one doing nothing.
+export function stateOf(ls) {
+  if (!ls) return null
+  switch (ls.status) {
+    case 'busy': return { state: 'working', busy: true, waiting: false, detail: ls.detail ?? null }
+    case 'shell': return { state: 'shell', busy: true, waiting: false, detail: ls.detail ?? 'running a command' }
+    case 'waiting': return { state: 'waiting', busy: false, waiting: true, detail: ls.needs ?? ls.waitingFor ?? 'needs you' }
+    case 'idle': return { state: 'idle', busy: false, waiting: false, detail: null }
+    // a status this board has never seen is said as-is, never guessed into one it knows
+    default: return { state: ls.status ? String(ls.status) : 'unknown', busy: null, waiting: false, detail: ls.detail ?? null }
+  }
+}
+
+// Remote Control: a session the owner can open in the Claude app carries its
+// bridge id; the link is the same one the CLI prints.
+export const remoteUrlOf = (ls) => (typeof ls?.bridgeSessionId === 'string' && /^session_[A-Za-z0-9]+$/.test(ls.bridgeSessionId))
+  ? 'https://claude.ai/code/' + ls.bridgeSessionId : null
+
+// what each office cwd is expected to be called: desks/<n> runs as desk-<n>,
+// the root as the declared lead session (if any)
+function expectedNames(root) {
+  const m = new Map()
+  const lead = leadSessionName(root)
+  if (lead) m.set(root, lead)
+  for (const d of rosterSafe(join(root, 'desks')).desks) m.set(join(root, 'desks', d.name), 'desk-' + d.name)
+  return m
+}
+export const officeSessions = (root, home = homedir()) => {
+  const lead = leadSessionName(root)
+  return liveSessions(home, { expect: expectedNames(root), strict: new Set(lead ? [root] : []) })
+}
+
+// the session name a transcript records for itself (agent-name / custom-title
+// entries); read from the newest bytes, where a rename lands
+export function recordedName(path) {
+  try {
+    const st = statSync(path)
+    const n = Math.min(st.size, 512 * 1024)
+    const fd = openSync(path, 'r'); const buf = Buffer.alloc(n)
+    readSync(fd, buf, 0, n, st.size - n); closeSync(fd)
+    const all = [...buf.toString('utf8').matchAll(/"(?:agentName|customTitle)":"((?:[^"\\]|\\.)*)"/g)]
+    return all.length ? JSON.parse('"' + all.at(-1)[1] + '"') : null
+  } catch { return null }
+}
+
+// the transcript a row shows: the LIVE session's own file when there is one,
+// so the lead's chat is the lead's and not the newest robot's; otherwise the
+// newest-human rule in newestSession
+export function transcriptFor(root, key, home = homedir(), live = officeSessions(root, home)) {
+  const dir = join(home, '.claude', 'projects', key)
+  const row = chatRosterCheap(root).find((r) => r.key === key)
+  const cwd = row ? (row.desk === 'team-lead' ? root : join(root, 'desks', row.desk)) : null
+  const ls = cwd ? live.get(cwd) : null
+  if (ls?.sessionId && /^[A-Za-z0-9-]+$/.test(ls.sessionId) && existsSync(join(dir, ls.sessionId + '.jsonl'))) return join(dir, ls.sessionId + '.jsonl')
+  // the named lead, not running: its own newest record, never another root session's
+  const lead = row?.desk === 'team-lead' ? leadSessionName(root) : null
+  if (lead) {
+    try {
+      const files = readdirSync(dir).filter((f) => f.endsWith('.jsonl')).map((f) => join(dir, f)).sort((a, b) => statSafe(b) - statSafe(a))
+      return files.find((f) => recordedName(f) === lead) ?? null
+    } catch { return null }
+  }
+  return newestSession(dir, home)
 }
 
 // a cross-session message envelope carries the SENDER's OWN session name
 // (the harness-assigned handle, like "alibaba-claude-runbook-v2-d1" for a
 // second root session), never the desk label the board shows everywhere
 // else. Resolved the same way a desk's own row is: match the live
-// session's cwd back to the root or a desks/<name> folder.
+// session's cwd back to the root or a desks/<name> folder. A `desk-<name>`
+// handle names its desk even after that session has ended.
 function friendlyFromName(root, home = homedir()) {
   const map = new Map()
+  const lead = leadSessionName(root)
+  if (lead) map.set(lead, 'team-lead')
   for (const [cwd, j] of liveSessions(home)) {
     if (!j.name) continue
     if (/^desk-/i.test(j.name)) { map.set(j.name, j.name.slice(5)); continue }
@@ -100,17 +209,19 @@ function friendlyFromName(root, home = homedir()) {
   }
   return map
 }
+export const friendlyFrom = (map, from) => map.get(from) ?? (/^desk-/i.test(from ?? '') ? from.slice(5) : from)
 
 export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
-  const live = liveSessions(home)
+  const live = officeSessions(root, home)
   const { desks } = rosterSafe(join(root, 'desks'))
+  const leadName = leadSessionName(root)
   const rows = [
-    { key: slugFor(root), label: 'team-lead', sub: 'the repo root · this machine\'s lead session', desk: 'team-lead' },
+    { key: slugFor(root), label: 'team-lead', sub: 'the repo root · ' + (leadName ? 'session ' + leadName : 'this machine\'s lead session'), desk: 'team-lead' },
     ...desks.map((d) => ({ key: slugFor(join(root, 'desks', d.name)), label: d.name, sub: d.kind + (d.live ? ' · LIVE' : ''), desk: d.name, port: d.port, kind: d.kind })),
   ]
   for (const r of rows) {
     const dir = join(home, '.claude', 'projects', r.key)
-    const t = newestSession(dir)
+    const t = transcriptFor(root, r.key, home, live)
     r.activeMin = t ? Math.round((now - (statSafe(t))) / 60000) : null
     r.agents = t ? subagentsOf(dir, t) : []
     r.jobs = jobsOf(join('/private/tmp', 'claude-' + process.getuid(), r.key))
@@ -130,8 +241,13 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
         }
       }
     }
+    const deskCwd = r.desk === 'team-lead' ? root : join(root, 'desks', r.desk)
+    const ls = live.get(deskCwd)
     const titles = liveTitles()
-    r.online = titles ? (titles.has(r.desk) || r.desk === 'team-lead') : null
+    // a live session file IS a live session; orca titles are the fallback
+    // for hosts where the CLI registers none
+    const named = r.desk === 'team-lead' && !!leadName
+    r.online = ls ? true : named ? false : titles ? (titles.has(r.desk) || r.desk === 'team-lead') : null
     // WORKING, from the source that cannot lie about it: Claude Code appends
     // to the transcript every few seconds mid-turn. The tab glyph looked like
     // a spinner and is in fact a permanent marker; mtime is the honest pulse.
@@ -139,16 +255,18 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
     // with a tool call or a result. Without this, "working" outlived every
     // turn by the whole mtime window and the owner watched a done desk brew.
     const endedOnText = lastMsg?.role === 'assistant' && !(lastMsg.tools?.length)
-    const deskCwd = r.desk === 'team-lead' ? root : join(root, 'desks', r.desk)
-    const ls = live.get(deskCwd)
-    // a live session file within the last two minutes is the truth; older
-    // ones are a crashed CLI's leftovers and the heuristic takes over
     if (ls) {
-      r.busy = ls.status === 'busy'
+      const s = stateOf(ls)
+      r.busy = s.busy
       // "waiting" is the CLI itself saying a human is needed (a prompt, a question)
-      if (ls.status === 'waiting') r.waiting = true
+      if (s.waiting) r.waiting = true
+      r.state = s.state; r.detail = s.detail
       r.claudeVersion = ls.version ?? null; r.sessionName = ls.name ?? null; r.status = ls.status ?? null
-    } else r.busy = t ? ((now - statSafe(t)) < 45000 && !endedOnText) : null
+      r.remoteUrl = remoteUrlOf(ls)
+    } else {
+      r.busy = named ? false : t ? ((now - statSafe(t)) < 45000 && !endedOnText) : null
+      r.state = named ? 'not running' : r.busy ? 'working' : null; r.detail = named ? 'no live session named ' + leadName : null; r.remoteUrl = null
+    }
     if (st) {
       const k = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
       r.sub += ' · ' + st.turns + ' turns · ' + k(st.input + st.cacheRead) + '/' + k(st.output) + ' tok'
@@ -569,11 +687,11 @@ export function makeServer(root) {
       if (url.pathname === '/api/transcript') {
         const key = url.searchParams.get('key') ?? ''
         if (!/^[A-Za-z0-9-]+$/.test(key)) return json(res, 400, { why: 'bad key' })
-        const t = newestSession(join(homedir(), '.claude', 'projects', key))
+        const t = transcriptFor(root, key)
         if (!t) return json(res, 200, { label: key, model: null, count: 0, messages: [] })
         const tail = readTail(t)
         const nameMap = friendlyFromName(root)
-        const messages = (tail?.messages ?? []).map((m) => (m.role === 'peer' && nameMap.has(m.from)) ? { ...m, from: nameMap.get(m.from) } : m)
+        const messages = (tail?.messages ?? []).map((m) => m.role === 'peer' ? { ...m, from: friendlyFrom(nameMap, m.from) } : m)
         const row = chatRosterCheap(root).find((r) => r.key === key)
         const label = row?.label ?? key
         // the session's WORKING folder: the desk's own tree, or the repo root
