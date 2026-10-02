@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.7.36
+
+- BETWEEN DESKS: an office-wide timeline of every desk-to-desk message, read
+  from both ends (a desk's SendMessage calls and the peer messages it
+  received), one line per message, with the asks nobody has answered marked
+  and counted beside the desks. A closing "done, thanks" is not an ask.
+- EACH DESK SAYS WHAT IT IS DOING in the CLI's own words (working, running a
+  command, waiting on you and on what), and a desk running Remote Control
+  gets an "open in the Claude app" button.
+- THE COMPOSER SAYS ITS ROAD before you type: the desk's inbox, its
+  terminal, or why it cannot be reached. A question's option is answered in
+  the desk's own dialog; multi-select, multi-question and plan approval point
+  to the Claude app instead of typing words into a dialog.
+- THE EXTENSION POINT: `panels` in `office.json`. A project lists a read-only
+  command per panel and the board shows its items beside the desks; the
+  board itself stays free of any one business's nouns.
+- /model offers the aliases and today's ids (claude-opus-5-5,
+  claude-fable-5-1, claude-sonnet-5, claude-haiku-4-5-20251001).
+- RATES RECHECKED against the reference (as of 2026-06-24): Opus 5.5 is
+  $4/$20 with $0.20 cache reads, and had been billed as Opus 5 because
+  `claude-opus-5` is a prefix of its id; Fable 5.1 reads cache at $0.25. The
+  rates' date now shows beside every estimate instead of in a hidden card.
+
 ## 0.7.35
 
 - BROWSERS START WHEN A DESK BROWSES, NOT WHEN THE OFFICE STARTS. The owner's

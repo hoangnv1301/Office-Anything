@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-175%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-180%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -223,10 +223,25 @@ components, nothing hand-rolled:
   the desk's **Remote Control link** when it has one, so a desk opens in the
   Claude app in one tap. Messages that reach a desk mid-turn (yours, and other
   desks') show up where they landed, not only the ones typed at an idle prompt.
-- **Name your lead**: several sessions can share the repo root. An optional
-  `office.json` at the root says which one is the lead —
-  `{"lead": {"session": "<session name>"}}` — and the board follows that name
-  instead of whichever session changed status last.
+- **Between desks**: one office-wide timeline of every desk-to-desk message,
+  read from both ends' records, with the asks nobody has answered marked.
+- **Open in the Claude app**: a desk running Remote Control has a button that
+  opens that very session in the app, so a reply or an approval the board
+  does not drive is one tap away.
+- **`office.json`, optional, at the repo root** — the one file where an
+  office adapts the board to itself, and the board works the same without it:
+
+  ```json
+  {
+    "lead": { "session": "<the lead session's name>" },
+    "panels": [{ "id": "approvals", "title": "Pending approvals", "command": "node scripts/approvals.mjs" }]
+  }
+  ```
+
+  The lead is followed by that name instead of whichever root session moved
+  last. Each panel's command runs at the root, read-only by contract, and
+  prints JSON `{"items": [{"title", "detail?", "url?", "at?"}], "note?"}` or
+  plain lines; the board lists exactly that beside the desks.
 - **The office's own pulse**: a root `desk.json` may declare a `heartbeat`
   command; the board runs it and shows the answer (`13/13 loops up`), red
   when it is not. Wiring it found eight dead keeper loops nobody had noticed.

@@ -1,7 +1,7 @@
 // The pure seams of the board's App, tested by name. Rendering behavior is
 // walked by board/ui/e2e.mjs against the living office; these stay hermetic.
 import { describe, expect, test } from 'vitest'
-import { toBlocks, type Msg } from './App'
+import { toBlocks, deskStatusLine, composerHint, type Msg } from './App'
 
 const user = (text: string): Msg => ({ role: 'user', text })
 const asst = (text: string, tools: { name: string; input: unknown }[] = []): Msg => ({ role: 'assistant', text, tools })
@@ -46,5 +46,24 @@ describe('toBlocks — the folding that keeps tool spam off the screen', () => {
 
   test('an empty user message still shows — a user turn is never swallowed', () => {
     expect(toBlocks([user('')])).toHaveLength(1)
+  })
+})
+
+describe('deskStatusLine — every live status the CLI writes, in its words', () => {
+  test('waiting says on what; shell is a running command; unknown is said as-is', () => {
+    expect(deskStatusLine({ state: 'waiting', detail: 'permission prompt' })).toBe('waiting on you · permission prompt')
+    expect(deskStatusLine({ state: 'shell' })).toBe('running a command')
+    expect(deskStatusLine({ state: 'working' })).toBe('working')
+    expect(deskStatusLine({ state: 'idle' })).toBe('idle')
+    expect(deskStatusLine({ state: 'parked' })).toBe('parked')
+    expect(deskStatusLine({ online: false })).toBe('offline')
+  })
+})
+
+describe('composerHint — the road a message takes, said before typing', () => {
+  test('inbox, terminal, or the honest no', () => {
+    expect(composerHint({ label: 'pricing', route: 'inbox' })).toMatch(/session inbox/)
+    expect(composerHint({ label: 'pricing', route: 'terminal' })).toMatch(/terminal/)
+    expect(composerHint({ label: 'pricing', route: null })).toMatch(/Claude app/)
   })
 })
