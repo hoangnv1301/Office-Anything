@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.35
+
+- BROWSERS START WHEN A DESK BROWSES, NOT WHEN THE OFFICE STARTS. The owner's
+  first complaint about the office was a screen full of Chrome windows every
+  time it came up, one per desk, most of them for desks that never opened a
+  page. `/desk-board` no longer opens a browser at all: it hands over the
+  link and opens it only when asked.
+- A NEW CHECK, `browser-on-demand`, reads every hook Claude Code fires by
+  itself (SessionStart, Setup, UserPromptSubmit) in the office's and each
+  desk's settings, and the local script each one runs, for the shapes that
+  launch a browser. A browser MCP that starts its browser on its first tool
+  call is the rule working, and passes. What it cannot see, it says: a launchd
+  job or keeper loop outside the repo is the other place to look.
+
 ## 0.7.34
 
 - THE BOARD TALKS THROUGH THE SESSION'S OWN INBOX. Every interactive Claude
