@@ -44,6 +44,7 @@ import { costOf, AS_OF as RATES_AS_OF } from '../lib/rates.mjs'
 import { officeTimeline } from './timeline.mjs'
 import { collect } from '../checks/run.mjs'
 import { isMain } from '../lib/is-main.mjs'
+import { readOfficeConfig } from '../lib/office.mjs'
 
 // The chat's session list: every desk plus the LEAD, whose desk is the repo
 // root. key = the cwd slug, which is how Claude Code files both the
@@ -61,12 +62,7 @@ export function chatRosterCheap(root) {
 // The office's own settings, optional: <root>/office.json. Everything in it is
 // about how THIS office is run (what its lead session is called, which extra
 // panels it adds); the board must work identically without it.
-export function officeConfig(root) {
-  try {
-    const c = JSON.parse(readFileSync(join(root, 'office.json'), 'utf8'))
-    return c && typeof c === 'object' && !Array.isArray(c) ? c : {}
-  } catch { return {} }
-}
+export const officeConfig = (root) => readOfficeConfig(root)
 
 // ⛔ THE LEAD IS A NAME, NOT "WHOEVER MOVED LAST". Several live sessions share
 // the repo root (the lead, a dev session, a desk restored there by --resume),

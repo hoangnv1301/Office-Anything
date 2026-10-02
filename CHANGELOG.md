@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.7.37
+
+- THE DESK WALL AND DESK BOOT MOVE INTO THE PLUGIN. Every office that ran
+  desks for long wrote the same two hooks: a gate that keeps each desk inside
+  its own folder (no writes elsewhere, no secrets, no other desk's keys, no
+  walking into another desk, a lead that only runs the commands it is given),
+  and a start-up note that tells a restarted desk who it is and where its
+  memory is. They are `hooks/desk-wall.mjs` and `hooks/desk-boot.mjs` now,
+  with the rules in `lib/wall.mjs` and identity in `lib/office.mjs`, and every
+  business-specific part (refused commands and their reasons, the lead's
+  commands, which files are memory, the words used) in `office.json`.
+- ⛔ OFF UNTIL ASKED. A plugin hook runs in every project it is installed in;
+  both do nothing without the `wall` / `boot` sections in `office.json`.
+- IDENTITY FOLLOWS THE SESSION: the declared role variable, then the session
+  name from the CLI's registry (it survives `--resume` at the repo root,
+  which drops both the folder and the variable), then the folder. A session
+  claiming a desk the office does not have is refused.
+- FAILS OPEN BY DEFAULT, as every gate here does; `wall.failClosed` lets an
+  office whose wall is its only door refuse a desk call it cannot judge.
+- GIT IS READ-ONLY FOR A DESK BY ALLOWLIST (status, log, diff, show, …).
+  The source office listed the writing subcommands and missed `branch -D`,
+  `clean -fdx`, `config`, `tag`, `worktree`; review caught it.
+- THE WALL FOLLOWS THE SESSION OUT OF THE REPO (review). It found the
+  office only from the payload's cwd, so a desk that cd'd to /tmp had no
+  wall. It now asks CLAUDE_PROJECT_DIR first (the session's own folder,
+  which cd does not move), then the cwd, and the role variable from
+  `office.json`. With `failClosed`, a wall that breaks while judging refuses
+  (the `|| exit 2` the source office had), including an uncaught crash.
+- A NEW CHECK, `desk-wall`: a rule that does not compile (the gate cannot
+  apply it), and any desk record running a command the office audits for.
+- MIGRATING an office that has its own copies: add the sections, install
+  this version, restart the desks; the two walls agree while both run. Then
+  remove the old hook lines from each desk's settings and retire the scripts.
+
 ## 0.7.36
 
 - BETWEEN DESKS: an office-wide timeline of every desk-to-desk message, read

@@ -16,6 +16,10 @@
   never sent to the page. Loopback only, as the whole board is.
   Writing requests are accepted only from the board's own host and origin,
   as `application/json`, so another site's page cannot drive a desk.
+- **Desk hooks**: `desk-wall` and `desk-boot` do nothing unless the repo's
+  `office.json` turns them on. Then they read `office.json`, `desks/*/desk.json`,
+  the desk's own file names, and this session's record under
+  `~/.claude/sessions/` (its name only), walking parent pids with `ps`.
 - **Network**: none. No telemetry, no calls out.
 
 ## Reporting
