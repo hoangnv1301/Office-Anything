@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-180%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-192%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -161,6 +161,62 @@ kind in desks/pricing/desk.json deliberately, where somebody reviews it.
 It is checked both ways: a live channel desk with **no** way to send fails just as loudly,
 because that means someone is being ignored.
 
+## The desk wall, and a desk that remembers
+
+Two more pieces every office ends up writing, now in the plugin. Both are
+**off until your `office.json` turns them on**, so installing the plugin
+changes nothing in a project that does not ask.
+
+**The desk wall** (`"wall"`) is a PreToolUse gate on Bash, Read and the
+writing tools. A desk writes only inside its own folder, never its `.claude/`
+or `runtime/` (its door and its keys); reads no secret file and no other
+desk's `runtime/`; does not `cd` into another desk, reassign the role or token
+variables, or make git writes. The lead writes no file, and when you list its
+commands, runs exactly one of them per call. Your own refusals go in
+`wall.deny`, each with the reason the desk is shown.
+
+**Desk boot** (`"boot"`) is a SessionStart hook. A desk that restarts (or is
+resumed at the repo root, which drops its folder) is told who it is, which of
+its files are its memory, newest first, and the doorbell command its
+`desk.json` names under `"wake"`.
+
+A session is identified by its declared role variable (`roleEnv`), then by
+its session name (which survives `--resume`), then by its folder. A session
+that claims a desk you do not have is refused, never waved through as a
+developer.
+
+```json
+{
+  "roleEnv": "OFFICE_ROLE",
+  "lead": { "session": "Office Lead" },
+  "wall": {
+    "failClosed": true,
+    "secrets": "\\.env\\b",
+    "lockedEnv": ["OPS_TOKEN"],
+    "deny": [{ "pattern": "\\bsqlite3\\b", "why": "desks do not touch the database directly" }],
+    "lead": { "bash": ["^\\s*node \\S*scripts/ops\\.mjs\\s+\\S"] },
+    "audit": ["\\bsqlite3\\b"],
+    "footer": { "desk": "Write only through scripts/ops.mjs propose." }
+  },
+  "boot": {
+    "memory": ["^facts\\.md$", "^(REPORT|BRIEF)-.*\\.md$"],
+    "lead": ["Read desks/LEAD.md before anything else."]
+  }
+}
+```
+
+⛔ **A gate that crashes fails open, unless you say otherwise.** That is this
+plugin's rule for every hook. An office whose wall is its only door can set
+`wall.failClosed`: then a desk session whose payload or rules cannot be read
+is refused. The `desk-wall` check reports a rule that does not compile, and
+any desk record showing a command listed in `wall.audit`.
+
+**Moving an existing office onto these**: keep your own hooks in place, add
+the `office.json` sections, install the plugin version that carries them and
+restart the desks (hooks arm only on a restart). With both running, the two
+walls agree and the desks hear the boot text twice; then remove your copies
+from each desk's `.claude/settings.json` and retire the scripts.
+
 ## The checks
 
 One command audits any repo that carries desks, from anywhere:
@@ -179,6 +235,7 @@ node checks/run.mjs ~/code/some-repo    # every check, one exit code
 | `desk-literals` | can a desk be added or removed without editing a root test |
 | `commit-convention` | does every commit since adoption say what kind of change it is |
 | `browser-on-demand` | does anything open a browser just because a session started |
+| `desk-wall` | do the office's wall rules compile, and has any desk run what they forbid |
 
 Exit 0 clean, 4 finding, 7 UNKNOWN — and **an empty walk is UNKNOWN, never clean**.
 

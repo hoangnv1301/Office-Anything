@@ -23,6 +23,7 @@ import { report as statedNumbers } from './stated-numbers.mjs'
 import { report as deskLiterals } from './desk-literals.mjs'
 import { report as commitConvention } from './commit-convention.mjs'
 import { report as browserOnDemand } from './browser-on-demand.mjs'
+import { report as deskWall } from './desk-wall.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 export const CHECKS = [
@@ -36,6 +37,7 @@ export const CHECKS = [
   { name: 'desk-literals', run: deskLiterals, answers: 'can a desk be added or removed without editing a root test' },
   { name: 'commit-convention', run: commitConvention, answers: 'does every commit since adoption say what kind of change it is' },
   { name: 'browser-on-demand', run: browserOnDemand, answers: 'does anything open a browser just because a session started' },
+  { name: 'desk-wall', run: deskWall, answers: 'do the office\'s wall rules compile, and has any desk run what they forbid' },
 ]
 
 export function collect(root = process.cwd(), checks = CHECKS) {

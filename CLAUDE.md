@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 180 tests
+node --test "tests/**/*.test.mjs"    # 192 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -15,7 +15,7 @@ the directory and reports one failing test with a buried MODULE_NOT_FOUND.
 
 | path | what it is |
 |---|---|
-| `lib/` | the contract. `desk.mjs` is the only place a desk's kind, port and live status are read |
+| `lib/` | the contract. `desk.mjs` is the only place a desk's kind, port and live status are read; `office.mjs` the only place a session's identity and `office.json` are read; `wall.mjs` the desk wall's rules |
 | `checks/` | **reads only.** Safe to run when unsure, which is when you want to look |
 | `hooks/` | **blocks.** A PreToolUse gate that refuses the tool call outright |
 | `commands/` | flat `.md` files. **The filename IS the slash command** |
