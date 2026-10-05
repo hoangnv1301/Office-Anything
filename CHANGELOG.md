@@ -45,6 +45,17 @@
   while it is ours; the budget is re-read before every spend; a desk
   restarted in the last 5 minutes is left to register. The shim honours
   CLAUDE_CONFIG_DIR and runs the newest install that exists.
+- After the third review: `node lib/health.mjs --heal` HUNG (exit 13, an
+  unsettled top-level await): heal.mjs imported health.mjs while the CLI was
+  still evaluating it, and the unit tests, calling heal() directly, could not
+  see it. The process primitives live in lib/procs.mjs now; a test runs the
+  CLI. The heal lock is held only by a live pid that touched it within twice
+  the longest act (a reused pid, like pid 1, no longer blocks healing
+  forever); a stale lock is taken over by the one contender that creates
+  heal.lock.takeover, never by moving a lock that might be live (six
+  contenders over a crashed lock had produced two holders); a skipped heal
+  says why. A doorbell under a path with a space is recognised by the same
+  exact forms as the orphan proof.
 - The boot hook's doorbell line now asks for Monitor timeout_ms 1800000 and
   to re-arm on every expiry notice: a Monitor dies at 30 minutes at most,
   and "persistent" is not a setting it has.

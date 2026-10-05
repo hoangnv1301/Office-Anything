@@ -9,7 +9,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, statSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { heal } from '../lib/heal.mjs'
 
 function office(cfg = {}) {
@@ -99,7 +100,7 @@ test('⛔ one heal at a time: a second run while the lock is held does nothing',
   mkdirSync(join(o.root, '.office'), { recursive: true })
   writeFileSync(join(o.root, '.office', 'heal.lock'), '1 0\n')
   const r = heal(o.root, dead(), opts(o))
-  assert.equal(r.skipped, 'another heal is running')
+  assert.match(r.skipped, /another heal is running/)
   assert.ok(!existsSync(join(o.root, 'started.txt')))
 })
 
@@ -141,13 +142,13 @@ test('.office/ keeps itself out of git, and its logs do not grow without bound',
 })
 
 // ── after the second review ────────────────────────────────────────────────
-test('⛔ a live heal is never robbed of its lock, however long it has run', () => {
+test('⛔ a live heal that keeps touching its lock is never robbed, even mid-way through a long restart', () => {
   const o = office()
   mkdirSync(join(o.root, '.office'), { recursive: true })
   const lock = join(o.root, '.office', 'heal.lock')
   writeFileSync(lock, `${process.pid} other\n`)               // a live holder
-  const old = new Date(Date.now() - 3600_000); utimesSync(lock, old, old)
-  assert.equal(heal(o.root, dead(), opts(o)).skipped, 'another heal is running')
+  const mid = new Date(Date.now() - 5 * 60_000); utimesSync(lock, mid, mid)   // last touched 5 min ago: inside one 180 s act x 2
+  assert.match(heal(o.root, dead(), opts(o)).skipped, /another heal is running/)
   assert.equal(readFileSync(lock, 'utf8'), `${process.pid} other\n`, 'left exactly as it was')
 })
 
@@ -185,4 +186,55 @@ test('a desk restarted minutes ago is given time to register, not started twice'
   assert.ok(again.acts.some((a) => a.act === 'restart' && !a.ok && /waiting/.test(a.why)))
   heal(o.root, dead(), opts(o, { now: t + 6 * 60_000 }))
   assert.equal(readFileSync(join(o.root, 'started.txt'), 'utf8').trim().split('\n').length, 2, 'at 0 and 6 minutes, not at 2')
+})
+
+// ── after the third review: the lock itself ─────────────────────────────────
+test('⛔ two contenders for a dead lock: exactly one holds it (6 processes, 8 trials)', async () => {
+  const { spawn } = await import('node:child_process')
+  const lib = join(dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'heal.mjs')
+  for (let t = 0; t < 8; t++) {
+    const dir = mkdtempSync(join(tmpdir(), 'oa-race-'))
+    writeFileSync(join(dir, 'heal.lock'), '999999 crashed\n')
+    const at = Date.now() + 500
+    const kids = Array.from({ length: 6 }, () => new Promise((res) => {
+      let out = ''
+      const c = spawn(process.execPath, ['--input-type=module', '-e', `
+        const { acquireLock } = await import(${JSON.stringify(lib)})
+        while (Date.now() < ${at}) {}
+        const l = acquireLock(${JSON.stringify(dir)})
+        if (l.ok) { console.log('HELD'); await new Promise((r) => setTimeout(r, 400)) }`], { stdio: ['ignore', 'pipe', 'inherit'] })
+      c.stdout.on('data', (d) => { out += d })
+      c.on('close', () => res(out))
+    }))
+    const outs = await Promise.all(kids)
+    assert.equal(outs.filter((o) => o.includes('HELD')).length, 1, `trial ${t}: holders ${outs.filter((o) => o.includes('HELD')).length}`)
+  }
+})
+
+test('⛔ a reused pid does not hold the lock forever: a live pid with an old lock is taken over, and said', async () => {
+  const { acquireLock } = await import('../lib/heal.mjs')
+  const dir = mkdtempSync(join(tmpdir(), 'oa-reuse-'))
+  // pid 1 always "answers" (EPERM): the lock of a heal that died in 2025
+  writeFileSync(join(dir, 'heal.lock'), '1 stale-from-2025\n')
+  const old = new Date(Date.now() - 3600_000); utimesSync(join(dir, 'heal.lock'), old, old)
+  const l = acquireLock(dir)
+  assert.ok(l.ok, l.why)
+  assert.match(l.note, /took over/)
+  l.release()
+  // the same pid with a FRESH lock is a running heal: left alone, and the reason given
+  writeFileSync(join(dir, 'heal.lock'), '1 running\n')
+  const busy = acquireLock(dir)
+  assert.equal(busy.ok, false)
+  assert.match(busy.why, /pid 1.*\d+s ago/)
+})
+
+test('a skipped heal says why on the command line, never silently', async () => {
+  const o = office()
+  mkdirSync(join(o.root, 'desks', 'quiet'), { recursive: true })
+  mkdirSync(join(o.root, '.office'), { recursive: true })
+  writeFileSync(join(o.root, '.office', 'heal.lock'), `${process.pid} busy\n`)
+  const { spawnSync } = await import('node:child_process')
+  const cli = join(dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'health.mjs')
+  const r = spawnSync(process.execPath, [cli, o.root, '--heal'], { encoding: 'utf8', env: { ...process.env, HOME: o.home } })
+  assert.match(r.stdout, /heal skipped: another heal is running/)
 })

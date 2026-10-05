@@ -102,3 +102,13 @@ At 11:30Z, after a Mac restart, `start.mjs all` brought every desk back as "resu
 | stale budget | state re-read from disk before every spend and alert |
 | restart grace | a desk restarted in the last 5 min is left to register, not started twice |
 | shim | honours CLAUDE_CONFIG_DIR (also carried in the plist); runs the newest install entry that exists, not [0]; CHANGELOG states where the shim lives |
+
+## After the third review (2026-10-05)
+
+| item | fix |
+|---|---|
+| (1) two holders of a taken-over lock | takeover serialised by `heal.lock.takeover` ('wx'): the one winner re-checks the lock is still the dead one, removes it, creates its own. A rename-aside version was tried and raced (a mover could shift a just-created lock); 6 processes x 40 trials now give exactly one holder |
+| (2) reused pid blocks forever | held = pid alive AND touched within 2 x 180 s + 30 s; otherwise taken over with a note. `skipped` and the note are printed by the CLI |
+| (3) isDoorbell split on spaces | with the office root, `isDoorbell` uses the same exact forms (`formOf`) as the orphan proof; tested through `officeHealth`, not the proof alone |
+| restart stamp | stamped after `start` actually ran, with its finish time |
+| found while fixing | `node lib/health.mjs --heal` deadlocked on an import cycle (heal.mjs -> health.mjs while the CLI evaluated it). Primitives moved to `lib/procs.mjs`; a test runs the CLI |

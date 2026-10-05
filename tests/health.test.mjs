@@ -256,3 +256,16 @@ test('wakeMatch never lets a shell count as the doorbell', () => {
   assert.equal(isDoorbell({ pid: 1, cmd: 'sh -c "grep -n x ../../scripts/bell/wake.mjs"' }, d), false)
   assert.equal(isDoorbell({ pid: 1, cmd: 'node ../../scripts/bell/wake.mjs' }, d), true)
 })
+
+test('⛔ the isDoorbell gate: a doorbell by absolute path under a path with a SPACE is armed, and its orphan reaches the proof', () => {
+  const root = spaced()
+  const own = join(root, 'scripts', 'bell', 'wake.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'oa-sp-home-'))
+  mkdirSync(join(home, '.claude', 'sessions'), { recursive: true })
+  writeFileSync(join(root, 'desks', 'bell', 'desk.json'), JSON.stringify({ name: 'bell', kind: 'knowledge', port: 9301, wake: WAKE }))
+  writeFileSync(join(home, '.claude', 'sessions', '10.json'), JSON.stringify({ pid: 10, name: 'desk-bell', startedAt: Date.now() - 600_000 }))
+  const armed = officeHealth(root, { home, procs: new Map([P(10, 1, 'claude', 700), P(11, 10, `node ${own}`, 500)]), cwd: () => null })
+  assert.equal(armed.desks[0].doorbell.state, 'armed', 'through officeHealth, not by calling the proof directly')
+  const orphan = officeHealth(root, { home, procs: new Map([P(12, 1, `node ${own} --thread BT-3`, 500)]), cwd: () => null })
+  assert.deepEqual(orphan.orphans.map((x) => [x.pid, x.proven]), [[12, true]])
+})
