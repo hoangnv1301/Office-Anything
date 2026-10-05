@@ -18,8 +18,25 @@
 - `--install-watchdog` runs `--heal` every 120 s from a LaunchAgent, through
   a shim in the office's .office/ that finds the plugin's CURRENT install, so
   a version bump does not strand it.
-- New desk.json fields: `wakeMatch`, `wakeGraceSec`, `wakeOwner: "launchd"`.
+- New desk.json fields: `wakeMatch`, `wakeGraceSec`, `wakeOwner: "launchd"`,
+  `watch: true` (a desk with autostart:false that must still be running).
   New office.json keys: `start`, `health`, `watchdog`.
+- After review: a doorbell is the interpreter `wake` names running the
+  script (a pager, editor or grep naming it is not); an orphan has only
+  shells and node above it up to launchd and its script inside this office;
+  a session file whose pid was reused is not a live session; every kill
+  re-reads the process table and requires the same command, parent and an
+  age no younger; one heal at a time (lock), the budget spent before the
+  act; logs rotate and .office/ ignores itself; the LaunchAgent carries
+  PATH, runs node through env, is ProcessType Standard, keeps its shim and
+  log on the home disk, says once an hour when the office disk is missing,
+  and refuses temp folders and git worktrees.
+- An orphan whose script cannot be placed in this office (a relative path,
+  a cwd nobody can read) is listed as unproven, never dropped and never
+  killed. Seen live: five buyer-wake processes, 1 to 30 hours old.
+- The boot hook's doorbell line now asks for Monitor timeout_ms 1800000 and
+  to re-arm on every expiry notice: a Monitor dies at 30 minutes at most,
+  and "persistent" is not a setting it has.
 
 ## 0.7.37
 

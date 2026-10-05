@@ -4,89 +4,138 @@
 //   heal, at most once per desk per 15 minutes.
 // ⛔ NEVER typed into a desk's terminal: an unarmed doorbell is reported and
 // the lead is told; the lead re-arms it with SendMessage, session to session.
+// Every test injects kill and the process table: nothing here touches a real process.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { heal } from '../lib/heal.mjs'
 
 function office(cfg = {}) {
   const root = mkdtempSync(join(tmpdir(), 'oa-heal-'))
+  const home = mkdtempSync(join(tmpdir(), 'oa-heal-home-'))
   mkdirSync(join(root, 'desks', 'bell'), { recursive: true })
-  writeFileSync(join(root, 'desks', 'bell', 'desk.json'), JSON.stringify({ name: 'bell', kind: 'knowledge', port: 9301, wake: 'node w.mjs' }))
+  writeFileSync(join(root, 'desks', 'bell', 'desk.json'), JSON.stringify({ name: 'bell', kind: 'knowledge', port: 9301, wake: 'node ../../scripts/bell/wake.mjs' }))
   writeFileSync(join(root, 'office.json'), JSON.stringify({ start: 'echo started {desk} >> started.txt', watchdog: { notify: 'lead' }, ...cfg }))
-  return root
+  return { root, home, script: join(root, 'scripts', 'bell', 'wake.mjs') }
 }
+const P = (pid, ppid, cmd, ageSec = 60) => [pid, { pid, ppid, ageSec, cmd }]
 const health = (over = {}) => ({ code: 1, desks: [{ name: 'bell', session: { state: 'alive', pid: 10 }, doorbell: { state: 'armed' } }], checks: [], orphans: [], ...over })
+const dead = () => health({ desks: [{ name: 'bell', session: { state: 'dead' }, doorbell: { state: 'down' } }] })
 const alerts = (root) => existsSync(join(root, '.office', 'alerts.log')) ? readFileSync(join(root, '.office', 'alerts.log'), 'utf8').trim().split('\n') : []
+const noKill = () => { throw new Error('must not kill') }
+const opts = (o, extra = {}) => ({ home: o.home, kill: noKill, freshProcs: () => new Map(), cwd: () => null, ...extra })
 
-test('a proven orphan is killed and logged; a process with a live session above it never is', () => {
-  const root = office()
+test('a proven orphan is killed on a FRESH look, and logged', () => {
+  const o = office()
   const killed = []
-  const procs = new Map([
-    [500, { pid: 500, ppid: 1, ageSec: 3600, cmd: 'node /r/w.mjs' }],          // orphan
-    [10, { pid: 10, ppid: 1, ageSec: 99, cmd: 'claude' }],
-    [600, { pid: 600, ppid: 10, ageSec: 60, cmd: 'node /r/w.mjs' }],           // under a live session
-  ])
-  const h = health({ orphans: [{ desk: 'bell', pid: 500, ageSec: 3600, cmd: 'node /r/w.mjs' }, { desk: 'bell', pid: 600, ageSec: 60, cmd: 'node /r/w.mjs' }] })
-  const r = heal(root, h, { kill: (pid) => killed.push(pid), procs, livePids: new Set([10]) })
-  assert.deepEqual(killed, [500], 'only the proven orphan')
+  const h = health({ orphans: [{ desk: 'bell', pid: 500, ppid: 1, ageSec: 3600, cmd: `node ${o.script}` }] })
+  const r = heal(o.root, h, opts(o, { kill: (pid) => killed.push(pid), freshProcs: () => new Map([P(500, 1, `node ${o.script}`, 3602)]) }))
+  assert.deepEqual(killed, [500])
   assert.ok(r.acts.some((a) => a.act === 'kill-orphan' && a.pid === 500 && a.ok))
-  assert.ok(r.acts.some((a) => a.pid === 600 && !a.ok), 'the re-check refused the live one, and said so')
-  assert.match(readFileSync(join(root, '.office', 'heal.log'), 'utf8'), /kill-orphan.*500/)
+  assert.match(readFileSync(join(o.root, '.office', 'heal.log'), 'utf8'), /kill-orphan.*500/)
+})
+
+test('⛔ the snapshot is not the proof: reused pid, new parent, new command, a live session above it, gone', () => {
+  const o = office()
+  const orphan = { desk: 'bell', pid: 500, ppid: 1, ageSec: 3600, cmd: `node ${o.script}` }
+  const h = health({ orphans: [orphan] })
+  const cases = [
+    ['younger: the pid was reused', new Map([P(500, 1, `node ${o.script}`, 5)]), /reused/],
+    ['different parent', new Map([P(77, 1, 'zsh'), P(500, 77, `node ${o.script}`, 3602)]), /something else|someone else/],
+    ['different command', new Map([P(500, 1, 'vim notes.txt', 3602)]), /something else/],
+    ['gone', new Map(), /gone/],
+  ]
+  for (const [label, fresh, why] of cases) {
+    let calls = 0
+    const r = heal(o.root, h, opts(o, { freshProcs: () => fresh, kill: () => { calls++ } }))
+    assert.equal(calls, 0, label + ': kill was called')
+    assert.match(r.acts.find((a) => a.act === 'kill-orphan').why, why, label)
+  }
+  // a claude session took it under its wing since the report: not an orphan any more
+  mkdirSync(join(o.home, '.claude', 'sessions'), { recursive: true })
+  writeFileSync(join(o.home, '.claude', 'sessions', '60.json'), JSON.stringify({ pid: 60, name: 'desk-bell', startedAt: Date.now() - 1000 }))
+  let calls = 0
+  const r = heal(o.root, health({ orphans: [{ ...orphan, ppid: 60 }] }), opts(o, { kill: () => { calls++ }, freshProcs: () => new Map([P(60, 1, 'claude --resume x', 2), P(500, 60, `node ${o.script}`, 3602)]) }))
+  assert.equal(calls, 0)
+  assert.match(r.acts.find((a) => a.act === 'kill-orphan').why, /not an orphan/, 'a live session is above it now')
 })
 
 test('a dead desk is restarted through office.json `start`, with {desk} filled', () => {
-  const root = office()
-  const r = heal(root, health({ desks: [{ name: 'bell', session: { state: 'dead' }, doorbell: { state: 'down' } }] }), { procs: new Map() })
+  const o = office()
+  const r = heal(o.root, dead(), opts(o))
   assert.ok(r.acts.some((a) => a.act === 'restart' && a.ok))
-  assert.equal(readFileSync(join(root, 'started.txt'), 'utf8').trim(), 'started bell')
+  assert.equal(readFileSync(join(o.root, 'started.txt'), 'utf8').trim(), 'started bell')
+})
+
+test('⛔ the heal is counted BEFORE the restart runs, so a crash mid-restart still spends it', () => {
+  const o = office({ start: 'cat .office/heal-state.json > seen.json' })
+  heal(o.root, dead(), opts(o))
+  const seen = JSON.parse(readFileSync(join(o.root, 'seen.json'), 'utf8'))
+  assert.equal(seen.heals['desk:bell'].length, 1, 'the start command already sees its own heal recorded')
 })
 
 test('no `start` declared: no restart is invented, the lead is told why', () => {
-  const root = office({ start: undefined })
-  const r = heal(root, health({ desks: [{ name: 'bell', session: { state: 'dead' }, doorbell: { state: 'down' } }] }), { procs: new Map() })
+  const o = office({ start: undefined })
+  const r = heal(o.root, dead(), opts(o))
   assert.ok(!r.acts.some((a) => a.act === 'restart' && a.ok))
-  assert.match(alerts(root).join('\n'), /bell.*no start/i)
+  assert.match(alerts(o.root).join('\n'), /bell.*no start/i)
 })
 
 test('the 4th heal of one desk in an hour is refused, and refusing is reported', () => {
-  const root = office()
-  const dead = health({ desks: [{ name: 'bell', session: { state: 'dead' }, doorbell: { state: 'down' } }] })
-  let now = Date.parse('2026-10-05T12:00:00Z')
-  for (let i = 0; i < 3; i++) heal(root, dead, { procs: new Map(), now: now + i * 60_000 })
-  const r = heal(root, dead, { procs: new Map(), now: now + 4 * 60_000 })
+  const o = office()
+  const now = Date.parse('2026-10-05T12:00:00Z')
+  for (let i = 0; i < 3; i++) heal(o.root, dead(), opts(o, { now: now + i * 60_000 }))
+  const r = heal(o.root, dead(), opts(o, { now: now + 4 * 60_000 }))
   assert.ok(r.acts.some((a) => a.act === 'restart' && !a.ok && /cap/.test(a.why)))
-  assert.equal(readFileSync(join(root, 'started.txt'), 'utf8').trim().split('\n').length, 3)
-  // an hour later the budget is back
-  const later = heal(root, dead, { procs: new Map(), now: now + 61 * 60_000 })
-  assert.ok(later.acts.some((a) => a.act === 'restart' && a.ok))
+  assert.equal(readFileSync(join(o.root, 'started.txt'), 'utf8').trim().split('\n').length, 3)
+  const later = heal(o.root, dead(), opts(o, { now: now + 61 * 60_000 }))
+  assert.ok(later.acts.some((a) => a.act === 'restart' && a.ok), 'an hour later the budget is back')
+})
+
+test('⛔ one heal at a time: a second run while the lock is held does nothing', () => {
+  const o = office()
+  mkdirSync(join(o.root, '.office'), { recursive: true })
+  writeFileSync(join(o.root, '.office', 'heal.lock'), '1 0\n')
+  const r = heal(o.root, dead(), opts(o))
+  assert.equal(r.skipped, 'another heal is running')
+  assert.ok(!existsSync(join(o.root, 'started.txt')))
 })
 
 test('an unarmed doorbell is never typed at: the lead is told, once per 15 minutes', () => {
-  const root = office()
+  const o = office()
   const unarmed = health({ desks: [{ name: 'bell', session: { state: 'alive', pid: 10 }, doorbell: { state: 'unarmed', sinceStartSec: 900 } }] })
   const t = Date.parse('2026-10-05T12:00:00Z')
-  const r = heal(root, unarmed, { procs: new Map(), now: t })
-  assert.ok(!r.acts.some((a) => /type|send|arm/.test(a.act) && a.ok), 'no act reaches into the desk')
-  heal(root, unarmed, { procs: new Map(), now: t + 5 * 60_000 })
-  heal(root, unarmed, { procs: new Map(), now: t + 16 * 60_000 })
-  const lines = alerts(root).filter((l) => /bell/.test(l) && /doorbell/.test(l))
+  const r = heal(o.root, unarmed, opts(o, { now: t }))
+  assert.ok(!r.acts.some((a) => a.act !== 'notify'), 'the only act is telling the lead')
+  heal(o.root, unarmed, opts(o, { now: t + 5 * 60_000 }))
+  heal(o.root, unarmed, opts(o, { now: t + 16 * 60_000 }))
+  const lines = alerts(o.root).filter((l) => /bell/.test(l) && /doorbell/.test(l))
   assert.equal(lines.length, 2, 'at 0 and 16 minutes, not at 5')
-  assert.match(lines[0], /lead/, 'addressed to the notify session')
+  assert.match(lines[0], /→ lead/, 'addressed to the notify session')
 })
 
 test('a failing project check runs its own `heal`, inside the same cap', () => {
-  const root = office()
-  const r = heal(root, health({ checks: [{ name: 'web', ok: false, why: 'exit 1', heal: 'echo healed >> web.txt' }] }), { procs: new Map() })
+  const o = office()
+  const r = heal(o.root, health({ checks: [{ name: 'web', ok: false, why: 'exit 1', heal: 'echo healed >> web.txt' }] }), opts(o))
   assert.ok(r.acts.some((a) => a.act === 'check-heal' && a.name === 'web' && a.ok))
-  assert.equal(readFileSync(join(root, 'web.txt'), 'utf8').trim(), 'healed')
+  assert.equal(readFileSync(join(o.root, 'web.txt'), 'utf8').trim(), 'healed')
 })
 
 test('a green office is left alone: no act, no alert', () => {
-  const root = office()
-  const r = heal(root, { code: 0, desks: [{ name: 'bell', session: { state: 'alive', pid: 10 }, doorbell: { state: 'armed' } }], checks: [], orphans: [] }, { procs: new Map() })
+  const o = office()
+  const r = heal(o.root, { code: 0, desks: [{ name: 'bell', session: { state: 'alive', pid: 10 }, doorbell: { state: 'armed' } }], checks: [], orphans: [] }, opts(o))
   assert.equal(r.acts.length, 0)
-  assert.equal(alerts(root).length, 0)
+  assert.equal(alerts(o.root).length, 0)
+})
+
+test('.office/ keeps itself out of git, and its logs do not grow without bound', () => {
+  const o = office({ start: 'false' })
+  mkdirSync(join(o.root, '.office'), { recursive: true })
+  writeFileSync(join(o.root, '.office', 'heal.log'), 'x'.repeat(600 * 1024))
+  heal(o.root, dead(), opts(o))
+  assert.match(readFileSync(join(o.root, '.office', '.gitignore'), 'utf8'), /^\*$/m)
+  assert.ok(statSync(join(o.root, '.office', 'heal.log')).size < 4096, 'rotated')
+  assert.ok(existsSync(join(o.root, '.office', 'heal.log.1')), 'one generation kept')
 })

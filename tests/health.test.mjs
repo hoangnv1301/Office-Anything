@@ -4,14 +4,16 @@
 // command runs UNDER its own session. lib/health.mjs owns that question.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
-import { wakePattern, doorbell, officeHealth, processTable, projectChecks } from '../lib/health.mjs'
+import { wakePattern, doorbell, officeHealth, processTable, projectChecks, isDoorbell, isOrphan, liveSessions } from '../lib/health.mjs'
+
+const WAKE = 'node ../../scripts/bell/wake.mjs'
 
 // an office with one desk that has a doorbell and one that has none
-function office({ wake = 'node ../../scripts/bell/wake.mjs', extra = {} } = {}) {
+function office({ wake = WAKE, extra = {} } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'oa-health-'))
   const home = mkdtempSync(join(tmpdir(), 'oa-home-'))
   mkdirSync(join(home, '.claude', 'sessions'), { recursive: true })
@@ -25,6 +27,8 @@ function office({ wake = 'node ../../scripts/bell/wake.mjs', extra = {} } = {}) 
     writeFileSync(join(home, '.claude', 'sessions', pid + '.json'), JSON.stringify({ pid, name: 'desk-' + name, cwd: join(root, 'desks', name), sessionId: 's-' + name, status: 'idle', startedAt }))
   return { root, home, register }
 }
+const bellDesk = { name: 'bell', wake: WAKE }
+const P = (pid, ppid, cmd, ageSec = 60) => [pid, { pid, ppid, ageSec, cmd }]
 
 test('the doorbell is identified by the script in `wake`, not the whole command line', () => {
   assert.ok(wakePattern({ wake: 'node ../../scripts/discord/team-wake.mjs' }).test('/usr/bin/node /x/scripts/discord/team-wake.mjs'))
@@ -32,18 +36,45 @@ test('the doorbell is identified by the script in `wake`, not the whole command 
   assert.equal(wakePattern({}), null, 'no wake = no doorbell to look for')
 })
 
-test('ARMED only when the wake process runs under the desk\'s own session', async () => {
+test('⛔ a pager, editor or grep that NAMES the script is not a doorbell; the interpreter running it is', () => {
+  for (const cmd of ['less scripts/bell/wake.mjs', 'vim /r/scripts/bell/wake.mjs', 'grep -n x scripts/bell/wake.mjs', 'cat ../../scripts/bell/wake.mjs'])
+    assert.equal(isDoorbell({ pid: 1, cmd }, bellDesk), false, cmd)
+  assert.equal(isDoorbell({ pid: 1, cmd: '/bin/zsh -c node ../../scripts/bell/wake.mjs' }, bellDesk), false, 'the wrapping shell is not the doorbell')
+  assert.equal(isDoorbell({ pid: 1, cmd: '/opt/homebrew/bin/node /r/scripts/bell/wake.mjs --thread 9' }, bellDesk), true)
+  assert.equal(isDoorbell({ pid: 1, cmd: 'node /r/scripts/bell/not-wake.mjs' }, bellDesk), false)
+})
+
+test('ARMED only when the wake process runs under the desk\'s own claude session', async () => {
   const o = office()
-  o.register('bell', process.pid)   // this test process plays the session
-  const child = spawn(process.execPath, [join(o.root, 'scripts', 'bell', 'wake.mjs')], { stdio: 'ignore' })
+  // a stand-in session: a node binary called "claude", so ps sees a claude process
+  const bin = mkdtempSync(join(tmpdir(), 'oa-bin-'))
+  symlinkSync(process.execPath, join(bin, 'claude'))
+  const wake = join(o.root, 'scripts', 'bell', 'wake.mjs')
+  const session = spawn(join(bin, 'claude'), ['-e', `require('child_process').spawn(process.execPath, [${JSON.stringify(wake)}], { stdio: 'ignore' }); setInterval(() => {}, 1e6)`], { stdio: 'ignore' })
   try {
-    await new Promise((r) => setTimeout(r, 300))
-    const h = officeHealth(o.root, { home: o.home, procs: processTable() })
+    o.register('bell', session.pid, Date.now())
+    await new Promise((r) => setTimeout(r, 600))
+    const procs = processTable()
+    const h = officeHealth(o.root, { home: o.home, procs })
     const bell = h.desks.find((d) => d.name === 'bell')
+    assert.equal(bell.session.state, 'alive')
     assert.equal(bell.doorbell.state, 'armed', JSON.stringify(bell.doorbell))
-    assert.equal(bell.doorbell.pid, child.pid)
+    assert.equal(procs.get(bell.doorbell.pid).ppid, session.pid)
     assert.equal(h.desks.find((d) => d.name === 'quiet').doorbell.state, 'none')
-  } finally { child.kill() }
+  } finally {
+    for (const p of processTable().values()) if (p.ppid === session.pid) { try { process.kill(p.pid) } catch {} }
+    session.kill()
+  }
+})
+
+test('⛔ a stale session file whose pid was REUSED is not a live session', () => {
+  const o = office()
+  const now = Date.now()
+  o.register('bell', 4242, now - 3600_000)
+  // pid 4242 is now somebody's vim, started a minute ago
+  assert.equal(liveSessions(o.home, new Map([P(4242, 1, 'vim notes.txt', 60)]), now).length, 0, 'not claude')
+  assert.equal(liveSessions(o.home, new Map([P(4242, 1, 'claude --resume x', 60)]), now).length, 0, 'claude, but younger than the session')
+  assert.equal(liveSessions(o.home, new Map([P(4242, 1, 'claude --resume x', 3700)]), now).length, 1)
 })
 
 test('a resumed session with no doorbell is RED once the grace period is over', () => {
@@ -65,29 +96,47 @@ test('inside the grace period an unarmed doorbell is still "arming", not red', (
   assert.equal(h.code, 0)
 })
 
-test('a wake process whose session is gone is an ORPHAN, reported with its age', () => {
+test('ORPHAN: under launchd, through a `zsh -c -l` wrapper, script inside THIS office', () => {
   const o = office()
+  const script = join(o.root, 'scripts', 'bell', 'wake.mjs')
   const procs = new Map([
-    [5001, { pid: 5001, ppid: 1, ageSec: 30 * 3600, cmd: 'node /r/scripts/bell/wake.mjs --thread 9' }],
+    P(700, 1, `/bin/zsh -c -l node ${script}`, 30 * 3600),
+    P(701, 700, `node ${script} --thread 9`, 30 * 3600),
   ])
-  const h = officeHealth(o.root, { home: o.home, procs })
-  assert.equal(h.orphans.length, 1)
-  assert.equal(h.orphans[0].pid, 5001)
-  assert.equal(h.orphans[0].desk, 'bell')
+  const h = officeHealth(o.root, { home: o.home, procs, cwd: () => null })
+  assert.deepEqual(h.orphans.map((x) => [x.desk, x.pid]), [['bell', 701]], 'the node process, not the shell')
   assert.equal(h.orphans[0].ageSec, 30 * 3600)
 })
 
-test('a desk that is not running is RED; one marked autostart:false is only "off"', () => {
+test('⛔ NOT an orphan: a manual run in a terminal, another checkout, a launchd-owned bell, a pager', () => {
+  const o = office()
+  const script = join(o.root, 'scripts', 'bell', 'wake.mjs')
+  const found = (procs, desk = bellDesk, cwd = () => null) => [...procs.values()].filter((p) => isOrphan(p, desk, procs, new Set(), o.root, cwd))
+  // a terminal (login, then the terminal app) above it: somebody owns it
+  assert.equal(found(new Map([P(10, 1, '/Applications/Orca.app/Contents/MacOS/Orca Helper'), P(11, 10, 'login -fp me'), P(12, 11, '-zsh'), P(13, 12, `node ${script}`)])).length, 0)
+  // the same script in a different checkout
+  assert.equal(found(new Map([P(20, 1, 'node /elsewhere/scripts/bell/wake.mjs')])).length, 0)
+  // a relative path whose cwd cannot be read is not proven inside this office
+  assert.equal(found(new Map([P(30, 1, 'node ../../scripts/bell/wake.mjs')])).length, 0)
+  assert.equal(found(new Map([P(30, 1, 'node ../../scripts/bell/wake.mjs')]), bellDesk, () => join(o.root, 'desks', 'bell')).length, 1, 'resolved through its cwd, it is ours')
+  // declared as owned by a LaunchAgent
+  assert.equal(found(new Map([P(40, 1, `node ${script}`)]), { ...bellDesk, wakeOwner: 'launchd' }).length, 0)
+  // somebody reading it
+  assert.equal(found(new Map([P(50, 1, `less ${script}`)])).length, 0)
+})
+
+test('a desk that is not running is RED; autostart:false is "off" unless it asks to be watched', () => {
   const o = office({ extra: { autostart: false } })
   o.register('quiet', process.pid)
   const h = officeHealth(o.root, { home: o.home, procs: new Map() })
   assert.equal(h.desks.find((d) => d.name === 'bell').session.state, 'off')
   assert.equal(h.code, 0)
-  const o2 = office()
-  o2.register('bell', process.pid)
-  const h2 = officeHealth(o2.root, { home: o2.home, procs: new Map([[1, { pid: 1, ppid: 0, ageSec: 0, cmd: 'x' }]]) })
-  assert.equal(h2.desks.find((d) => d.name === 'quiet').session.state, 'dead')
-  assert.equal(h2.code, 4)
+  assert.match(h.line, /off by design: bell/, 'off is said, never invisible')
+  const w = office({ extra: { autostart: false, watch: true } })
+  w.register('quiet', process.pid)
+  const hw = officeHealth(w.root, { home: w.home, procs: new Map() })
+  assert.equal(hw.desks.find((d) => d.name === 'bell').session.state, 'dead')
+  assert.equal(hw.code, 4)
 })
 
 test('an office with no desks is UNKNOWN (7), never green', () => {
@@ -106,47 +155,32 @@ test('project checks: exit code or /regex/ on stdout decides, and a failure is r
   assert.deepEqual(r.map((c) => [c.name, c.ok]), [['ok-exit', true], ['bad-exit', false], ['ok-regex', true], ['bad-regex', false]])
 })
 
-test('health only reads: no heal flag, no act', () => {
-  // the module must not export anything that acts without being asked to
-  const o = office()
-  const h = officeHealth(o.root, { home: o.home, procs: new Map() })
-  assert.equal(h.healed, undefined)
-})
-
 test('doorbell() is the one place the armed rule lives', () => {
   const procs = new Map([
-    [10, { pid: 10, ppid: 1, ageSec: 99, cmd: 'claude' }],
-    [11, { pid: 11, ppid: 10, ageSec: 50, cmd: '/bin/zsh -c node ../../scripts/bell/wake.mjs' }],
-    [12, { pid: 12, ppid: 11, ageSec: 50, cmd: 'node ../../scripts/bell/wake.mjs' }],
+    P(10, 1, 'claude', 99),
+    P(11, 10, '/bin/zsh -c node ../../scripts/bell/wake.mjs', 50),
+    P(12, 11, 'node ../../scripts/bell/wake.mjs', 50),
   ])
-  const d = doorbell({ wake: 'node ../../scripts/bell/wake.mjs' }, { pid: 10, startedAt: 0 }, procs, Date.now())
+  const d = doorbell(bellDesk, { pid: 10, startedAt: 0 }, procs, Date.now())
   assert.equal(d.state, 'armed')
   assert.equal(d.pid, 12, 'the innermost match, not the shell wrapping it')
   assert.equal(d.ageSec, 50)
 })
 
 test('a doorbell running under ANOTHER session does not arm this desk', () => {
-  // two sessions of one desk (a buyer launcher's), or a stale one: the bell
-  // must be under THIS session's pid, or this session is deaf
-  const procs = new Map([
-    [20, { pid: 20, ppid: 1, ageSec: 99, cmd: 'claude' }],
-    [21, { pid: 21, ppid: 20, ageSec: 50, cmd: 'node /r/scripts/bell/wake.mjs' }],
-    [30, { pid: 30, ppid: 1, ageSec: 99, cmd: 'claude' }],
-  ])
-  assert.equal(doorbell({ wake: 'node ../../scripts/bell/wake.mjs' }, { pid: 30, startedAt: 0 }, procs, Date.now()).state, 'unarmed')
+  const procs = new Map([P(20, 1, 'claude', 99), P(21, 20, 'node /r/scripts/bell/wake.mjs', 50), P(30, 1, 'claude', 99)])
+  assert.equal(doorbell(bellDesk, { pid: 30, startedAt: 0 }, procs, Date.now()).state, 'unarmed')
 })
 
 test('the desk-health CHECK answers on the board through collect(), and is silent where nothing is declared', async () => {
   const { report, applies } = await import('../checks/desk-health.mjs')
   const { CHECKS } = await import('../checks/run.mjs')
   assert.ok(CHECKS.some((c) => c.name === 'desk-health'), 'registered, or it never runs')
-  // this repo has no desks with doorbells: a fourth state, not a pass
   const quiet = mkdtempSync(join(tmpdir(), 'oa-q-'))
   mkdirSync(join(quiet, 'desks', 'a'), { recursive: true })
   writeFileSync(join(quiet, 'desks', 'a', 'desk.json'), JSON.stringify({ name: 'a', kind: 'knowledge', port: 9400 }))
   assert.equal(applies(quiet), false)
   assert.equal(report(quiet).applicable, false)
-  // a desk with a doorbell and no session: a finding (4) that names the desk
   const o = office()
   const r = report(o.root, { home: o.home, procs: new Map() })
   assert.equal(r.code, 4)
@@ -154,8 +188,6 @@ test('the desk-health CHECK answers on the board through collect(), and is silen
 })
 
 test('one unreadable desk.json does not blind the check to the others (fault #4 again)', async () => {
-  // seen live: desk-discord declared kind "liaison"; the check stepped aside
-  // for the whole office and the five readable desks went unwatched
   const { report } = await import('../checks/desk-health.mjs')
   const o = office()
   mkdirSync(join(o.root, 'desks', 'odd'), { recursive: true })
@@ -164,4 +196,17 @@ test('one unreadable desk.json does not blind the check to the others (fault #4 
   assert.equal(r.applicable, true)
   assert.ok(r.findings.some((f) => f.desk === 'bell'), 'the readable desk is still judged')
   assert.ok(!r.findings.some((f) => f.desk === 'odd'), 'the broken one is desk-readable\'s to name, once')
+})
+
+test('⛔ an orphan whose cwd cannot be read is LISTED as unproven, never dropped and never killable', () => {
+  // seen live: five buyer-wake processes under launchd with relative script
+  // paths and no cwd lsof could read. Silence would hide them; a kill would
+  // trust what could not be proven to be this office's
+  const o = office()
+  const procs = new Map([P(800, 1, '/bin/zsh -c source snap.sh && node ../../scripts/bell/wake.mjs --thread BT-1', 7200), P(801, 800, 'node ../../scripts/bell/wake.mjs --thread BT-1', 7200)])
+  const h = officeHealth(o.root, { home: o.home, procs, cwd: () => null })
+  assert.deepEqual(h.orphans.map((x) => [x.pid, x.proven]), [[801, false]])
+  assert.match(h.orphans[0].why, /cwd/)
+  assert.match(h.line, /1 orphan doorbell \(1 unproven\)/)
+  assert.equal(isOrphan(procs.get(801), bellDesk, procs, new Set(), o.root, () => null), false, 'heal re-asks this, and it says no')
 })

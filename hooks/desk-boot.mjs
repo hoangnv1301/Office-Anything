@@ -34,8 +34,11 @@ const DEFAULT = {
   max: 12,
   text: {
     intro: 'You are desk-{desk} ({deskRel}). The chat may be empty or partial; your memory is in files. Read these before you act (newest first):',
-    wake: '- First thing, on every start or resume: start your doorbell with Monitor, persistent: `{wake}` (run in {where}).',
-    wakeNote: '  Each line it prints is one wake-up. If one is already running, do not start another, and do not poll on your own.',
+    // ⛔ the Monitor tool kills every monitor at timeout_ms (default 5 minutes,
+    // at most 30) and hands the session an expiry notice. "Persistent" is not
+    // a setting it has: a desk told only that went deaf five minutes later.
+    wake: '- First thing, on every start or resume: start your doorbell with Monitor, timeout_ms 1800000 (the maximum): `{wake}` (run in {where}).',
+    wakeNote: '  Each line it prints is one wake-up. When its expiry notice arrives, start it again at once. If one is already running, do not start another, and do not poll on your own.',
     cwd: '- ⚠ Your directory is {cwd}, not {deskRel}: your own {deskRel}/CLAUDE.md is not loaded. Read it first. The wall still treats you as desk-{desk}.',
     more: '- …and {n} older ones under {deskRel}/',
     outro: 'Then carry on. If you are unsure where you left off, ask the lead.',

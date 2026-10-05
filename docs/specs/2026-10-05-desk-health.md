@@ -74,3 +74,18 @@ At 11:30Z, after a Mac restart, `start.mjs all` brought every desk back as "resu
 - **Found on the first real run:**
   - `desks/discord/desk.json` declares `kind: "liaison"`, which the contract does not know (`channel`, `knowledge`, `lead`). The roster cannot read it, so the desk from the incident is not watched until that is settled.
   - 5 orphan `buyer-wake.mjs` processes, 1 to 30 hours old.
+
+## After the lead's review (2026-10-05)
+
+| item | fix |
+|---|---|
+| 1 snapshot re-proof | each kill re-reads `ps` and the session registry: same command, same parent, age no younger, orphan rule again |
+| 2 matching too broad | a doorbell is the interpreter `wake` names running the script; an orphan has only shells/node above it to launchd and its script inside this office; unplaceable = listed as unproven, never killed |
+| 3 state and overlap | budget written the moment it is spent; `.office/heal.lock` (stale after 10 min) |
+| 4 LaunchAgent | PATH carried, `/usr/bin/env node`, ProcessType Standard, shim and log on the home disk, one line an hour when the office disk is missing, temp folders and worktrees refused |
+| 5 autostart:false invisible | "off by design: <desk>" in the line; `watch: true` makes it red when down |
+| 6 reused session pid | alive only if the pid is a claude process at least as old as the session |
+| 7 unbounded logs | heal.log and alerts.log rotate at 512 KB, the watchdog log at 1 MB; `.office/.gitignore` is `*` |
+| 8 tests | zsh wrapper under launchd, pager/editor/grep, pid reuse, fresh re-read, kill injected everywhere; each guard broken and seen red |
+| scope: boot line | the default line asks for Monitor `timeout_ms 1800000` and to re-arm on every expiry notice (the Monitor schema: default 5 min, max 30, killed at expiry, session notified). A test pins that the boot hook has no matcher, so it fires on resume |
+| scope: verifier | not a detached verifier from the hook: `desk-health` is the verifier, run by the watchdog every 120 s, with a 90 s grace before an unarmed doorbell turns red |

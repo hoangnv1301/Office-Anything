@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-218%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-229%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -257,7 +257,8 @@ status reads green. `/desk-health` asks the process tree: a desk is armed only
 when its doorbell runs **under its own session**. Per desk it reports session,
 permission mode, status and doorbell (armed / arming / unarmed), plus the
 office's own checks from `office.json` `health`, and lists orphan doorbells whose
-session is gone. Exit 0 green, 4 red, 7 unknown. It is also the `desk-health`
+session is gone. A desk with `autostart: false` reads "off" unless its `desk.json`
+says `"watch": true`. Exit 0 green, 4 red, 7 unknown. It is also the `desk-health`
 check, so it sits on the board with every other check.
 
 `--heal` acts only within what the office grants: kill proven orphans, restart a
