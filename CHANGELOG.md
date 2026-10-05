@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.38
+
+- ALIVE AND IDLE IS NOT LISTENING. After a Mac restart every desk came back
+  resumed with no doorbell running (a resumed session does not restore its
+  Monitors), and the registry still said idle. lib/health.mjs asks the process
+  tree instead: a desk with `wake` is armed only when that command runs under
+  its own session's pid. It also reports each desk's session, permission
+  mode, status and last activity, office.json `health` checks, and orphan
+  doorbells whose session is gone. `/desk-health`; the `desk-health` check
+  puts it on the board. Exit 0 / 4 / 7 like every check.
+- `--heal` acts only within the powers the office granted: kill a proven
+  orphan (re-proven the moment before), restart a dead desk through
+  office.json `start` (3 per hour per desk), run a check's own `heal`, and
+  leave alerts for the lead in .office/alerts.log, one per subject per 15
+  minutes. It never types into a desk. Every act is logged.
+- `--install-watchdog` runs `--heal` every 120 s from a LaunchAgent, through
+  a shim in the office's .office/ that finds the plugin's CURRENT install, so
+  a version bump does not strand it.
+- New desk.json fields: `wakeMatch`, `wakeGraceSec`, `wakeOwner: "launchd"`.
+  New office.json keys: `start`, `health`, `watchdog`.
+
 ## 0.7.37
 
 - THE DESK WALL AND DESK BOOT MOVE INTO THE PLUGIN. Every office that ran
