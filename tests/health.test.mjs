@@ -8,7 +8,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
-import { wakePattern, doorbell, officeHealth, processTable, projectChecks, isDoorbell, isOrphan, liveSessions } from '../lib/health.mjs'
+import { wakePattern, doorbell, officeHealth, processTable, projectChecks, isDoorbell, isOrphan, orphanVerdict, liveSessions } from '../lib/health.mjs'
 
 const WAKE = 'node ../../scripts/bell/wake.mjs'
 
@@ -209,4 +209,50 @@ test('⛔ an orphan whose cwd cannot be read is LISTED as unproven, never droppe
   assert.match(h.orphans[0].why, /cwd/)
   assert.match(h.line, /1 orphan doorbell \(1 unproven\)/)
   assert.equal(isOrphan(procs.get(801), bellDesk, procs, new Set(), o.root, () => null), false, 'heal re-asks this, and it says no')
+})
+
+// ── after the second review: the orphan rule decides what --heal kills ──────
+const spaced = () => {
+  // an office whose path holds a space, like /Volumes/Extreme SSD/…
+  const base = mkdtempSync(join(tmpdir(), 'oa sp-'))
+  const root = join(base, 'my office')
+  mkdirSync(join(root, 'desks', 'bell'), { recursive: true })
+  mkdirSync(join(root, 'scripts', 'bell'), { recursive: true })
+  writeFileSync(join(root, 'scripts', 'bell', 'wake.mjs'), '')
+  return root
+}
+const verdictOf = (cmd, root, cwd = () => null, desk = bellDesk) => {
+  const procs = new Map([P(900, 1, cmd, 100)])
+  return orphanVerdict(procs.get(900), desk, procs, new Set(), root, cwd)
+}
+
+test('⛔ (a) the wake script must be THE script node runs, not any argument', () => {
+  const root = spaced()
+  const deskDir = () => join(root, 'desks', 'bell')
+  assert.equal(verdictOf('node scripts/lint.mjs ../../scripts/bell/wake.mjs', root, deskDir), null, 'a linter given the file')
+  assert.equal(verdictOf('node --require ../../scripts/bell/wake.mjs app.mjs', root, deskDir), null, 'preloaded into another program')
+  assert.deepEqual(verdictOf('node ../../scripts/bell/wake.mjs --thread BT-1', root, deskDir), { proven: true })
+})
+
+test('⛔ (b) a doorbell in a worktree under the office is not the office\'s', () => {
+  const root = spaced()
+  const wt = join(root, '.claude', 'worktrees', 'x', 'scripts', 'bell', 'wake.mjs')
+  assert.equal(verdictOf(`node ${wt}`, root), null)
+  assert.equal(verdictOf('node ../../scripts/bell/wake.mjs', root, () => join(root, '.claude', 'worktrees', 'x', 'desks', 'bell')), null, 'relative, but run from a worktree desk')
+})
+
+test('⛔ (c) a path with a space is compared as written, never split', () => {
+  const root = spaced()
+  const own = join(root, 'scripts', 'bell', 'wake.mjs')
+  assert.deepEqual(verdictOf(`node ${own}`, root, () => '/somewhere/else'), { proven: true }, 'our doorbell by absolute path, cwd elsewhere')
+  assert.deepEqual(verdictOf(`node ${own} --thread BT-2`, root), { proven: true })
+  const other = join(root + ' copy', 'scripts', 'bell', 'wake.mjs')
+  assert.equal(verdictOf(`node ${other}`, root), null, 'a sibling folder sharing the prefix')
+  assert.equal(verdictOf(`node ${join(root, 'scripts', 'bell', 'wake.mjs.bak')}`, root), null)
+})
+
+test('wakeMatch never lets a shell count as the doorbell', () => {
+  const d = { ...bellDesk, wakeMatch: 'wake\\.mjs' }
+  assert.equal(isDoorbell({ pid: 1, cmd: 'sh -c "grep -n x ../../scripts/bell/wake.mjs"' }, d), false)
+  assert.equal(isDoorbell({ pid: 1, cmd: 'node ../../scripts/bell/wake.mjs' }, d), true)
 })

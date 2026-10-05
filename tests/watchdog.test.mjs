@@ -60,7 +60,7 @@ test('the shim finds the plugin where it is installed NOW and runs health --heal
   writeFileSync(join(install, 'lib', 'health.mjs'), `import { writeFileSync } from 'node:fs'\nwriteFileSync(${JSON.stringify(join(w.root, 'ran.json'))}, JSON.stringify(process.argv.slice(2)))\nconsole.log('office: green')\n`)
   mkdirSync(join(w.home, '.claude', 'plugins'), { recursive: true })
   writeFileSync(join(w.home, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: { 'office-anything@office-anything': [{ installPath: install, version: '9.9.9' }] } }))
-  const run = spawnSync(process.execPath, [r.shim], { env: { ...process.env, HOME: w.home }, encoding: 'utf8' })
+  const run = spawnSync(process.execPath, [r.shim], { env: { ...process.env, HOME: w.home, CLAUDE_CONFIG_DIR: '' }, encoding: 'utf8' })
   assert.equal(run.status, 0, run.stderr)
   assert.deepEqual(JSON.parse(readFileSync(join(w.root, 'ran.json'), 'utf8')), [w.root, '--heal'])
   assert.match(readFileSync(r.log, 'utf8'), /office: green/, 'the run lands in the log on the home disk')
@@ -73,7 +73,7 @@ test('⛔ the office disk is not mounted: one line an hour, a clean exit, nothin
   const r = installWatchdog(gone, w.opts)
   spawnSync('rm', ['-rf', gone])
   for (let i = 0; i < 3; i++) {
-    const run = spawnSync(process.execPath, [r.shim], { env: { ...process.env, HOME: w.home }, encoding: 'utf8' })
+    const run = spawnSync(process.execPath, [r.shim], { env: { ...process.env, HOME: w.home, CLAUDE_CONFIG_DIR: '' }, encoding: 'utf8' })
     assert.equal(run.status, 0)
   }
   const lines = readFileSync(r.log, 'utf8').trim().split('\n')
@@ -89,4 +89,26 @@ test('uninstall boots it out and removes the plist and the shim', () => {
   assert.ok(!existsSync(r.plist) && !existsSync(r.shim))
   assert.ok(w.calls.some((c) => c[0] === 'bootout'))
   assert.equal(pathsFor(w.root, w.home).plist, r.plist)
+})
+
+test('the shim honours CLAUDE_CONFIG_DIR and runs an install that EXISTS, the newest, not entry [0]', () => {
+  const w = world()
+  const r = installWatchdog(w.root, w.opts)
+  const fake = (tag) => {
+    const d = mkdtempSync(join(tmpdir(), 'oa-wd-' + tag + '-'))
+    mkdirSync(join(d, 'lib'), { recursive: true })
+    writeFileSync(join(d, 'lib', 'health.mjs'), `import { writeFileSync } from 'node:fs'\nwriteFileSync(${JSON.stringify(join(w.root, 'which.txt'))}, ${JSON.stringify(tag)})\n`)
+    return d
+  }
+  const older = fake('older'), newer = fake('newer')
+  const cfg = mkdtempSync(join(tmpdir(), 'oa-wd-cfg-'))
+  mkdirSync(join(cfg, 'plugins'), { recursive: true })
+  writeFileSync(join(cfg, 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: { 'office-anything@office-anything': [
+    { installPath: join(tmpdir(), 'gone-' + Date.now()), lastUpdated: '2026-10-09T00:00:00Z' },
+    { installPath: older, lastUpdated: '2026-10-01T00:00:00Z' },
+    { installPath: newer, lastUpdated: '2026-10-05T00:00:00Z' },
+  ] } }))
+  const run = spawnSync(process.execPath, [r.shim], { env: { ...process.env, HOME: w.home, CLAUDE_CONFIG_DIR: cfg }, encoding: 'utf8' })
+  assert.equal(run.status, 0, run.stderr)
+  assert.equal(readFileSync(join(w.root, 'which.txt'), 'utf8'), 'newer')
 })

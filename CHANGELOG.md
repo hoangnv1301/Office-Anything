@@ -16,8 +16,9 @@
   leave alerts for the lead in .office/alerts.log, one per subject per 15
   minutes. It never types into a desk. Every act is logged.
 - `--install-watchdog` runs `--heal` every 120 s from a LaunchAgent, through
-  a shim in the office's .office/ that finds the plugin's CURRENT install, so
-  a version bump does not strand it.
+  a shim on the home disk (~/Library/Application Support/office-anything/)
+  that finds the plugin's CURRENT install, so a version bump does not strand
+  it.
 - New desk.json fields: `wakeMatch`, `wakeGraceSec`, `wakeOwner: "launchd"`,
   `watch: true` (a desk with autostart:false that must still be running).
   New office.json keys: `start`, `health`, `watchdog`.
@@ -34,6 +35,16 @@
 - An orphan whose script cannot be placed in this office (a relative path,
   a cwd nobody can read) is listed as unproven, never dropped and never
   killed. Seen live: five buyer-wake processes, 1 to 30 hours old.
+- After the second review: an orphan is PROVEN only by an exact form, never
+  a parse: after node, the raw command is the desk's own wake script run from
+  the desk's folder, or that script's exact absolute path (a path with a space
+  is compared as written). A linter given the file, --require, a worktree
+  under the office, or a sibling folder sharing its prefix is not ours. A
+  shell is never the doorbell, even under wakeMatch. The heal lock belongs to
+  a live pid (never taken by age), is taken over atomically and released only
+  while it is ours; the budget is re-read before every spend; a desk
+  restarted in the last 5 minutes is left to register. The shim honours
+  CLAUDE_CONFIG_DIR and runs the newest install that exists.
 - The boot hook's doorbell line now asks for Monitor timeout_ms 1800000 and
   to re-arm on every expiry notice: a Monitor dies at 30 minutes at most,
   and "persistent" is not a setting it has.

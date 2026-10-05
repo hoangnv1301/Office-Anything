@@ -89,3 +89,16 @@ At 11:30Z, after a Mac restart, `start.mjs all` brought every desk back as "resu
 | 8 tests | zsh wrapper under launchd, pager/editor/grep, pid reuse, fresh re-read, kill injected everywhere; each guard broken and seen red |
 | scope: boot line | the default line asks for Monitor `timeout_ms 1800000` and to re-arm on every expiry notice (the Monitor schema: default 5 min, max 30, killed at expiry, session notified). A test pins that the boot hook has no matcher, so it fires on resume |
 | scope: verifier | not a detached verifier from the hook: `desk-health` is the verifier, run by the watchdog every 120 s, with a 90 s grace before an unarmed doorbell turns red |
+
+## After the second review (2026-10-05)
+
+| item | fix |
+|---|---|
+| (a) script at any argument | the script must be what node runs: after node, the raw command is exactly the wake script (+ args); `--require`, `-e`, a linter given the file are not ours |
+| (b) prefix test | the script must equal the desk's own `resolve(deskDir, script)` or its realpath; relative only with cwd == the desk's folder. A worktree under `<root>/.claude/worktrees/` or a sibling folder sharing the prefix is never proven |
+| (c) spaces | proof never splits: the raw text after the interpreter is compared with the exact path as written; an own doorbell by absolute path with any cwd is proven, not dropped |
+| wakeMatch and shells | a shell is never the doorbell, whatever wakeMatch says |
+| lock races | a lock is taken over only when its pid is dead (never by age), by atomic rename re-read to be ours; refreshed between acts; released only while it is ours |
+| stale budget | state re-read from disk before every spend and alert |
+| restart grace | a desk restarted in the last 5 min is left to register, not started twice |
+| shim | honours CLAUDE_CONFIG_DIR (also carried in the plist); runs the newest install entry that exists, not [0]; CHANGELOG states where the shim lives |

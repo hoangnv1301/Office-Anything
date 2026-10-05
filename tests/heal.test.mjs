@@ -7,7 +7,7 @@
 // Every test injects kill and the process table: nothing here touches a real process.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, statSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, statSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { heal } from '../lib/heal.mjs'
@@ -86,11 +86,11 @@ test('no `start` declared: no restart is invented, the lead is told why', () => 
 test('the 4th heal of one desk in an hour is refused, and refusing is reported', () => {
   const o = office()
   const now = Date.parse('2026-10-05T12:00:00Z')
-  for (let i = 0; i < 3; i++) heal(o.root, dead(), opts(o, { now: now + i * 60_000 }))
-  const r = heal(o.root, dead(), opts(o, { now: now + 4 * 60_000 }))
+  for (let i = 0; i < 3; i++) heal(o.root, dead(), opts(o, { now: now + i * 6 * 60_000 }))
+  const r = heal(o.root, dead(), opts(o, { now: now + 18 * 60_000 }))
   assert.ok(r.acts.some((a) => a.act === 'restart' && !a.ok && /cap/.test(a.why)))
   assert.equal(readFileSync(join(o.root, 'started.txt'), 'utf8').trim().split('\n').length, 3)
-  const later = heal(o.root, dead(), opts(o, { now: now + 61 * 60_000 }))
+  const later = heal(o.root, dead(), opts(o, { now: now + 80 * 60_000 }))
   assert.ok(later.acts.some((a) => a.act === 'restart' && a.ok), 'an hour later the budget is back')
 })
 
@@ -138,4 +138,51 @@ test('.office/ keeps itself out of git, and its logs do not grow without bound',
   assert.match(readFileSync(join(o.root, '.office', '.gitignore'), 'utf8'), /^\*$/m)
   assert.ok(statSync(join(o.root, '.office', 'heal.log')).size < 4096, 'rotated')
   assert.ok(existsSync(join(o.root, '.office', 'heal.log.1')), 'one generation kept')
+})
+
+// ── after the second review ────────────────────────────────────────────────
+test('⛔ a live heal is never robbed of its lock, however long it has run', () => {
+  const o = office()
+  mkdirSync(join(o.root, '.office'), { recursive: true })
+  const lock = join(o.root, '.office', 'heal.lock')
+  writeFileSync(lock, `${process.pid} other\n`)               // a live holder
+  const old = new Date(Date.now() - 3600_000); utimesSync(lock, old, old)
+  assert.equal(heal(o.root, dead(), opts(o)).skipped, 'another heal is running')
+  assert.equal(readFileSync(lock, 'utf8'), `${process.pid} other\n`, 'left exactly as it was')
+})
+
+test('a lock whose holder is dead is taken over, and released after', () => {
+  const o = office()
+  mkdirSync(join(o.root, '.office'), { recursive: true })
+  writeFileSync(join(o.root, '.office', 'heal.lock'), '999999 gone\n')
+  const r = heal(o.root, dead(), opts(o))
+  assert.equal(r.skipped, undefined)
+  assert.ok(r.acts.some((a) => a.act === 'restart' && a.ok))
+  assert.ok(!existsSync(join(o.root, '.office', 'heal.lock')))
+})
+
+test('⛔ a lock that is no longer ours is never deleted on the way out', () => {
+  const o = office({ start: 'echo "1 someone-else" > .office/heal.lock' })
+  heal(o.root, dead(), opts(o))
+  assert.equal(readFileSync(join(o.root, '.office', 'heal.lock'), 'utf8').trim(), '1 someone-else')
+})
+
+test('⛔ the budget is re-read from disk before each spend, so another run\'s heals count', () => {
+  // the desk restart (first) writes three fresh check heals into the state, as
+  // a concurrent run would; the check heal later in this run must see them
+  const t = Date.now()
+  const o = office({ start: `node -e "const f='.office/heal-state.json';const s=JSON.parse(require('fs').readFileSync(f));s.heals['check:web']=[${t},${t},${t}];require('fs').writeFileSync(f,JSON.stringify(s))"` })
+  const r = heal(o.root, health({ desks: dead().desks, checks: [{ name: 'web', ok: false, why: 'exit 1', heal: 'echo healed >> web.txt' }] }), opts(o, { now: t }))
+  assert.ok(r.acts.some((a) => a.act === 'check-heal' && !a.ok && /cap/.test(a.why)), JSON.stringify(r.acts))
+  assert.ok(!existsSync(join(o.root, 'web.txt')))
+})
+
+test('a desk restarted minutes ago is given time to register, not started twice', () => {
+  const o = office()
+  const t = Date.parse('2026-10-05T12:00:00Z')
+  heal(o.root, dead(), opts(o, { now: t }))
+  const again = heal(o.root, dead(), opts(o, { now: t + 2 * 60_000 }))
+  assert.ok(again.acts.some((a) => a.act === 'restart' && !a.ok && /waiting/.test(a.why)))
+  heal(o.root, dead(), opts(o, { now: t + 6 * 60_000 }))
+  assert.equal(readFileSync(join(o.root, 'started.txt'), 'utf8').trim().split('\n').length, 2, 'at 0 and 6 minutes, not at 2')
 })
