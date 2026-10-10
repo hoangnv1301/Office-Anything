@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.9.1
+
+Five false refusals were found by replaying 5,000 real desk commands from
+local-cabinets-ops: 7 commands their own wall allowed and this one refused.
+Each shape is pinned as allowed in `tests/wall-replay.test.mjs`, red before
+the fix, beside the attack it must still refuse.
+
+- `IFS='|' read a b <<< "$x"`: a redirection ends the variable names, so the
+  here-string is data, not a name built at run time.
+- After a `cd`, a path is resolved from where the shell stands. It used to be
+  resolved from every folder the command passed through, so `../from-buyer`
+  read from the desk folder looked like another desk.
+- A quoted grep pattern is a pattern, never a glob: `cd ../.. && grep -rn
+  "price.*total" lib` was a glob over every desk. Bash words are now split
+  as bash splits them, quotes included. A recursive command's operands are
+  all checked as paths, so a bare `desks` is caught too; grep's and rg's
+  pattern is skipped.
+- A symlink inside a desk's own folder (a shared skill folder) is the desk's
+  own to search. It is refused only when its real target is, or holds, a
+  `runtime/`: another desk's whole folder still is.
+- The office module's deadline is 5 s by default (2 s missed about 1 call in
+  1,000 at load 25 to 30). An office may set `wall.moduleTimeoutMs`, capped
+  at 8 s, under the hook's own timeout.
+
 ## 0.9.0
 
 - ONE SESSION PER CASE, UNDER ITS PARENT DESK: `/desk-case` (`lib/cases.mjs`).

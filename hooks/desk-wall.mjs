@@ -28,7 +28,7 @@
 // made in its own file, and it applies to desk sessions only.
 import { readOfficeConfigStrict, findOffice, whoIs, sessionName } from '../lib/office.mjs'
 import { compileWall, judge } from '../lib/wall.mjs'
-import { openModule } from '../lib/wall-module.mjs'
+import { openModule, MODULE_DEADLINE_MS } from '../lib/wall-module.mjs'
 import { isMain } from '../lib/is-main.mjs'
 import { resolve, join, sep } from 'node:path'
 import { existsSync, realpathSync } from 'node:fs'
@@ -39,6 +39,11 @@ import { existsSync, realpathSync } from 'node:fs'
 // (desk-<x> or desk-<x>--<key>) for a name only the office understands.
 // It runs AFTER the plugin's rules: it can refuse more, never allow more. It
 // runs in a worker under a deadline (lib/wall-module.mjs).
+// office.json wall.moduleTimeoutMs, kept under the hook's own 10 s timeout
+export const moduleDeadline = (cfg) => {
+  const v = cfg?.wall?.moduleTimeoutMs
+  return Number.isFinite(v) && v > 0 ? Math.min(v, 8000) : MODULE_DEADLINE_MS
+}
 export function officeModule(root, cfg) {
   const rel = cfg?.wall?.module
   if (typeof rel !== 'string' || !rel) return null
@@ -46,7 +51,7 @@ export function officeModule(root, cfg) {
   let real = null
   try { real = existsSync(f) ? realpathSync(f) : null } catch {}
   if (!real || !(real + sep).startsWith(realpathSync(root) + sep)) throw new Error(`wall.module ${rel} is not a file inside the office`)
-  return openModule(real)
+  return openModule(real, { deadlineMs: moduleDeadline(cfg) })
 }
 
 // ⛔ THE OFFICE IS FOUND FROM THE SESSION, NOT FROM WHERE IT STANDS. A desk
