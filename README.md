@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-247%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-255%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -167,13 +167,26 @@ Two more pieces every office ends up writing, now in the plugin. Both are
 **off until your `office.json` turns them on**, so installing the plugin
 changes nothing in a project that does not ask.
 
-**The desk wall** (`"wall"`) is a PreToolUse gate on Bash, Read and the
-writing tools. A desk writes only inside its own folder, never its `.claude/`
+**The desk wall** (`"wall"`) is a PreToolUse gate on Bash, Read, the
+writing tools, SendMessage and the delegation tools. A desk writes only inside its own folder, never its `.claude/`
 or `runtime/` (its door and its keys); reads no secret file and no other
-desk's `runtime/`; does not `cd` into another desk, reassign the role or token
-variables, or make git writes. The lead writes no file, and when you list its
-commands, runs exactly one of them per call. Your own refusals go in
-`wall.deny`, each with the reason the desk is shown.
+desk's `runtime/`; does not `cd` into another desk or make git writes. The
+role and token variables (`roleEnv`, `wall.lockedEnv`) are **read-only in
+every spelling**: `$NAME` and `${NAME}` pass; `=`, `+=`, `export`, `unset`,
+`env -u`, `${NAME:=…}`, quote splicing, `eval` and `${!…}` are refused. The
+lead writes no file, and when you list its commands, runs exactly one of them
+per call. Your own refusals go in `wall.deny`, each with the reason the desk is
+shown.
+
+Optional, each off until set:
+
+| field | what it adds |
+|---|---|
+| `wall.messages: true` | a desk or the lead may SendMessage only the lead (`lead.session` or a `lead.aliases` name), a real desk (`desk-<name>`), or a real case session of one (`desk-<name>--<key>`). Work for a developer goes through the owner |
+| `wall.noDelegation: true` | a desk or the lead starts no Agent, Task, Workflow, RemoteTrigger or worktree: those hands would work outside the wall |
+| `wall.module: "<path>"` | your office's own rules: an ES module inside the office exporting `judge(payload, who, { root, cfg, session })` → reason or null, and/or `alias(name, { root })` → a canonical session name for a name only your office understands. It runs after the plugin's rules, so it can refuse more and never allow more |
+| `lead.aliases: ["…"]` | other names the lead session goes by |
+| desk.json `perCase.key` | a regex. `desk-<name>--<key>` is then a case session of that desk: same folder, same wall. Only a key that matches in full, with no `--`, slash or whitespace, counts. Anything else claiming the suffix is refused |
 
 **Desk boot** (`"boot"`) is a SessionStart hook. A desk that restarts (or is
 resumed at the repo root, which drops its folder) is told who it is, which of
@@ -188,9 +201,12 @@ developer.
 ```json
 {
   "roleEnv": "OFFICE_ROLE",
-  "lead": { "session": "Office Lead" },
+  "lead": { "session": "Office Lead", "aliases": ["lead"] },
   "wall": {
     "failClosed": true,
+    "messages": true,
+    "noDelegation": true,
+    "module": "desks/hooks/wall-extra.mjs",
     "secrets": "\\.env\\b",
     "lockedEnv": ["OPS_TOKEN"],
     "deny": [{ "pattern": "\\bsqlite3\\b", "why": "desks do not touch the database directly" }],

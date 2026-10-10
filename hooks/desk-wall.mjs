@@ -29,6 +29,22 @@
 import { readOfficeConfig, findOffice, whoIs, sessionName } from '../lib/office.mjs'
 import { compileWall, judge } from '../lib/wall.mjs'
 import { isMain } from '../lib/is-main.mjs'
+import { resolve, sep } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { existsSync } from 'node:fs'
+
+// The office's own rules, in its own file: office.json "wall.module" names an
+// ES module inside the office exporting judge(payload, who, { root, cfg, session }) ->
+// reason | null, and/or alias(name, { root }) -> a canonical session name
+// (desk-<x> or desk-<x>--<key>) for a name only the office understands.
+// It runs AFTER the plugin's rules: it can refuse more, never allow more.
+export async function officeModule(root, cfg) {
+  const rel = cfg?.wall?.module
+  if (typeof rel !== 'string' || !rel) return null
+  const f = resolve(root, rel)
+  if (!(f + sep).startsWith(root + sep) || !existsSync(f)) throw new Error(`wall.module ${rel} is not a file inside the office`)
+  return import(pathToFileURL(f).href)
+}
 
 // ⛔ THE OFFICE IS FOUND FROM THE SESSION, NOT FROM WHERE IT STANDS. A desk
 // that cd's out of the repo (/tmp, its home) sent a payload cwd with no
@@ -41,7 +57,7 @@ export function locate(p, env = process.env, here = process.cwd()) {
   return { root: null, places }
 }
 
-export function decide(raw, env = process.env, here = process.cwd()) {
+export async function decide(raw, env = process.env, here = process.cwd()) {
   let p = null
   try { p = JSON.parse(raw || '{}') } catch {}
   const { root, places } = locate(p, env, here)
@@ -49,10 +65,15 @@ export function decide(raw, env = process.env, here = process.cwd()) {
   const cfg = readOfficeConfig(root)
   if (!cfg.wall || typeof cfg.wall !== 'object') return { code: 0 }
   const failClosed = cfg.wall.failClosed === true
-  let who = null
+  let who = null, mod = null, session = ''
   try {
-    // role variable, then session name, then each folder the session is known by
-    const name = sessionName()
+    mod = await officeModule(root, cfg)
+    // role variable, then session name, then each folder the session is known by.
+    // A name only the office understands is first mapped by its module.
+    let name = sessionName()
+    session = name
+    const mapped = name && !/^desk-/.test(name) && typeof mod?.alias === 'function' ? mod.alias(name, { root }) : null
+    if (typeof mapped === 'string' && mapped) name = mapped
     for (const cwd of places) { who = whoIs(root, cfg, { cwd, env, name }); if (who) break }
   } catch (e) { return failClosed ? { code: 2, why: 'the wall could not tell who this session is (' + e.message + '), and this office\'s wall fails closed' } : { code: 0 } }
   if (!who) return { code: 0 }                               // a developer session: not ours to judge
@@ -63,7 +84,10 @@ export function decide(raw, env = process.env, here = process.cwd()) {
   if (who.kind === 'unknown') return say(`this session calls itself ${who.role}, and this office has no such desk`)
   if (!p) return failClosed ? say('the hook could not read its payload, and this office\'s wall fails closed') : { code: 0 }
   try {
-    const why = judge(p, who, root, compileWall({ ...cfg.wall, roleEnv: cfg.roleEnv }))
+    const to = String(p?.tool_input?.to ?? '').replace(/\s*\[[^\]]*\]\s*$/, '').trim()
+    const aliasTo = p?.tool_name === 'SendMessage' && typeof mod?.alias === 'function' ? (mod.alias(to, { root }) || null) : null
+    const W = compileWall({ ...cfg.wall, roleEnv: cfg.roleEnv, leadSession: cfg.lead?.session, leadAliases: cfg.lead?.aliases })
+    const why = judge(p, who, root, W, { aliasTo }) ?? (typeof mod?.judge === 'function' ? mod.judge(p, who, { root, cfg, session }) : null)
     return why ? say(why) : { code: 0 }
   } catch (e) { return failClosed ? say('the wall broke while judging (' + e.message + '), and this office\'s wall fails closed') : { code: 0 } }
 }
@@ -83,8 +107,9 @@ if (isMain(import.meta.url)) {
   const chunks = []
   process.stdin.on('data', (c) => chunks.push(c))
   process.stdin.on('end', () => {
-    const r = decide(Buffer.concat(chunks).toString())
-    if (r.why) console.error(r.why)
-    process.exit(r.code)
+    decide(Buffer.concat(chunks).toString()).then((r) => {
+      if (r.why) console.error(r.why)
+      process.exit(r.code)
+    }, crashed)
   })
 }
