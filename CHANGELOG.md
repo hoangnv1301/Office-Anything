@@ -21,10 +21,26 @@ first (`tests/wall-adopt2.test.mjs`).
   refused.
 - zsh's `${(e)…}` and `${(P)…}` evaluate, so they are refused like `eval` and
   `${!x}`.
-- A desk does not read Claude Code's own folder (`~/.claude`, or
-  `CLAUDE_CONFIG_DIR`: session key files, transcripts, credentials) with
-  Read, Grep, Glob or Bash. `~`, `$HOME` and `${HOME}` are expanded to their
-  real value before the path is judged.
+- CLAUDE CODE'S OWN FOLDER (`~/.claude`, the account's home's `.claude`,
+  and `CLAUDE_CONFIG_DIR`, all three) is closed to a desk: session keys,
+  settings, channels, other sessions' transcripts. Read, Grep, Glob and Bash
+  all respect it.
+  - The desk's OWN `projects/<its folder>/` tree stays readable (Claude Code
+    saves big tool output there and tells the session to Read it, alongside
+    its memory and transcript). So does `skills/`.
+  - Every spelling is judged: `~`, `~user` (from the user database), `$HOME`,
+    `${HOME}`, a variable set in the same command (`H=$HOME; cat $H/…`), and
+    a literal `~` in a Read path. An unknown variable leading into a
+    `.claude` folder cannot be judged, so it is refused.
+- A write or read inside `$(…)` or backticks is judged like any other
+  command. The first 0.9.3 commits missed `echo $(echo x > ../../lib/x)`.
+- A `)` inside quoted code inside `$(…)` no longer ends the substitution:
+  67 false refusals (about 1.3% of desk Bash).
+- The Grep tool may read another desk's single facts file, as Bash may.
+- `sed -i` is parsed: its script (`'/^import/d'`, `'s#/a#/b#'`) is a
+  script, and only the files after it are written.
+- A command nested more than 64 levels deep (or over 200,000 characters) is
+  refused before it is parsed. 30,000 nested `${` took 6.6 s.
 
 ## 0.9.2
 
