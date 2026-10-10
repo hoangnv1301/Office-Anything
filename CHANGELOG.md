@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.7.44
+
+These are gaps local-cabinets-ops found while adopting the wall. Each has a test that was red first (`tests/wall-adoption.test.mjs`).
+
+- `wall.messageTo`: names a desk may SendMessage that are NOT session
+  identities. A desk can message `lead` without a session named `lead` (a
+  developer at the repo root) being walled as THE lead.
+- FAIL-OPEN CLOSED: with its office module missing, a desk session resumed
+  at the repo root without its role variable got through. Its name was
+  read only after the module loaded. The name is now read first, and a
+  desk-shaped session is refused while the module is broken.
+- `wall.aliasNames`: regexes for the names the office module maps to desks
+  (e.g. `^cs-`). They count as desk-shaped when the module fails.
+- A BROKEN MODULE STOPS DESKS, NOT THE PEOPLE WHO REPAIR IT. When `alias()`
+  throws or passes its 2 s deadline, only a desk-shaped session (or one
+  standing in a desk's folder) is refused. The lead and a developer go on
+  under the plugin's own rules. Before, every named session at the root
+  was refused.
+- A name the office reserves for desks (`aliasNames`) that the module maps to
+  no desk is refused. An unrecorded `cs-<x>` used to fall through as a
+  developer.
+- The lead falls back to the core rules only when the module is broken as a
+  whole (unloadable, or `alias()` failed). A `judge()` that throws on one
+  call denies that call.
+- A `wall.aliasNames` pattern that does not compile is no longer silently
+  dropped. Only the lead goes on until it is fixed, and the `desk-wall`
+  check names the pattern.
+- The module's worker starts only for a session it concerns: an aliased
+  name, a desk or the lead. With `aliasNames` declared, a developer session
+  starts none (measured about 100 to 200 ms less per tool call, at load 15
+  to 25).
+
 ## 0.7.43
 
 Full real integration is PENDING: it runs on the first real desk restart of

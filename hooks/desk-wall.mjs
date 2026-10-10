@@ -83,37 +83,84 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
   if (!cfg.wall || typeof cfg.wall !== 'object') return { code: 0 }
   if (unreadable) return { code: 2, why: '⛔ desk wall: the hook could not read its payload, so nothing it asked for is allowed' }
   const failClosed = cfg.wall.failClosed !== false
-  let who = null, mod = null, session = ''
+  // ⛔ WHO THE SESSION CLAIMS TO BE IS READ BEFORE ANYTHING CAN FAIL. The name
+  // used to be read after the office module loaded, so a missing module left
+  // it empty and a desk resumed at the repo root looked like a developer.
+  const session = sessionName()
+  let aliasPats = [], aliasBroken = false
+  try { aliasPats = (Array.isArray(cfg.wall.aliasNames) ? cfg.wall.aliasNames : []).map((x) => new RegExp(x)) }
+  catch (e) {
+    // ⛔ A BROKEN aliasNames IS NOT "NO DESK NAMES". The office said some
+    // names are desks; dropping the pattern let them pass as developers.
+    // Until it is fixed only the lead goes on (the desk-wall check names it).
+    const lead = typeof cfg.lead?.session === 'string' ? cfg.lead.session : null
+    const role = (typeof cfg.roleEnv === 'string' && env[cfg.roleEnv]) || session
+    aliasBroken = true
+    if (!(lead && role === lead) && session) return { code: 2, why: `⛔ desk wall: office.json wall.aliasNames does not compile (${e.message}), so this wall cannot tell a desk from a developer; only the lead goes on until it is fixed` }
+  }
+  const declared = Array.isArray(cfg.wall.aliasNames)
+  // names the office's module maps to a desk: the declared patterns, or (an
+  // office that declares none) any name that is not already desk-<x>
+  const aliasable = (n) => !!n && !/^desk-/.test(n) && (declared ? aliasPats.some((re) => re.test(n)) : true)
+  const deskShaped = (n) => /^desk-/.test(n) || aliasPats.some((re) => re.test(n))
+  const desks = join(root, 'desks') + sep
+  const inDesk = places.some((c) => (resolve(c) + sep).startsWith(desks))
+  // ⛔ A BROKEN MODULE STOPS DESKS, NOT THE PEOPLE WHO REPAIR IT. A desk-shaped
+  // session, or one standing in a desk's folder, is refused; the lead and a
+  // developer go on under the plugin's own rules.
+  const refuseDesk = (e) => ({ code: 2, why: '⛔ desk wall: this office\'s wall module failed (' + e.message + '), so a desk session is refused until it is fixed; the lead or a developer can repair it' })
+  // ⛔ THE WORKER STARTS ONLY FOR A SESSION IT CONCERNS (an aliased name, a
+  // desk, the lead): it cost every named session ~90 ms per tool call
+  let mod = null, modErr = null
+  const module = () => {
+    if (mod || modErr) return mod
+    try { mod = officeModule(root, cfg) } catch (e) { modErr = e }
+    return mod
+  }
   try {
-    try {
-      mod = officeModule(root, cfg)
-      // role variable, then session name, then each folder the session is known by.
-      // A name only the office understands is first mapped by its module.
-      let name = sessionName()
-      session = name
-      const mapped = name && !/^desk-/.test(name) && mod ? await mod.call('alias', name, { root }) : null
-      if (typeof mapped === 'string' && mapped) name = mapped
-      for (const cwd of places) { who = whoIs(root, cfg, { cwd, env, name }); if (who) break }
-    } catch (e) {
-      // without the module the wall cannot tell who an aliased name is: a
-      // session that claims a desk by name or folder is refused
-      const desks = join(root, 'desks') + sep
-      const claims = /^desk-/.test(session) || places.some((c) => (resolve(c) + sep).startsWith(desks)) || (session && !who)
-      return failClosed && claims ? { code: 2, why: '⛔ desk wall: the wall could not tell who this session is (' + e.message + '), and this office\'s wall fails closed' } : { code: 0 }
+    let name = session
+    if (aliasable(name) && cfg.wall.module) {
+      try {
+        const m = module()
+        if (modErr) throw modErr
+        const mapped = m ? await m.call('alias', name, { root }) : null
+        if (typeof mapped === 'string' && mapped) name = mapped
+      } catch (e) {
+        if (failClosed && (deskShaped(session) || inDesk)) return refuseDesk(e)
+        modErr ??= e
+      }
     }
-    if (!who) return { code: 0 }                             // a developer session: not ours to judge
+    let who = null
+    for (const cwd of places) { who = whoIs(root, cfg, { cwd, env, name }); if (who) break }
+    if (!who) {
+      // ⛔ A NAME SHAPED LIKE A DESK THAT RESOLVES TO NONE IS NOT A DEVELOPER.
+      // An unrecorded cs-<x> fell through to "nobody" and was waved through.
+      if (failClosed && deskShaped(session)) return modErr ? refuseDesk(modErr) : { code: 2, why: `⛔ desk wall: this session is named ${session}, which this office reserves for desk sessions, and no desk answers to it` }
+      return { code: 0 }
+    }
     const W0 = cfg.wall.footer ?? {}
     const label = who.kind === 'lead' ? 'the lead' : who.kind === 'desk' ? 'desk ' + who.desk : who.role
     const foot = who.kind === 'lead' ? W0.lead : W0.desk
     const say = (why) => ({ code: 2, why: `⛔ desk wall (${label}): ${why}` + (foot ? '\n' + foot : '') })
     if (who.kind === 'unknown') return say(`this session calls itself ${who.role}, and this office has no such desk`)
+    let W
+    try { W = compileWall({ ...cfg.wall, ...(aliasBroken ? { aliasNames: [] } : {}), roleEnv: cfg.roleEnv, leadSession: cfg.lead?.session, leadAliases: cfg.lead?.aliases }) }
+    catch (e) { return failClosed ? say('the wall broke while judging (' + e.message + '), and this office\'s wall fails closed') : { code: 0 } }
+    if (cfg.wall.module) module()
+    if (modErr && who.kind === 'desk') return failClosed ? refuseDesk(modErr) : { code: 0 }
+    if (modErr && who.kind === 'lead') { const core = judge(p, who, root, W, {}); return core ? say(core) : { code: 0 } }
     try {
       const to = String(p?.tool_input?.to ?? '').replace(/\s*\[[^\]]*\]\s*$/, '').trim()
-      const aliasTo = p?.tool_name === 'SendMessage' && mod ? ((await mod.call('alias', to, { root })) || null) : null
-      const W = compileWall({ ...cfg.wall, roleEnv: cfg.roleEnv, leadSession: cfg.lead?.session, leadAliases: cfg.lead?.aliases })
+      const aliasTo = p?.tool_name === 'SendMessage' && mod && aliasable(to) ? ((await mod.call('alias', to, { root })) || null) : null
       const why = judge(p, who, root, W, { aliasTo }) ?? (mod ? await mod.call('judge', p, who, { root, cfg, session }) : null)
       return why ? say(why) : { code: 0 }
-    } catch (e) { return failClosed ? say('the wall broke while judging (' + e.message + '), and this office\'s wall fails closed') : { code: 0 } }
+    } catch (e) {
+      // the lead goes on under the core rules only when the module is broken
+      // as a whole (unloadable, alias failed); a judge() that throws on this
+      // one call is no reason to skip the office's rules for it
+      if (who.kind === 'lead' && modErr) { const core = judge(p, who, root, W, {}); return core ? say(core) : { code: 0 } }
+      return failClosed ? say('the wall broke while judging (' + e.message + '), and this office\'s wall fails closed') : { code: 0 }
+    }
   } finally { mod?.close() }
 }
 
