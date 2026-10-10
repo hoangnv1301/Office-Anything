@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.42
+
+These follow a third security review of the wall. Each has a test that was red first (`tests/wall-hardening.test.mjs`).
+
+- REDIRECTS AS BASH READS THEM. `>|path` was parsed as a file called
+  "|path", which resolved inside the desk while bash wrote outside it, and
+  `>&path` was skipped entirely. Both are judged as writes now. `>&2`,
+  `2>&1` and `>&-` write no file and still pass.
+- GREP AND GLOB ARE READS. Only Read was judged, so a desk could grep
+  another desk's `runtime/` (its token) or a `.env`. The hook's matcher now
+  includes Grep and Glob.
+  - Secrets are checked on their path fields; a search for the text
+    ".env" in code is fine.
+  - A search may not cover any desk's `runtime/` but the desk's own. A desk
+    searches its own folder or outside `desks/`; the repo root is refused
+    because it contains every desk. The lead may search anywhere that holds
+    no `runtime/`.
+  - A Glob pattern may not climb out with `..`.
+
 ## 0.7.41
 
 These are the follow-ups to a second security review of the 0.7.40 wall. Each has a test that was red first (`tests/wall-hardening.test.mjs`).
