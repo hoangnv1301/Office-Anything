@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-302%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-300%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -317,6 +317,31 @@ One desk carrying five jobs in one conversation mixed two of them up. A desk tha
 
 Native primitives: the session registry, `claude --name` / `--resume <id>`, SendMessage, and the
 SessionStart hook.
+
+## Hold a version: approve what your office runs
+
+```
+/desk-status
+```
+
+Claude Code can update a plugin in the background, and an update changes the wall in every new
+session. An office lists the versions it has approved:
+
+```json
+"plugin": { "approved": ["0.9.0"], "enforce": false }
+```
+
+A session that loads any other version is told so at start, and the lead gets one typed line in
+the office's alert log (`office.json` `"alerts": { "file": "…" }`, default `.office/alerts.log`):
+
+```
+2026-10-10T01:52:30.000Z VERSION - office-anything loaded 0.9.1, approved 0.9.0
+```
+
+`enforce: true` also refuses desk sessions on an unapproved version. It is opt-in, because with
+background updates a fail-closed default would stop every desk silently. `/desk-status` prints
+the loaded, approved and latest versions. Turn off background updates for this marketplace in
+your settings if you want updates to wait for a person.
 
 ## Health: is every desk actually listening
 
