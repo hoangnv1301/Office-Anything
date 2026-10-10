@@ -60,6 +60,9 @@ first (`tests/wall-adopt2.test.mjs`).
     `… | sh`, `bash -s`) is refused, because the wall cannot see the script.
 - An input redirection is a read: `cat <../other/runtime/token.json` and
   `$(<file)` are judged like `cat file`.
+- A command line holding more nested commands than the wall reads (256) is
+  refused. Past the cap, a text used to be kept while its own substitutions
+  were never opened.
 - Writers the list never knew are judged too: `dd of=`, `truncate`,
   `install`, and `perl`/`ruby -i`. A program that opens a file itself
   (`python -c`, `node -e`, `awk -i inplace`) is still beyond a string wall;

@@ -129,3 +129,10 @@ test('(review) hidden commands and hidden reads: sh -c, a shell fed by a pipe or
   ]) no('Bash', { command })
   for (const command of ["sh -c 'ls work-quynh'", 'bash ./work-quynh/run.sh', 'find . -name x -exec cat {} \;', 'cat <work-quynh/x.json', 'node a.mjs < work-quynh/in.json', 'node a.mjs <<< "hi"']) ok('Bash', { command })
 })
+
+test('(review) more nested commands than the wall reads is a refusal, not a pass', () => {
+  no('Bash', { command: 'echo ' + '$(true) '.repeat(70) + '$(cp x.mjs ../../lib/)' })
+  // past the cap a text is kept, but its own substitutions were never opened
+  no('Bash', { command: 'echo $(echo ' + '$(true) '.repeat(70) + '$(echo $(cp x.mjs ../../lib/)))' })
+  ok('Bash', { command: 'echo ' + '$(true) '.repeat(10) })
+})
