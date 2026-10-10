@@ -86,8 +86,9 @@ test('⛔ EVERY command points at a guarded entry point, not at the parts', () =
   // desk-board.md's guarded entry is a script, board/serve.mjs, not a lib function.
   // The registry of acceptable entries is now stated once, here: a guarded lib
   // call, or running a shipped entry script under board/ or checks/, or
-  // lib/health.mjs, whose CLI is the guarded entry for /desk-health.
-  const ENTRY = /\b(hire|fire)\(|node (board|checks)\/[a-z-]+\.mjs|node lib\/health\.mjs/
+  // lib/health.mjs, whose CLI is the guarded entry for /desk-health, or
+  // lib/start.mjs, the guarded entry for /desk-start and /desk-recover.
+  const ENTRY = /\b(hire|fire)\(|node (board|checks)\/[a-z-]+\.mjs|node lib\/(health|start)\.mjs/
   for (const f of readdirSync(join(ROOT, 'commands'))) {
     const text = readFileSync(join(ROOT, 'commands', f), 'utf8')
     assert.match(text, ENTRY,

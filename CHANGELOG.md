@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.7.43
+
+- START AND RECOVER ARE IN THE PLUGIN: `/desk-start <name|all|lead|everything>`
+  and `/desk-recover` (`lib/start.mjs`). Native primitives: the session
+  registry (`~/.claude/sessions`) for "is it up", `claude --resume <id>` and
+  `--name`, and the office's terminal adapter (orca).
+  - "Up" is the registry saying the session is idle, never a prompt on
+    screen. The first launcher waited for "? for shortcuts", which bypass
+    mode never shows, and reported every desk failed while all of them came
+    up.
+  - ⛔ A desk resumes its OWN last conversation, by id (`lib/conversation.mjs`):
+    the newest whose every recorded session name is the desk's, and that no
+    live session has open. Never `--continue`: after a disk disconnect,
+    `--continue` resumed the newest conversation in a desk's folder, which
+    was a case session's, and the parent desk woke up as that case.
+  - A start never opens a second session under a live name (the duplicate
+    guard). A desk that is alive but restored outside its folder, or running
+    another session's conversation, is reported, never killed.
+  - `/desk-recover` starts the lead first, then every autostart desk.
+  - `office.json` `launch`: terminal, flags, model, lead flags,
+    `lead.resume`, waitSec. Flags, models and session ids are checked to be
+    plain words, never shell.
+- Heal restarts a dead desk through core start when `office.json` says
+  `"start": "office:start"`, so an office keeps no versioned plugin path.
+  Without a `start`, heal still invents no restart.
 ## 0.7.42
 
 These follow a third security review of the wall. Each has a test that was red first (`tests/wall-hardening.test.mjs`).
