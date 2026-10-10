@@ -24,6 +24,9 @@ These are gaps local-cabinets-ops found while adopting the wall. Each has a test
 - The lead falls back to the core rules only when the module is broken as a
   whole (unloadable, or `alias()` failed). A `judge()` that throws on one
   call denies that call.
+- A `wall.aliasNames` pattern that does not compile is no longer silently
+  dropped. Only the lead goes on until it is fixed, and the `desk-wall`
+  check names the pattern.
 - The module's worker starts only for a session it concerns: an aliased
   name, a desk or the lead. With `aliasNames` declared, a developer session
   starts none (measured about 100 to 200 ms less per tool call, at load 15

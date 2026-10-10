@@ -85,3 +85,12 @@ test('(review) a module judge() that throws on one call still denies the lead th
   assert.equal(as(root, 'Office Lead', 'Bash', { command: 'boom' }, { role: 'Office Lead' }).code, 2)
   assert.equal(as(root, 'Office Lead', 'Bash', { command: 'ls' }, { role: 'Office Lead' }).code, 0)
 })
+
+test('(review) a broken aliasNames pattern is not silently dropped: only the lead goes on until it is fixed', () => {
+  // the office says some names are desks; a pattern that does not compile
+  // used to vanish, and those desk sessions passed as developers
+  const root = office({ module: 'desks/hooks/extra.mjs', aliasNames: ['^cs-('] }, 'export function alias() { return null }')
+  assert.equal(as(root, 'cs-Someone', 'Bash', { command: 'ls' }).code, 2)
+  assert.equal(as(root, 'repo-dev-12', 'Bash', { command: 'ls' }).code, 2)
+  assert.equal(as(root, 'Office Lead', 'Bash', { command: 'ls' }, { role: 'Office Lead' }).code, 0)
+})

@@ -87,8 +87,17 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
   // used to be read after the office module loaded, so a missing module left
   // it empty and a desk resumed at the repo root looked like a developer.
   const session = sessionName()
-  let aliasPats = []
-  try { aliasPats = (Array.isArray(cfg.wall.aliasNames) ? cfg.wall.aliasNames : []).map((x) => new RegExp(x)) } catch {}
+  let aliasPats = [], aliasBroken = false
+  try { aliasPats = (Array.isArray(cfg.wall.aliasNames) ? cfg.wall.aliasNames : []).map((x) => new RegExp(x)) }
+  catch (e) {
+    // ⛔ A BROKEN aliasNames IS NOT "NO DESK NAMES". The office said some
+    // names are desks; dropping the pattern let them pass as developers.
+    // Until it is fixed only the lead goes on (the desk-wall check names it).
+    const lead = typeof cfg.lead?.session === 'string' ? cfg.lead.session : null
+    const role = (typeof cfg.roleEnv === 'string' && env[cfg.roleEnv]) || session
+    aliasBroken = true
+    if (!(lead && role === lead) && session) return { code: 2, why: `⛔ desk wall: office.json wall.aliasNames does not compile (${e.message}), so this wall cannot tell a desk from a developer; only the lead goes on until it is fixed` }
+  }
   const declared = Array.isArray(cfg.wall.aliasNames)
   // names the office's module maps to a desk: the declared patterns, or (an
   // office that declares none) any name that is not already desk-<x>
@@ -135,7 +144,7 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     const say = (why) => ({ code: 2, why: `⛔ desk wall (${label}): ${why}` + (foot ? '\n' + foot : '') })
     if (who.kind === 'unknown') return say(`this session calls itself ${who.role}, and this office has no such desk`)
     let W
-    try { W = compileWall({ ...cfg.wall, roleEnv: cfg.roleEnv, leadSession: cfg.lead?.session, leadAliases: cfg.lead?.aliases }) }
+    try { W = compileWall({ ...cfg.wall, ...(aliasBroken ? { aliasNames: [] } : {}), roleEnv: cfg.roleEnv, leadSession: cfg.lead?.session, leadAliases: cfg.lead?.aliases }) }
     catch (e) { return failClosed ? say('the wall broke while judging (' + e.message + '), and this office\'s wall fails closed') : { code: 0 } }
     if (cfg.wall.module) module()
     if (modErr && who.kind === 'desk') return failClosed ? refuseDesk(modErr) : { code: 0 }
