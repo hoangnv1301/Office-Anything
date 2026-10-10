@@ -1,5 +1,99 @@
 # Changelog
 
+## 0.9.4
+
+- ⛔ HEREDOCS ARE FOUND IN THE WHOLE COMMAND, NOT LINE BY LINE (security
+  review of 0.9.3). Reading one line at a time lost a quote opened on the
+  line before, so `echo "a` / `<<X"` / `cat ../other/runtime/token.json` / `X`
+  hid the `cat` from the wall; so did a `<<` in a comment, after a `\`
+  continuation, or inside `$(( ))`. One scanner now carries quotes, `$( )`,
+  backticks, `(( ))` and comments across newlines, and a `<<` counts only in
+  plain command context. When anything is unclear (a continuation, a newline
+  inside a quote while a heredoc waits, a body never closed, an unclosed
+  context) nothing is stripped and the whole text is judged.
+
+## 0.9.3
+
+These are what still stood between the wall and replacing local-cabinets-ops'
+own, from its replay of 7,353 real desk calls. Each has a test that was red
+first (`tests/wall-adopt2.test.mjs`).
+
+- `/dev/null`, `/dev/stdout`, `/dev/stderr`, `/dev/tty` and `/dev/fd/N` are
+  not writes outside the desk. `2>/dev/null` refused 45 real commands, about
+  0.9% of desk Bash.
+- REDIRECTIONS ARE READ FROM SHELL WORDS, so quoted code is never one.
+  `node -e "x.filter(a => a >/^SC-/.test(a))"` was refused as a write to
+  `/^SC-/…`.
+  - The tokenizer keeps `2>&1`, `>&2`, `&>`, `>|` and `<>` whole, and splits
+    `x>file` as bash does.
+  - Glued operators (`2>&1>file`) are separate redirections.
+  - `<>` (read and write) is a write.
+- A recursive command may name another desk's existing FILE (its
+  `facts.md`). Its folder, its `runtime/`, or anything holding one, is still
+  refused.
+- zsh's `${(e)…}` and `${(P)…}` evaluate, so they are refused like `eval` and
+  `${!x}`.
+- CLAUDE CODE'S OWN FOLDER (`~/.claude`, the account's home's `.claude`,
+  and `CLAUDE_CONFIG_DIR`, all three) is closed to a desk: session keys,
+  settings, channels, other sessions' transcripts. Read, Grep, Glob and Bash
+  all respect it.
+  - The desk's OWN `projects/<its folder>/` tree stays readable (Claude Code
+    saves big tool output there and tells the session to Read it, alongside
+    its memory and transcript). So does `skills/`.
+  - Every spelling is judged: `~`, `~user` (from the user database), `$HOME`,
+    `${HOME}`, a variable set in the same command (`H=$HOME; cat $H/…`), and
+    a literal `~` in a Read path. An unknown variable leading into a
+    `.claude` folder cannot be judged, so it is refused.
+- A write or read inside `$(…)` or backticks is judged like any other
+  command. The first 0.9.3 commits missed `echo $(echo x > ../../lib/x)`.
+- A `)` inside quoted code inside `$(…)` no longer ends the substitution:
+  67 false refusals (about 1.3% of desk Bash).
+- The Grep tool may read another desk's single facts file, as Bash may.
+- `sed -i` is parsed as sed reads its options: its script (`'/^import/d'`,
+  `'s#/a#/b#'`, `-e…` attached, `--expression=…`, `-f`, `--file`) is a
+  script, and every other plain word is a file it writes, `--in-place`
+  included.
+- A write target given as an option is judged: `cp -t../../lib`,
+  `mv --target-directory=…`.
+- A WRAPPER DOES NOT CHANGE WHAT RUNS. Only the first word of a command was
+  looked at, so these were never judged as writes: `nohup cp`,
+  `timeout 5 tee`, `xargs cp -t`, `env FOO=1 cp`, `/bin/cp`, `\cp` and
+  `"cp"`. One parser now strips assignments and wrappers, with their own
+  option arguments: env, nohup, command, builtin, exec, time, nice, timeout,
+  stdbuf, sudo, doas, xargs and busybox. The write checks and the read scan
+  both use it. `env -C` and `sudo -D` (which run the command in another
+  folder) count as a cd.
+- HIDDEN COMMANDS ARE JUDGED, OR REFUSED.
+  - The script in `sh -c '…'` (and `bash -lc`, `xargs sh -c`) is judged as a
+    command line, like `$(…)`.
+  - The command `find` runs with `-exec`, `-execdir`, `-ok` or `-okdir` is
+    judged as its own segment.
+  - A shell that reads its script from a pipe or a heredoc (`bash <<EOF`,
+    `… | sh`, `bash -s`) is refused, because the wall cannot see the script.
+- An input redirection is a read: `cat <../other/runtime/token.json` and
+  `$(<file)` are judged like `cat file`.
+- Heredoc bodies are data for the read scan too: `python3 - <<'EOF'` with a
+  helper named `sh(…)`, or a file written whose first line is `#!/bin/sh`,
+  is not a shell reading a hidden script. `bash <<'EOF'` still is.
+- `~/.claude/uploads/` is readable for an image file only (the photos the
+  owner sends a desk); any other file there, and a search of the folder,
+  stay closed.
+- ⛔ A heredoc is what the shell calls one: a quoted `"<<X"` no longer hides
+  the lines after it from the wall (the tokenizer finds `<<`, not a regex).
+- A root Glob whose pattern climbs back (`..`, a brace) is judged as a search
+  of the root.
+- A Glob anchored above `desks/` whose fixed prefix stays out of it
+  (`lib/**/*.ts` from the repo root) is allowed.
+- A command line holding more nested commands than the wall reads (256) is
+  refused. Past the cap, a text used to be kept while its own substitutions
+  were never opened.
+- Writers the list never knew are judged too: `dd of=`, `truncate`,
+  `install`, and `perl`/`ruby -i`. A program that opens a file itself
+  (`python -c`, `node -e`, `awk -i inplace`) is still beyond a string wall;
+  the native sandbox is the guarantee for it.
+- A command nested more than 64 levels deep (or over 200,000 characters) is
+  refused before it is parsed. 30,000 nested `${` took 6.6 s.
+
 ## 0.9.2
 
 - AN OFFICE HOLDS ITS PLUGIN VERSION, ALERT FIRST. On 2026-10-10 Claude Code's
