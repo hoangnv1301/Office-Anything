@@ -77,6 +77,14 @@ test('⛔ the heal is counted BEFORE the restart runs, so a crash mid-restart st
   assert.equal(seen.heals['desk:bell'].length, 1, 'the start command already sees its own heal recorded')
 })
 
+test('"start": "office:start" restarts a dead desk through the plugin\'s own start, with no path to keep current', async () => {
+  const { startCommandFor } = await import('../lib/heal.mjs')
+  const o = office({ start: 'office:start' })
+  const cmd = startCommandFor(o.root, 'office:start', 'bell')
+  assert.match(cmd, /^node '.*\/lib\/start\.mjs' '.*' 'bell'$/)
+  assert.equal(startCommandFor(o.root, 'echo {desk}', 'bell'), "echo bell")
+})
+
 test('no `start` declared: no restart is invented, the lead is told why', () => {
   const o = office({ start: undefined })
   const r = heal(o.root, dead(), opts(o))

@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-266%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-277%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -261,6 +261,29 @@ The last two are opt-in ratchets, one committed file each, and they start at the
 commit: history before it is somebody else's style and is left alone. Pin your counts in
 `tests/desk-literals.json`; adopt typed commits (`feat:`, `fix:`, `chore:`, …) by
 committing `conventions.json` with `{"commits": "conventional"}`.
+
+## Start and recover: each desk resumes its own conversation
+
+```
+/desk-start all
+/desk-recover
+```
+
+`/desk-start <name|all|lead|everything>` opens each desk in its own terminal tab, in its own
+folder, named `desk-<name>`, with the office's role variable set, and waits until the CLI's own
+session registry says it is up and idle. It does not watch the screen for a prompt. It
+**resumes the desk's own last conversation by id**, never `--continue`. A desk's case sessions
+write in the same folder, and `--continue` once woke a parent desk up as one of its cases. A
+start never opens a second session under a live name. A desk that is alive but restored outside
+its folder, or running another session's conversation, is reported for the owner to close. It is
+never killed. `/desk-recover` is the order after a crash: the lead first, then every desk with
+`autostart` on.
+
+`office.json` `launch` sets how sessions start: `{ "terminal": "orca", "flags":
+["--dangerously-skip-permissions"], "model": "sonnet", "lead": { "flags": ["--remote-control"],
+"resume": false }, "waitSec": 120 }`. A desk's `desk.json` `"model"` overrides it. Flags and
+models are checked to be plain words, never shell. Native primitives: the session registry
+(`~/.claude/sessions`), `claude --resume <id>` and `--name`.
 
 ## Health: is every desk actually listening
 

@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.7.43
+
+Full real integration is PENDING: it runs on the first real desk restart of
+the live office. A scratch-office run found the two launcher bugs fixed below,
+but could not finish without switching the owner's Orca window, which was
+ruled out. Its scratch tabs opened in the background and sat at a
+folder-trust dialog.
+
+- START AND RECOVER ARE IN THE PLUGIN: `/desk-start <name|all|lead|everything>`
+  and `/desk-recover` (`lib/start.mjs`). Native primitives: the session
+  registry (`~/.claude/sessions`) for "is it up", `claude --resume <id>` and
+  `--name`, and the office's terminal adapter (orca).
+  - "Up" is the registry saying the session is idle, never a prompt on
+    screen. The first launcher waited for "? for shortcuts", which bypass
+    mode never shows, and reported every desk failed while all of them came
+    up.
+  - ⛔ A desk resumes its OWN last conversation, by id (`lib/conversation.mjs`):
+    the newest whose every recorded session name is the desk's, and that no
+    live session has open. Never `--continue`: after a disk disconnect,
+    `--continue` resumed the newest conversation in a desk's folder, which
+    was a case session's, and the parent desk woke up as that case.
+  - A start never opens a second session under a live name (the duplicate
+    guard). A desk that is alive but restored outside its folder, or running
+    another session's conversation, is reported, never killed.
+  - `/desk-recover` starts the lead first, then every autostart desk.
+  - `office.json` `launch`: terminal, flags, model, lead flags,
+    `lead.resume`, waitSec. Flags, models and session ids are checked to be
+    plain words, never shell.
+- Found by the first real run: Orca opens tabs only inside a workspace it
+  knows, and the office root need not be one. The launcher now uses the
+  Orca workspace that contains the office, and `cd`s to each target's
+  absolute folder.
+- A claude that started but never registered (it sits at a dialog nobody
+  can see: an untrusted folder, or a tab opened in the background with no
+  screen) is reported as exactly that, not as "never started".
+- Heal restarts a dead desk through core start when `office.json` says
+  `"start": "office:start"`, so an office keeps no versioned plugin path.
+  Without a `start`, heal still invents no restart.
 ## 0.7.42
 
 These follow a third security review of the wall. Each has a test that was red first (`tests/wall-hardening.test.mjs`).
