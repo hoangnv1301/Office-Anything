@@ -135,3 +135,13 @@ test('(review 4) Grep and Glob are reads: no secret files, nothing that reaches 
   assert.equal(run(root, 'inventory', 'Grep', { pattern: 'x', path: join(root, 'desks', 'inventory') }), 0)
   assert.equal(run(root, 'inventory', 'Glob', { pattern: '**/*.md' }), 0, 'from its own folder')
 })
+
+test('(review 5) Bash does not read another desk\'s runtime/ either: direct, by glob, or by a recursive walk', () => {
+  const root = office()
+  for (const command of [
+    'cat ../customer/runtime/token.json', 'head -c 100 ../customer/runtime/x', "cat '../customer/runtime/x'", 'cat ../../desks/customer/runtime/*',
+    'cat ../*/runtime/*', 'grep -r TOKEN ../../desks', 'grep -R TOKEN ..', 'rg TOKEN ../..', 'find ../.. -name "*.json"', 'tar cz ../customer',
+    'cd ../customer && cat runtime/x',
+  ]) assert.equal(run(root, 'inventory', 'Bash', { command }), 2, command)
+  for (const command of ['cat runtime/mine.json', 'cat ../customer/facts.md', 'grep -r x lib', 'grep -r TOKEN .', 'ls ../../desks', 'rg x ../../lib']) assert.equal(run(root, 'inventory', 'Bash', { command }), 0, command)
+})

@@ -18,6 +18,16 @@ These follow a third security review of the wall. Each has a test that was red f
     because it contains every desk. The lead may search anywhere that holds
     no `runtime/`.
   - A Glob pattern may not climb out with `..`.
+- BASH DOES NOT READ ANOTHER DESK'S `runtime/` EITHER. Only the Read tool
+  was judged for it, so `cat ../other/runtime/token.json`, a glob over
+  `desks/*/runtime` and `grep -r` from the repo root all passed. Each path
+  word in a desk's command is now resolved against the cwd and every `cd`
+  in the command. Refused:
+  - a path into another desk's `runtime/`;
+  - a glob whose fixed part is at or above `desks/`, or inside another desk;
+  - a recursive command (`grep -r`, `rg`, `find`, `tar`, `zip`, `rsync`,
+    `cp -r`, `ls -R`) aimed at or above `desks/`, or at another desk.
+  Reading another desk's facts and searching `lib/` still pass.
 
 ## 0.7.41
 
