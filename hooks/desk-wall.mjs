@@ -117,7 +117,12 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
   } finally { mod?.close() }
 }
 
-if (isMain(import.meta.url)) {
+// ⛔ RUN UNLESS IMPORTED. "Am I the main module?" answered no when the hook
+// was started by a wrapper (node -e, a loader): argv[1] is not this file, and
+// the hook did nothing and exited 0, an allow. It judges unless another
+// script imported it (a test importing decide()).
+const importedBy = process.argv[1] && /\.[cm]?js$/.test(process.argv[1]) && !isMain(import.meta.url)
+if (!importedBy) {
   // a crash anywhere below: refused in an office whose wall fails closed (the
   // default once it has a wall) or whose config is broken; let through elsewhere
   const crashed = () => {

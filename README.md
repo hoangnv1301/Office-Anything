@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-261%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-263%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -186,7 +186,7 @@ Once an office has a `wall`, these are **on unless it says `false`**; the rest a
 | `wall.noDelegation` (default on) | a desk or the lead starts no Agent, Task, Workflow, RemoteTrigger or worktree: those hands would work outside the wall |
 | `wall.module: "<path>"` | your office's own rules: an ES module inside the office exporting `judge(payload, who, { root, cfg, session })` → reason or null, and/or `alias(name, { root })` → a canonical session name for a name only your office understands. It runs after the plugin's rules, so it can refuse more and never allow more |
 | `wall.failClosed` (default on) | when the wall cannot judge (office.json broken, payload unreadable, office module missing, throwing or slower than 2 s), a desk session is refused. the wall keeps its own deadline rather than relying on what Claude Code does when a hook times out |
-| `wall.mcp: { allow \| deny }` | regexes over MCP tool names, for desks. With `allow`, only those run; otherwise `deny`, by default every tool that sends, shares, deletes, replies or forwards |
+| `wall.mcp: { allow \| deny }` | regexes over MCP tool names, for desks. With `allow`, only those run; with `deny`, all but those; with neither, only a tool whose name leads with a reading verb (search, list, get, read, query, fetch, find, view, …) and names no sending word after it |
 | `lead.aliases: ["…"]` | other names the lead session goes by |
 | desk.json `perCase.key` | a regex. `desk-<name>--<key>` is then a case session of that desk: same folder, same wall. Only a key that matches in full, with no `--`, slash or whitespace, counts. Anything else claiming the suffix is refused |
 

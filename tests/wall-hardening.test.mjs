@@ -95,3 +95,20 @@ test('(6) once a wall exists, messages and delegation are limited unless the off
   assert.equal(run(out, 'inventory', 'SendMessage', { to: 'some-dev-session', message: 'x' }), 0)
   assert.equal(run(out, 'inventory', 'Agent', { prompt: 'x' }), 0)
 })
+
+test('(review 2) the hook judges even when it is not recognised as the main module', () => {
+  // started by a wrapper (node -e, a loader) argv[1] is not this file; the
+  // hook used to read that as "imported, do nothing" and exit 0: an allow
+  const root = office()
+  const cwd = join(root, 'desks', 'inventory')
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', `await import(${JSON.stringify(new URL('file://' + HOOK).href)})`], {
+    input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: join(root, 'lib', 'x.mjs') }, cwd }), encoding: 'utf8', env: env0(), cwd, timeout: 15000 })
+  assert.equal(r.status, 2)
+})
+
+test('(review 3) the default MCP rule allows reading and refuses everything else', () => {
+  const root = office()
+  for (const t of ['mcp__claude_ai_Gmail__create_draft', 'mcp__claude-in-chrome__computer', 'mcp__claude-in-chrome__form_input', 'mcp__claude_ai_Google_Drive__copy_file',
+    'mcp__claude_ai_Gmail__update_label', 'mcp__claude_ai_Gmail__trash_message', 'mcp__x__post_update', 'mcp__x__upload_file', 'mcp__x__invite_member', 'mcp__x__get_and_send']) assert.equal(run(root, 'inventory', t, {}), 2, t)
+  for (const t of ['mcp__claude_ai_Gmail__search_threads', 'mcp__claude_ai_Gmail__get_message', 'mcp__claude_ai_Google_Drive__read_file_content', 'mcp__x__list_labels']) assert.equal(run(root, 'inventory', t, {}), 0, t)
+})

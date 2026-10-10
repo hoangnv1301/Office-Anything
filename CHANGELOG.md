@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.41
+
+These are the follow-ups to a second security review of the 0.7.40 wall. Each has a test that was red first (`tests/wall-hardening.test.mjs`).
+
+- THE HOOK JUDGES UNLESS IT WAS IMPORTED. Started by a wrapper (`node -e`, a
+  loader), argv[1] was not the hook's own file, so the hook "was not main",
+  did nothing and exited 0: an allow. It now runs unless another script
+  imported it.
+- MCP: THE DEFAULT IS "READS ONLY". 0.7.40's list of bad words (send, share,
+  delete, reply, forward) missed create_draft, post, upload, invite, trash,
+  and a browser's computer / form_input, which can submit anything to
+  anyone. A tool now passes only when its name leads with a reading verb
+  (search, list, get, read, query, fetch, find, view, …) and no sending word
+  follows (get_and_send). `wall.mcp.allow` and `wall.mcp.deny` still decide
+  when an office sets them.
+- The office module's worker and its deadline no longer `unref()`. A
+  hanging module was denied in practice, but only because something else
+  happened to keep the process alive.
+
 ## 0.7.40
 
 - THE DESK WALL TAKES AN OFFICE'S OWN RULES. One office kept its own wall
