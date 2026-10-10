@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-332%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-336%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -342,6 +342,25 @@ the office's alert log (`office.json` `"alerts": { "file": "…" }`, default `.o
 background updates a fail-closed default would stop every desk silently. `/desk-status` prints
 the loaded, approved and latest versions. Turn off background updates for this marketplace in
 your settings if you want updates to wait for a person.
+
+## The sandbox: a guarantee under the wall
+
+The desk wall reads commands, and no reading of a command line sees what a script opens by
+itself. A desk with `"sandbox": true` in its `desk.json` is started inside Claude Code's own
+Bash sandbox (Seatbelt on macOS). It writes only in its folder and `/tmp`, reads no other desk's
+`runtime/` and none of Claude Code's own folder but its own project tree, and reaches only
+`localhost` and the hosts the office lists (`office.json` `sandbox.hosts`, `desk.json`
+`hosts`). The escape hatch (`allowUnsandboxedCommands`) is off and the network allowlist is
+strict. The settings are passed on the command line, so the desk's own settings cannot loosen
+them.
+
+```
+node lib/sandbox.mjs show <desk>   # what it would get
+node lib/sandbox.mjs off <desk>    # roll back one desk; then close its tab and /desk-start <desk>
+```
+
+⛔ Keep the office out of the session's temp folder: a sandboxed session may always write
+there, and the plugin refuses to sandbox an office that lives in it.
 
 ## Saving tokens, with no model in the loop
 

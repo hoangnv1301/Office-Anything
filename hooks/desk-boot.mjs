@@ -47,6 +47,7 @@ const DEFAULT = {
   },
 }
 
+const DEFAULT_SANDBOX = '- Your Bash runs in a sandbox: it writes only in your own folder and temp, reads no other desk\'s runtime/, and reaches only the hosts this office lists. "Operation not permitted" or EPERM means the office forbids it: do not retry, and do not try another way; tell the lead if the work needs it.'
 const DEFAULT_CASE = '- You are the case session for {key}. Your brief: {brief} (read it first). Work only on this case; anything else, and any other case, goes to desk-{desk} by SendMessage.'
 const fill = (s, v) => String(s ?? '').replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m))
 
@@ -75,6 +76,9 @@ export function bootLines(root, who, cfg, cwd) {
   let wake = ''
   try { wake = String(JSON.parse(readFileSync(join(deskDir, 'desk.json'), 'utf8')).wake ?? '').trim() } catch {}
   if (wake) { out.push(fill(T.wake, { ...v, wake })); if (T.wakeNote) out.push(fill(T.wakeNote, v)) }
+  let sandboxed = false
+  try { sandboxed = JSON.parse(readFileSync(join(deskDir, 'desk.json'), 'utf8')).sandbox === true } catch {}
+  if (sandboxed) out.push(fill(T.sandbox ?? DEFAULT_SANDBOX, v))
   if (cwd !== deskDir) out.push(fill(T.cwd, v))
   for (const f of files.slice(0, max)) out.push('- ' + rel(f))
   if (files.length > max) out.push(fill(T.more, v))
