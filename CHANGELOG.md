@@ -2,6 +2,12 @@
 
 ## 0.7.43
 
+Full real integration is PENDING: it runs on the first real desk restart of
+the live office. A scratch-office run found the two launcher bugs fixed below,
+but could not finish without switching the owner's Orca window, which was
+ruled out. Its scratch tabs opened in the background and sat at a
+folder-trust dialog.
+
 - START AND RECOVER ARE IN THE PLUGIN: `/desk-start <name|all|lead|everything>`
   and `/desk-recover` (`lib/start.mjs`). Native primitives: the session
   registry (`~/.claude/sessions`) for "is it up", `claude --resume <id>` and
