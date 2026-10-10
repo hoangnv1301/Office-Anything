@@ -173,3 +173,16 @@ test('(review) uploads open only for an image file; a root Glob that climbs back
   no('Glob', { pattern: 'lib/../desks/*/runtime/*', path: ROOT })
   ok('Glob', { pattern: 'lib/**/*.ts', path: ROOT })
 })
+
+test('(review) heredocs are found in the whole command: a quote across lines, a comment, a \\ continuation do not hide commands', () => {
+  no('Bash', { command: 'echo "a\n<<X"\ncat ../customer/runtime/token.json\nX' })
+  no('Bash', { command: "echo 'a\n<<X'\necho x > ../../lib/x.mjs\nX" })
+  no('Bash', { command: 'echo hi # <<X\ncat ../customer/runtime/token.json\nX' })
+  no('Bash', { command: 'echo a \\\n<<X\ncp x.mjs ../../lib/\nX' })
+  no('Bash', { command: 'echo $(( 1 <<X ))\ncat ../customer/runtime/token.json\nX' })
+  // real heredocs, including one inside $( ) as a commit message is written, stay data
+  ok('Bash', { command: "node work.mjs \"$(cat <<'EOF'\ncp a ../../lib/ is what the fix stops\nEOF\n)\"" })
+  // a heredoc never closed: nothing is stripped, the rest is judged
+  no('Bash', { command: "cat <<'X' > work-a/n.txt\nhi\ncp a ../../lib/" })
+  ok('Bash', { command: "python3 - <<'X'\nprint(sh)\nX\necho done" })
+})

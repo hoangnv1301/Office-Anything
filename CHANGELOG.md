@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.4
+
+- ⛔ HEREDOCS ARE FOUND IN THE WHOLE COMMAND, NOT LINE BY LINE (security
+  review of 0.9.3). Reading one line at a time lost a quote opened on the
+  line before, so `echo "a` / `<<X"` / `cat ../other/runtime/token.json` / `X`
+  hid the `cat` from the wall; so did a `<<` in a comment, after a `\`
+  continuation, or inside `$(( ))`. One scanner now carries quotes, `$( )`,
+  backticks, `(( ))` and comments across newlines, and a `<<` counts only in
+  plain command context. When anything is unclear (a continuation, a newline
+  inside a quote while a heredoc waits, a body never closed, an unclosed
+  context) nothing is stripped and the whole text is judged.
+
 ## 0.9.3
 
 These are what still stood between the wall and replacing local-cabinets-ops'
