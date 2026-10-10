@@ -89,3 +89,22 @@ test('(6) a sed script is a script, not a file to write', () => {
   ok('Bash', { command: "sed -i '/^$/d' work-quynh/keys.mjs" })
   no('Bash', { command: "sed -i '' 's/a/b/' ../../lib/x.mjs" })
 })
+
+test('(review) sed scripts given by attached or long options do not turn the target into "the script"', () => {
+  for (const command of [
+    "sed -i -e's/a/b/' ../../lib/x.mjs", "sed -i -es/a/b/ ../../lib/x.mjs", "sed -i --expression='s/a/b/' ../../lib/x.mjs",
+    "sed -i --expression 's/a/b/' ../../lib/x.mjs", "sed -i -f/tmp/s.sed ../../lib/x.mjs", "sed -i --file=/tmp/s.sed ../../lib/x.mjs",
+    "sed -i -n -e 's/a/b/p' ../../lib/x.mjs", "sed --in-place 's/a/b/' ../../lib/x.mjs", "sed -i.bak 's/a/b/' ../../lib/x.mjs",
+  ]) no('Bash', { command })
+  ok('Bash', { command: "sed -i -e's/a/b/' work-quynh/keys.mjs" })
+  ok('Bash', { command: "sed -i --expression='s/a/b/' work-quynh/keys.mjs" })
+})
+
+test('(review) a write target given as an option, and writers the list never knew', () => {
+  for (const command of [
+    'cp -t../../lib x.mjs', 'cp -t ../../lib x.mjs', 'mv --target-directory=../../lib x.mjs', 'install -m 644 x.mjs ../../lib/x.mjs',
+    'dd if=x of=../../lib/x.mjs', 'truncate -s 0 ../../lib/x.mjs', "perl -pi -e 's/a/b/' ../../lib/x.mjs", "ruby -i -pe 'x' ../../lib/x.mjs",
+    'cd ~/.claude && cat sessions/1.json', 'pushd ~/.claude; cat sessions/1.json',
+  ]) no('Bash', { command })
+  for (const command of ['cp -t work-quynh x.mjs', 'dd if=x of=work-quynh/x.bin', 'truncate -s 0 work-quynh/x.log', "perl -pi -e 's/a/b/' work-quynh/keys.mjs", 'dd if=/dev/zero of=/dev/null count=1']) ok('Bash', { command })
+})

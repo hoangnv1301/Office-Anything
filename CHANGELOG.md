@@ -37,8 +37,16 @@ first (`tests/wall-adopt2.test.mjs`).
 - A `)` inside quoted code inside `$(…)` no longer ends the substitution:
   67 false refusals (about 1.3% of desk Bash).
 - The Grep tool may read another desk's single facts file, as Bash may.
-- `sed -i` is parsed: its script (`'/^import/d'`, `'s#/a#/b#'`) is a
-  script, and only the files after it are written.
+- `sed -i` is parsed as sed reads its options: its script (`'/^import/d'`,
+  `'s#/a#/b#'`, `-e…` attached, `--expression=…`, `-f`, `--file`) is a
+  script, and every other plain word is a file it writes, `--in-place`
+  included.
+- A write target given as an option is judged: `cp -t../../lib`,
+  `mv --target-directory=…`.
+- Writers the list never knew are judged too: `dd of=`, `truncate`,
+  `install`, and `perl`/`ruby -i`. A program that opens a file itself
+  (`python -c`, `node -e`, `awk -i inplace`) is still beyond a string wall;
+  the native sandbox is the guarantee for it.
 - A command nested more than 64 levels deep (or over 200,000 characters) is
   refused before it is parsed. 30,000 nested `${` took 6.6 s.
 
