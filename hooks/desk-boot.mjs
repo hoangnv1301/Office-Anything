@@ -26,6 +26,8 @@
 import { readdirSync, statSync, existsSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname, basename } from 'node:path'
 import { readOfficeConfig, findOffice, whoIs, childOf, sessionName } from '../lib/office.mjs'
+import { versionVerdict } from '../lib/version.mjs'
+import { writeAlert } from '../lib/alerts.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 const DEFAULT = {
@@ -91,6 +93,12 @@ if (isMain(import.meta.url)) {
       const root = findOffice(cwd)
       if (!root) process.exit(0)
       const cfg = readOfficeConfig(root)
+      // an unapproved plugin version: the session is told, the lead alerted once
+      const v = versionVerdict(cfg)
+      if (v && !v.ok) {
+        console.log(`⚠ This session loaded office-anything ${v.loaded ?? '(unknown)'}, which this office has not approved (approved: ${v.approved.join(', ') || 'none'}). ${v.enforce ? 'Desk sessions are refused until it is.' : 'The lead has been told.'}`)
+        try { writeAlert(root, cfg, { type: 'VERSION', subject: 'office-anything', text: `loaded ${v.loaded}, approved ${v.approved.join(',')}${v.enforce ? ' (enforce: desks refused)' : ''}`, quietKey: 'version:' + v.loaded }) } catch {}
+      }
       if (!cfg.boot || typeof cfg.boot !== 'object') process.exit(0)
       const who = whoIs(root, cfg, { cwd })
       // a case session runs under its parent's role, so its own name says which case it is

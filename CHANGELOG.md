@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.9.2
+
+- AN OFFICE HOLDS ITS PLUGIN VERSION, ALERT FIRST. On 2026-10-10 Claude Code's
+  background auto-update installed a new wall onto a live office five minutes
+  after a merge, and nothing said so.
+  - `office.json` `"plugin": { "approved": [...], "enforce": false }`.
+  - A session that loads an unapproved version is told so at start (the
+    SessionStart hook). The lead gets one typed line per version per 6 h in
+    the office's alert log: `<ISO> VERSION - office-anything loaded X,
+    approved Y`.
+  - `enforce: true` also refuses desk sessions on an unapproved version. It
+    is opt-in: with background updates, a fail-closed default would stop
+    every desk silently.
+- TYPED ALERT LINES (`lib/alerts.mjs`): `<ISO> <TYPE> <case|-> <subject>
+  <text>`, written to `office.json` `alerts.file` (inside the office;
+  default `.office/alerts.log`), rotated at 512 KB, with a quiet key so one
+  condition does not write a line on every session start. VERSION is the
+  first type.
+- `/desk-status` (`lib/status.mjs`): loaded vs approved vs the latest GitHub
+  release. A release that cannot be fetched is "unknown", never "up to
+  date". Exit 4 when the loaded version is not approved.
 ## 0.9.1
 
 Five false refusals were found by replaying 5,000 real desk commands from
