@@ -1,5 +1,62 @@
 # Changelog
 
+## 0.7.40
+
+- THE DESK WALL TAKES AN OFFICE'S OWN RULES. One office kept its own wall
+  beside the plugin's, and its suite passed 16 of 28 against the plugin wall.
+  New, each off until office.json sets it (native primitive: PreToolUse hook):
+  - `wall.messages`: a desk or the lead may SendMessage only the lead
+    (`lead.session` or `lead.aliases`), a real desk, or a real case session of
+    one. The hook's matcher now includes SendMessage.
+  - `wall.noDelegation`: no Agent, Task, Workflow, RemoteTrigger or worktree
+    for a desk or the lead.
+  - `wall.module`: an ES module inside the office adds `judge()` rules and
+    `alias()` names. It runs after the plugin's rules, so it can refuse more
+    and never allow more. It is told the session's own name.
+  - desk.json `perCase.key`: `desk-<name>--<key>` is a case session of that
+    desk, behind the same wall. A key that does not match in full, or that
+    carries `--`, a slash or whitespace, is refused.
+- A LOCKED VARIABLE IS READ-ONLY IN EVERY SPELLING. `NAME=` alone missed `+=`,
+  `export`, `unset`, `env -u`, `declare`, `printf -v`, `read`, `${NAME:=…}`,
+  `${NAME#…}`, quote splicing, `eval` and `${!…}`.
+  A name built at run time is refused wherever the shell takes a variable name
+  (`declare "OPS_$(echo TOKEN)=x"`, `unset $N`, `printf -v "$N"`, `env
+  "X_$(…)=v"`), and `eval` is refused as a word anywhere outside quotes
+  (`builtin eval`, `command eval`, `exec eval`). Values may still use
+  substitutions (`export PATH=$PATH:…`).
+- With `wall.noDelegation`, starting `claude` or `orca` from Bash is refused
+  as well: another session or terminal is another pair of hands.
+- Known limit, unchanged: a string wall cannot see inside a script, so a desk
+  that writes `NAME=x` into a file of its own and sources it is not caught.
+  A sandbox is the upgrade path.
+- Core stays generic: a test refuses any project word in core code. Comments
+  may still tell the history of a fault.
+- THE WALL HOLDS UNDER REVIEW. These are the six fixes from the local-cabinets-ops
+  lead's security review, each with a test that was red first
+  (`tests/wall-hardening.test.mjs`):
+  1. A hook started through a symlinked path (macOS `/tmp` → `/private/tmp`,
+     a linked plugin root) judged nothing and allowed. `isMain` now compares
+     real paths.
+  2. An office.json that exists but cannot be read was read as `{}`, which
+     meant no wall. Now a session that claims a desk is refused until the
+     file is fixed, and a developer at the root can still fix it. A payload
+     the hook cannot read is refused in a walled office.
+  3. `failClosed` is the default once an office has a wall; an office opts
+     out with `false`. The office module runs in a worker with a 2 s
+     deadline, so a missing, throwing or hanging module refuses a desk.
+     The hook keeps its own deadline rather than relying on what Claude Code
+     does when a hook times out; the hooks.json entry also carries a
+     `timeout` of 10 s.
+  4. MCP tools were never checked. Now the matcher includes `mcp__.*`, and
+     `wall.mcp` holds `allow` or `deny` patterns. The default denies a desk
+     every tool that sends, shares, deletes, replies or forwards.
+  5. A case-blind disk let a desk write its own `.CLAUDE/` and read another
+     desk's `RUNTIME/`, and a symlink in its folder counted as inside it.
+     Paths are now compared as real paths (symlinks, `..` and `//`
+     resolved), case-folded on macOS and Windows; the secrets pattern is
+     case-blind.
+  6. `wall.messages` and `wall.noDelegation` are on once a wall exists; an
+     office opts out with `false`.
 ## 0.7.39
 
 - A FOURTH DESK KIND: `liaison`. It is for a desk that talks to the team on a
