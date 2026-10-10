@@ -186,3 +186,18 @@ test('(review) heredocs are found in the whole command: a quote across lines, a 
   no('Bash', { command: "cat <<'X' > work-a/n.txt\nhi\ncp a ../../lib/" })
   ok('Bash', { command: "python3 - <<'X'\nprint(sh)\nX\necho done" })
 })
+
+test('(review) the heredoc scanner reads $\'…\', ${…} and case inside $( ) as bash does', () => {
+  // $'…' escapes a quote with \': the << after it is inside the string
+  no('Bash', { command: "echo $'\\' <<X'\ncat ../customer/runtime/token.json\nX" })
+  // quotes inside ${…}
+  no('Bash', { command: "echo ${v:-\"}\"} <<X\nX\ncat ../customer/runtime/token.json" })
+  no('Bash', { command: "echo \"${v:-'}\" <<X\nX\ncat ../customer/runtime/token.json" })
+  // a case pattern's ) inside $( )
+  no('Bash', { command: "echo \"$(case a in a) echo \")\" <<X ;; esac)\"\ncat ../customer/runtime/token.json\nX" })
+  ok('Bash', { command: "echo $'tab\\there' && python3 - <<'X'\nprint(sh)\nX" })
+})
+
+test('(review) $\'it\\\'s\' before a real heredoc: the body is still data', () => {
+  ok('Bash', { command: "echo $'it\\'s' && python3 - <<'X'\nimport subprocess as sh\nsh.run(['cp', 'a', '../../lib/'])\nX" })
+})
