@@ -43,6 +43,14 @@ first (`tests/wall-adopt2.test.mjs`).
   included.
 - A write target given as an option is judged: `cp -t../../lib`,
   `mv --target-directory=…`.
+- A WRAPPER DOES NOT CHANGE WHAT RUNS. Only the first word of a command was
+  looked at, so these were never judged as writes: `nohup cp`,
+  `timeout 5 tee`, `xargs cp -t`, `env FOO=1 cp`, `/bin/cp`, `\cp` and
+  `"cp"`. One parser now strips assignments and wrappers, with their own
+  option arguments: env, nohup, command, builtin, exec, time, nice, timeout,
+  stdbuf, sudo, doas, xargs and busybox. The write checks and the read scan
+  both use it. `env -C` and `sudo -D` (which run the command in another
+  folder) count as a cd.
 - Writers the list never knew are judged too: `dd of=`, `truncate`,
   `install`, and `perl`/`ruby -i`. A program that opens a file itself
   (`python -c`, `node -e`, `awk -i inplace`) is still beyond a string wall;

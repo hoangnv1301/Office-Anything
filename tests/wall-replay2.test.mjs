@@ -108,3 +108,14 @@ test('(review) a write target given as an option, and writers the list never kne
   ]) no('Bash', { command })
   for (const command of ['cp -t work-quynh x.mjs', 'dd if=x of=work-quynh/x.bin', 'truncate -s 0 work-quynh/x.log', "perl -pi -e 's/a/b/' work-quynh/keys.mjs", 'dd if=/dev/zero of=/dev/null count=1']) ok('Bash', { command })
 })
+
+test('(review) a writer behind a wrapper, a path, a quote or a backslash is still a writer', () => {
+  for (const command of [
+    'nohup cp x.mjs ../../lib/', 'env cp x.mjs ../../lib/', 'env FOO=1 cp x.mjs ../../lib/', 'timeout 5 tee ../../lib/x.mjs',
+    'timeout -s KILL 5 cp x.mjs ../../lib/', 'nice -n 5 cp x.mjs ../../lib/', 'command cp x.mjs ../../lib/', 'exec cp x.mjs ../../lib/',
+    'stdbuf -oL tee ../../lib/x.mjs', 'sudo -u me cp x.mjs ../../lib/', 'ls | xargs cp -t ../../lib', 'ls | xargs -I{} cp {} ../../lib/',
+    '/bin/cp x.mjs ../../lib/', '\\cp x.mjs ../../lib/', '"cp" x.mjs ../../lib/', "command sed -i 's/a/b/' ../../lib/x.mjs",
+    'env -C ../../lib touch x.mjs', 'timeout 5 cat ../customer/runtime/token.json',
+  ]) no('Bash', { command })
+  for (const command of ['nohup cp x.mjs work-quynh/', 'timeout 5 tee work-quynh/out.txt', 'ls | xargs -I{} cp {} work-quynh/']) ok('Bash', { command })
+})
