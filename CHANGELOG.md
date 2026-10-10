@@ -63,7 +63,13 @@ first (`tests/wall-adopt2.test.mjs`).
 - Heredoc bodies are data for the read scan too: `python3 - <<'EOF'` with a
   helper named `sh(…)`, or a file written whose first line is `#!/bin/sh`,
   is not a shell reading a hidden script. `bash <<'EOF'` still is.
-- `~/.claude/uploads/` (images the owner sends a desk) is readable.
+- `~/.claude/uploads/` is readable for an image file only (the photos the
+  owner sends a desk); any other file there, and a search of the folder,
+  stay closed.
+- ⛔ A heredoc is what the shell calls one: a quoted `"<<X"` no longer hides
+  the lines after it from the wall (the tokenizer finds `<<`, not a regex).
+- A root Glob whose pattern climbs back (`..`, a brace) is judged as a search
+  of the root.
 - A Glob anchored above `desks/` whose fixed prefix stays out of it
   (`lib/**/*.ts` from the repo root) is allowed.
 - A command line holding more nested commands than the wall reads (256) is

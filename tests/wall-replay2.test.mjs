@@ -152,3 +152,24 @@ test('(gate replay) a heredoc body is data unless a shell is the one reading it;
   no('Glob', { pattern: '**/*.json', path: ROOT })
   no('Glob', { pattern: 'desks/*/runtime/*', path: ROOT })
 })
+
+test('(review) a quoted "<<X" is not a heredoc: the lines after it are commands and are judged', () => {
+  no('Bash', { command: 'echo "<<X"\ncat ../customer/runtime/token.json\nX' })
+  no('Bash', { command: "echo '<<X'\necho x > ../../lib/x.mjs\nX" })
+  no('Bash', { command: 'echo \\<<X\ncp x.mjs ../../lib/\nX' })
+  // a real heredoc's body is still data
+  ok('Bash', { command: "python3 - <<'X'\nprint(sh)\nX" })
+  ok('Bash', { command: 'cat <<-EOF > work-quynh/a.txt\n\tcat ../customer/runtime/token.json\n\tEOF' })
+})
+
+test('(review) uploads open only for an image file; a root Glob that climbs back into desks/ is refused', () => {
+  mkdirSync(join(CC, 'uploads', 'lead-session'), { recursive: true })
+  ok('Read', { file_path: join(CC, 'uploads', 'lead-session', 'photo.PNG') })
+  no('Read', { file_path: join(CC, 'uploads', 'lead-session', 'notes.txt') })
+  no('Grep', { pattern: 'token', path: join(CC, 'uploads') })
+  no('Bash', { command: `cat ${join(CC, 'uploads', 'lead-session', 'a.pdf')}` })
+  no('Glob', { pattern: 'lib/**/../../desks/*/runtime/*', path: ROOT })
+  no('Glob', { pattern: 'lib/{,../desks}/*/runtime/*', path: ROOT })
+  no('Glob', { pattern: 'lib/../desks/*/runtime/*', path: ROOT })
+  ok('Glob', { pattern: 'lib/**/*.ts', path: ROOT })
+})
