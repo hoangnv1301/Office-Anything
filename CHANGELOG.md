@@ -22,6 +22,13 @@
   - `office.json` `launch`: terminal, flags, model, lead flags,
     `lead.resume`, waitSec. Flags, models and session ids are checked to be
     plain words, never shell.
+- Found by the first real run: Orca opens tabs only inside a workspace it
+  knows, and the office root need not be one. The launcher now uses the
+  Orca workspace that contains the office, and `cd`s to each target's
+  absolute folder.
+- A claude that started but never registered (it sits at a dialog nobody
+  can see: an untrusted folder, or a tab opened in the background with no
+  screen) is reported as exactly that, not as "never started".
 - Heal restarts a dead desk through core start when `office.json` says
   `"start": "office:start"`, so an office keeps no versioned plugin path.
   Without a `start`, heal still invents no restart.

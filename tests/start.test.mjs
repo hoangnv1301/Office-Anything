@@ -103,8 +103,8 @@ test('all skips autostart:false; everything starts the lead first, at the root, 
   const live = [], term = fakeTerm(live)
   await recover(w.root, opts(w, live, term))
   assert.deepEqual(term.made.map((m) => m.title), ['Office Lead', 'desk-quotes'], 'the lead first, then the desks')
-  assert.equal(term.made[0].command, "OFFICE_ROLE='Office Lead' claude --name 'Office Lead' --model sonnet --dangerously-skip-permissions --remote-control")
-  assert.equal(term.made[1].command, "cd 'desks/quotes' && OFFICE_ROLE='desk-quotes' claude --name 'desk-quotes' --model sonnet --dangerously-skip-permissions")
+  assert.equal(term.made[0].command, `cd '${w.root}' && OFFICE_ROLE='Office Lead' claude --name 'Office Lead' --model sonnet --dangerously-skip-permissions --remote-control`)
+  assert.equal(term.made[1].command, `cd '${join(w.root, 'desks', 'quotes')}' && OFFICE_ROLE='desk-quotes' claude --name 'desk-quotes' --model sonnet --dangerously-skip-permissions`)
 })
 
 test('a start that never registers, or registers but never idles, is reported as such and fails', async () => {
@@ -131,4 +131,25 @@ test('ownConversation skips one a live session has open', () => {
   const o = ownConversation({ tag: 'desk-quotes', cwd, dir: w.dir, liveIds: new Set([ID(2)]) })
   assert.equal(o.id, ID(1))
   assert.match(o.skipped[0].why, /open in a live session/)
+})
+
+test('the Orca workspace is the one that holds the office, the deepest when several do', async () => {
+  const { orcaWorkspace } = await import('../lib/start.mjs')
+  const list = [{ id: 'r1::/work/big' }, { id: 'r2::/work/big/sub' }, { id: 'r3::/work/bigger' }]
+  assert.equal(orcaWorkspace('/work/big/sub/office', list), '/work/big/sub')
+  assert.equal(orcaWorkspace('/work/big', list), '/work/big')
+  assert.equal(orcaWorkspace('/elsewhere', list), null)
+})
+
+test('started but never registered is told apart from never started: a dialog nobody can see', async () => {
+  // found by the real run (2026-10-10): claude was running in its tab but sat
+  // at a dialog (an untrusted folder, a background tab with no screen), and
+  // the launcher could only say "never registered"
+  const w = world({ cfg: { launch: { waitSec: 2 } } })
+  let clock = 0
+  const live = [], term = fakeTerm(live, { register: false })
+  const procs = () => new Map([[4242, { pid: 4242, ppid: 1, cmd: "claude --name desk-quotes --model haiku", ageSec: 5 }]])
+  const rows = await start(w.root, 'quotes', opts(w, live, term, { now: () => (clock += 1000), procs }))
+  assert.equal(rows[0].state, 'failed')
+  assert.match(rows[0].why, /pid 4242.*never registered.*trust/i)
 })
