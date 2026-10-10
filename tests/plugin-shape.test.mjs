@@ -88,7 +88,7 @@ test('⛔ EVERY command points at a guarded entry point, not at the parts', () =
   // call, or running a shipped entry script under board/ or checks/, or
   // lib/health.mjs, whose CLI is the guarded entry for /desk-health, or
   // lib/start.mjs, the guarded entry for /desk-start and /desk-recover.
-  const ENTRY = /\b(hire|fire)\(|node (board|checks)\/[a-z-]+\.mjs|node lib\/(health|start)\.mjs/
+  const ENTRY = /\b(hire|fire)\(|node (board|checks)\/[a-z-]+\.mjs|node lib\/(health|start|cases)\.mjs/
   for (const f of readdirSync(join(ROOT, 'commands'))) {
     const text = readFileSync(join(ROOT, 'commands', f), 'utf8')
     assert.match(text, ENTRY,
