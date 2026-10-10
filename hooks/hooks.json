@@ -15,11 +15,12 @@
         ]
       },
       {
-        "matcher": "Bash|Read|Write|Edit|MultiEdit|NotebookEdit|SendMessage|Agent|Task|Workflow|RemoteTrigger|EnterWorktree",
+        "matcher": "Bash|Read|Write|Edit|MultiEdit|NotebookEdit|SendMessage|Agent|Task|Workflow|RemoteTrigger|EnterWorktree|mcp__.*",
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/desk-wall.mjs\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/desk-wall.mjs\"",
+            "timeout": 10
           }
         ]
       }

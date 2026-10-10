@@ -56,11 +56,13 @@ test('inert without a wall: no office.json, or a developer session at the root',
   ok(null, 'Write', { file_path: join(ROOT, 'lib', 'x.ts') })
 })
 
-test('fail closed only when the office says so, and only for a desk', () => {
+test('a payload the hook cannot read is refused in a walled office, whoever sent it (the lead\'s review of 0.7.40)', () => {
+  // it used to pass for a developer and under failClosed: false; an unreadable
+  // payload is never what Claude Code sends, so it is treated as an attack
   assert.equal(run('inventory', null, null, { raw: '{not json' }), 2)
   const open = office({ ...CONFIG, wall: { ...CONFIG.wall, failClosed: false } })
-  assert.equal(run('inventory', null, null, { raw: '{not json', root: open }), 0)
-  assert.equal(run(null, null, null, { raw: '{not json' }), 0, 'a developer session is never blocked by a broken payload')
+  assert.equal(run('inventory', null, null, { raw: '{not json', root: open }), 2)
+  assert.equal(run(null, null, null, { raw: '{not json' }), 2)
 })
 
 test('a desk: the office\'s own refusals, own-folder writes, its door and keys', () => {
