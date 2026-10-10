@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.9.3
+
+These are what still stood between the wall and replacing local-cabinets-ops'
+own, from its replay of 7,353 real desk calls. Each has a test that was red
+first (`tests/wall-adopt2.test.mjs`).
+
+- `/dev/null`, `/dev/stdout`, `/dev/stderr`, `/dev/tty` and `/dev/fd/N` are
+  not writes outside the desk. `2>/dev/null` refused 45 real commands, about
+  0.9% of desk Bash.
+- REDIRECTIONS ARE READ FROM SHELL WORDS, so quoted code is never one.
+  `node -e "x.filter(a => a >/^SC-/.test(a))"` was refused as a write to
+  `/^SC-/…`.
+  - The tokenizer keeps `2>&1`, `>&2`, `&>`, `>|` and `<>` whole, and splits
+    `x>file` as bash does.
+  - Glued operators (`2>&1>file`) are separate redirections.
+  - `<>` (read and write) is a write.
+- A recursive command may name another desk's existing FILE (its
+  `facts.md`). Its folder, its `runtime/`, or anything holding one, is still
+  refused.
+- zsh's `${(e)…}` and `${(P)…}` evaluate, so they are refused like `eval` and
+  `${!x}`.
+- A desk does not read Claude Code's own folder (`~/.claude`, or
+  `CLAUDE_CONFIG_DIR`: session key files, transcripts, credentials) with
+  Read, Grep, Glob or Bash, `~` expansion included.
+
 ## 0.9.2
 
 - AN OFFICE HOLDS ITS PLUGIN VERSION, ALERT FIRST. On 2026-10-10 Claude Code's
