@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-295%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-302%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -188,6 +188,7 @@ Once an office has a `wall`, these are **on unless it says `false`**; the rest a
 | `wall.failClosed` (default on) | when the wall cannot judge (office.json broken, payload unreadable, office module missing, throwing or slower than 2 s), a desk session is refused. the wall keeps its own deadline rather than relying on what Claude Code does when a hook times out |
 | `wall.mcp: { allow \| deny }` | regexes over MCP tool names, for desks. With `allow`, only those run; with `deny`, all but those; with neither, only a tool whose name leads with a reading verb (search, list, get, read, query, fetch, find, view, …) and names no sending word after it |
 | `lead.aliases: ["…"]` | other names the lead session goes by |
+| `wall.moduleTimeoutMs` (default 5000) | how long the office module may take per tool call before the wall treats it as failed (at most 8000) |
 | `wall.messageTo: ["…"]` | names a desk may message that grant no identity (e.g. `lead`, a developer session at the root), unlike `lead.aliases` |
 | `wall.aliasNames: ["^cs-"]` | the names your module's `alias()` maps to desks. Only those reach the module, and while the module is broken they are refused like `desk-` names. The lead and developers can still repair it |
 | desk.json `perCase.key` | a regex. `desk-<name>--<key>` is then a case session of that desk: same folder, same wall. Only a key that matches in full, with no `--`, slash or whitespace, counts. Anything else claiming the suffix is refused |
