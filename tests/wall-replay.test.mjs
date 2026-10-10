@@ -67,3 +67,25 @@ test('(4) the office module\'s deadline has room under load, and an office can s
   assert.equal(moduleDeadline({ wall: { moduleTimeoutMs: 60000 } }), 8000, 'never past the hook\'s own timeout')
   assert.equal(moduleDeadline({ wall: {} }), MODULE_DEADLINE_MS)
 })
+
+test('(review of the replay fix) a partly quoted glob, a brace expansion, popd and cd - still do not reach another desk\'s runtime/', () => {
+  // the quote-aware tokenizer marked a whole word literal if ANY part was
+  // quoted, and a cd it could not follow left paths resolved from the wrong place
+  no('Bash', { command: 'cat "../manufacturing"/run*/*' })
+  no('Bash', { command: 'cat ../manufacturing/{runtime,x}/token.json' })
+  no('Bash', { command: 'pushd work-a; popd; cat ../manufacturing/runtime/t' })
+  no('Bash', { command: 'cd work-a; cd -; cat ../manufacturing/runtime/t' })
+  no('Bash', { command: 'cd work-a && cd && cat ../manufacturing/runtime/t' })
+  ok('Bash', { command: 'cat "work-a/a b"/*.md' })
+})
+
+test('(review) bash quoting and expansion: $\'…\', $(…), backticks and $VAR inside a path', () => {
+  no('Bash', { command: "cat $'..\\x2fmanufacturing/runtime/t'" })
+  no('Bash', { command: "cat $'../manufacturing/runtime/t'" })
+  no('Bash', { command: 'cat ../manufacturing/$(echo runtime)/t' })
+  no('Bash', { command: 'cat ../manufacturing/`echo runtime`/t' })
+  no('Bash', { command: 'cat "../manufacturing/${R}/t"' })
+  ok('Bash', { command: 'for f in work-a/*.md; do cat "$f"; done' })
+  ok('Bash', { command: 'cat "$HOME/notes.txt"' })
+  ok('Bash', { command: "printf '%s\\n' $'a\\tb'" })
+})

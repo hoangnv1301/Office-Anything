@@ -20,6 +20,18 @@ the fix, beside the attack it must still refuse.
 - A symlink inside a desk's own folder (a shared skill folder) is the desk's
   own to search. It is refused only when its real target is, or holds, a
   `runtime/`: another desk's whole folder still is.
+- The new tokenizer was attacked before release, and these all still
+  refuse:
+  - a partly quoted glob (`"../other"/run*/*`), because the shell expands its
+    unquoted part;
+  - brace expansion (`../other/{runtime,x}/…`);
+  - `$'…'` quoting, decoded as bash decodes it (`$'..\x2fother/runtime/t'`);
+  - `$(…)`, backticks and `$VAR` inside a path, even within double quotes;
+    their fixed prefix may not point at another desk;
+  - `popd`, `cd -` and a bare `cd`: the shell's folder can't be followed,
+    so every folder seen so far counts.
+  `cat "$f"` in a loop over the desk's own files, and `cat "$HOME/…"`, still
+  pass.
 - The office module's deadline is 5 s by default (2 s missed about 1 call in
   1,000 at load 25 to 30). An office may set `wall.moduleTimeoutMs`, capped
   at 8 s, under the hook's own timeout.
