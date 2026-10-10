@@ -23,7 +23,8 @@ first (`tests/wall-adopt2.test.mjs`).
   `${!x}`.
 - A desk does not read Claude Code's own folder (`~/.claude`, or
   `CLAUDE_CONFIG_DIR`: session key files, transcripts, credentials) with
-  Read, Grep, Glob or Bash, `~` expansion included.
+  Read, Grep, Glob or Bash. `~`, `$HOME` and `${HOME}` are expanded to their
+  real value before the path is judged.
 
 ## 0.9.2
 

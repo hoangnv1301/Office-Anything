@@ -65,3 +65,14 @@ test('(parity) zsh ${(e)…} evaluates like eval; the <> redirect writes; ~/.cla
   no('Read', { file_path: join(CFG, 'sessions', '1.json') })
   no('Bash', { command: `cat ${CFG}/sessions/1.json` })
 })
+
+test('(review) $HOME and ${HOME} are expanded like ~ before Claude Code\'s folder is judged', () => {
+  const home = dirname(CFG)
+  const rel = CFG.slice(home.length + 1)
+  const env = { ...process.env, CLAUDE_CONFIG_DIR: CFG, HOME: home }
+  const runH = (command) => { const cwd = join(ROOT, 'desks', 'design'); const e = { ...env }; delete e.OFFICE_ROLE; delete e.CLAUDE_PROJECT_DIR; return spawnSync(process.execPath, [HOOK], { input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd }), encoding: 'utf8', env: e, cwd, timeout: 20000 }).status }
+  assert.equal(runH(`cat $HOME/${rel}/sessions/1.key`), 2)
+  assert.equal(runH(`cat "\${HOME}/${rel}/sessions/1.key"`), 2)
+  assert.equal(runH(`cat ~/${rel}/sessions/1.key`), 2)
+  assert.equal(runH('cat "$HOME/notes.txt"'), 0)
+})
