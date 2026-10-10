@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.9.0
+
+- ONE SESSION PER CASE, UNDER ITS PARENT DESK: `/desk-case` (`lib/cases.mjs`).
+  One design desk carried five jobs in one conversation and mirrored one
+  kitchen from another job's line. A desk that declares `perCase` in its
+  `desk.json` now gets one session per case, named `desk-<desk>--<key>`.
+  Contract: `docs/specs/2026-10-10-per-case-sessions.md`.
+  - `open <desk> <key>`:
+    - The case is claimed first, through the desk's adapter. A 409 names the
+      holder; an adapter that fails is UNKNOWN, never a grant.
+    - The brief is written to `.office/cases/<desk>--<key>.md`.
+    - The session starts in the parent's folder under the parent's role
+      (same wall, token and CLAUDE.md), resuming that case's own earlier
+      conversation by id.
+    - A session that never comes up gives its claim back.
+  - The duplicate guard is per (parent, key). The cap is per desk (`max`):
+    over it, a case waits with the parent.
+  - `sweep`:
+    - heartbeats every live case session's claim, and closes one whose claim
+      was lost;
+    - closes a session idle past `idleCloseMinutes`;
+    - releases claims of sessions that are gone;
+    - opens waiting cases, oldest first, up to the cap.
+  - `route "<text>"` sends a message that names a case to its live session,
+    or else to the parent. `close` stops a session and releases its claim.
+    `release` forces a claim free only with the human's words (`--said`).
+  - Boot: a case session's SessionStart text names its case and its brief.
+    It is told apart from its parent by its own session name, because it
+    runs under the parent's role.
+  - `perCase` without an `adapter` means naming only. The office runs those
+    sessions itself (its own launcher); core uses the key for the session's
+    name and its wall, and leaves the desk out of `open` and `sweep`.
+  - Native primitives: the session registry, `claude --name` /
+    `--resume <id>`, SendMessage, the SessionStart hook. Custom code only
+    for what has no primitive: the claim calls and the cap.
+- `launchAndWait()` is shared by desks, the lead and case sessions. A launch
+  may carry a one-line first prompt.
+
 ## 0.7.44
 
 These are gaps local-cabinets-ops found while adopting the wall. Each has a test that was red first (`tests/wall-adoption.test.mjs`).

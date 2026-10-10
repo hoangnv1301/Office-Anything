@@ -25,7 +25,7 @@
 //   text     {intro, wake, wakeNote, cwd, more, outro}   the desk's lines
 import { readdirSync, statSync, existsSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname, basename } from 'node:path'
-import { readOfficeConfig, findOffice, whoIs } from '../lib/office.mjs'
+import { readOfficeConfig, findOffice, whoIs, childOf, sessionName } from '../lib/office.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 const DEFAULT = {
@@ -45,6 +45,7 @@ const DEFAULT = {
   },
 }
 
+const DEFAULT_CASE = '- You are the case session for {key}. Your brief: {brief} (read it first). Work only on this case; anything else, and any other case, goes to desk-{desk} by SendMessage.'
 const fill = (s, v) => String(s ?? '').replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m))
 
 export function bootLines(root, who, cfg, cwd) {
@@ -67,6 +68,8 @@ export function bootLines(root, who, cfg, cwd) {
   files.sort((a, c) => statSync(c).mtimeMs - statSync(a).mtimeMs)
   const v = { desk: who.desk, deskRel: rel(deskDir), cwd, where: basename(dirname(deskDir)) + '/' + basename(deskDir), n: Math.max(0, files.length - max) }
   const out = [fill(T.intro, v)]
+  // a case session (desk-<desk>--<key>): its case and its brief come first
+  if (who.caseKey) out.push(fill(T.caseLine ?? DEFAULT_CASE, { ...v, key: who.caseKey, brief: rel(join(root, '.office', 'cases', `${who.desk}--${who.caseKey}.md`)) }))
   let wake = ''
   try { wake = String(JSON.parse(readFileSync(join(deskDir, 'desk.json'), 'utf8')).wake ?? '').trim() } catch {}
   if (wake) { out.push(fill(T.wake, { ...v, wake })); if (T.wakeNote) out.push(fill(T.wakeNote, v)) }
@@ -90,6 +93,9 @@ if (isMain(import.meta.url)) {
       const cfg = readOfficeConfig(root)
       if (!cfg.boot || typeof cfg.boot !== 'object') process.exit(0)
       const who = whoIs(root, cfg, { cwd })
+      // a case session runs under its parent's role, so its own name says which case it is
+      const child = childOf(root, sessionName())
+      if (child && who?.kind === 'desk' && who.desk === child.parent) who.caseKey = child.key
       if (!who || (who.kind === 'desk' && !existsSync(join(who.dir, 'desk.json')))) process.exit(0)
       const lines = bootLines(root, who, cfg, cwd)
       if (lines.length) console.log(lines.join('\n'))

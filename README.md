@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-284%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-295%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -286,6 +286,36 @@ never killed. `/desk-recover` is the order after a crash: the lead first, then e
 "resume": false }, "waitSec": 120 }`. A desk's `desk.json` `"model"` overrides it. Flags and
 models are checked to be plain words, never shell. Native primitives: the session registry
 (`~/.claude/sessions`), `claude --resume <id>` and `--name`.
+
+## One session per case
+
+```
+/desk-case open design SC-261009-137
+```
+
+One desk carrying five jobs in one conversation mixed two of them up. A desk that declares
+`perCase` in its `desk.json` gets **one session per case**, named `desk-<desk>--<key>`:
+
+```json
+"perCase": { "kind": "design-job", "key": "^SC-\\d{6}-\\d{3,}$", "max": 3, "idleCloseMinutes": 60, "adapter": "node ../../scripts/desk/design-cases.mjs" }
+```
+
+- **Same desk, its own case.** A case session starts in the parent desk's folder, under the
+  parent's role: same wall, same token, same CLAUDE.md. Its boot text names its case and its
+  brief, and anything else goes back to the parent. The parent keeps everything that is not one
+  case.
+- **The project's book decides who holds a case.** Core asks your adapter (contract:
+  `docs/specs/2026-10-10-per-case-sessions.md`) to claim, heartbeat, release and force-release.
+  A 409 names the holder; an adapter that fails is UNKNOWN, never a grant.
+- **The guards hold either way.** There is one session per case (the duplicate guard), at most
+  `max` per desk (over the cap, a case waits with the parent), and an idle session is closed
+  after `idleCloseMinutes`.
+- **Routing.** `route` sends a message that names a case to that case's session.
+- **Your own launcher?** Leave out `adapter`: the key then only names the sessions and walls
+  them, and core never opens or closes them.
+
+Native primitives: the session registry, `claude --name` / `--resume <id>`, SendMessage, and the
+SessionStart hook.
 
 ## Health: is every desk actually listening
 
