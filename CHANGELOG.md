@@ -1,5 +1,65 @@
 # Changelog
 
+## 0.7.38
+
+- ALIVE AND IDLE IS NOT LISTENING. After a Mac restart every desk came back
+  resumed with no doorbell running (a resumed session does not restore its
+  Monitors), and the registry still said idle. lib/health.mjs asks the process
+  tree instead: a desk with `wake` is armed only when that command runs under
+  its own session's pid. It also reports each desk's session, permission
+  mode, status and last activity, office.json `health` checks, and orphan
+  doorbells whose session is gone. `/desk-health`; the `desk-health` check
+  puts it on the board. Exit 0 / 4 / 7 like every check.
+- `--heal` acts only within the powers the office granted: kill a proven
+  orphan (re-proven the moment before), restart a dead desk through
+  office.json `start` (3 per hour per desk), run a check's own `heal`, and
+  leave alerts for the lead in .office/alerts.log, one per subject per 15
+  minutes. It never types into a desk. Every act is logged.
+- `--install-watchdog` runs `--heal` every 120 s from a LaunchAgent, through
+  a shim on the home disk (~/Library/Application Support/office-anything/)
+  that finds the plugin's CURRENT install, so a version bump does not strand
+  it.
+- New desk.json fields: `wakeMatch`, `wakeGraceSec`, `wakeOwner: "launchd"`,
+  `watch: true` (a desk with autostart:false that must still be running).
+  New office.json keys: `start`, `health`, `watchdog`.
+- After review: a doorbell is the interpreter `wake` names running the
+  script (a pager, editor or grep naming it is not); an orphan has only
+  shells and node above it up to launchd and its script inside this office;
+  a session file whose pid was reused is not a live session; every kill
+  re-reads the process table and requires the same command, parent and an
+  age no younger; one heal at a time (lock), the budget spent before the
+  act; logs rotate and .office/ ignores itself; the LaunchAgent carries
+  PATH, runs node through env, is ProcessType Standard, keeps its shim and
+  log on the home disk, says once an hour when the office disk is missing,
+  and refuses temp folders and git worktrees.
+- An orphan whose script cannot be placed in this office (a relative path,
+  a cwd nobody can read) is listed as unproven, never dropped and never
+  killed. Seen live: five buyer-wake processes, 1 to 30 hours old.
+- After the second review: an orphan is PROVEN only by an exact form, never
+  a parse: after node, the raw command is the desk's own wake script run from
+  the desk's folder, or that script's exact absolute path (a path with a space
+  is compared as written). A linter given the file, --require, a worktree
+  under the office, or a sibling folder sharing its prefix is not ours. A
+  shell is never the doorbell, even under wakeMatch. The heal lock belongs to
+  a live pid (never taken by age), is taken over atomically and released only
+  while it is ours; the budget is re-read before every spend; a desk
+  restarted in the last 5 minutes is left to register. The shim honours
+  CLAUDE_CONFIG_DIR and runs the newest install that exists.
+- After the third review: `node lib/health.mjs --heal` HUNG (exit 13, an
+  unsettled top-level await): heal.mjs imported health.mjs while the CLI was
+  still evaluating it, and the unit tests, calling heal() directly, could not
+  see it. The process primitives live in lib/procs.mjs now; a test runs the
+  CLI. The heal lock is held only by a live pid that touched it within twice
+  the longest act (a reused pid, like pid 1, no longer blocks healing
+  forever); a stale lock is taken over by the one contender that creates
+  heal.lock.takeover, never by moving a lock that might be live (six
+  contenders over a crashed lock had produced two holders); a skipped heal
+  says why. A doorbell under a path with a space is recognised by the same
+  exact forms as the orphan proof.
+- The boot hook's doorbell line now asks for Monitor timeout_ms 1800000 and
+  to re-arm on every expiry notice: a Monitor dies at 30 minutes at most,
+  and "persistent" is not a setting it has.
+
 ## 0.7.37
 
 - THE DESK WALL AND DESK BOOT MOVE INTO THE PLUGIN. Every office that ran

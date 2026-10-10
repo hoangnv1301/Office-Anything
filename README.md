@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-194%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-243%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -243,6 +243,29 @@ The last two are opt-in ratchets, one committed file each, and they start at the
 commit: history before it is somebody else's style and is left alone. Pin your counts in
 `tests/desk-literals.json`; adopt typed commits (`feat:`, `fix:`, `chore:`, …) by
 committing `conventions.json` with `{"commits": "conventional"}`.
+
+## Health: is every desk actually listening
+
+```
+/desk-health
+```
+
+"The session is idle" is not "the desk is listening". After a restart, a resumed
+desk keeps its conversation but not its background Monitors, so a desk whose
+doorbell (`wake` in its `desk.json`) is not running hears nothing while every
+status reads green. `/desk-health` asks the process tree: a desk is armed only
+when its doorbell runs **under its own session**. Per desk it reports session,
+permission mode, status and doorbell (armed / arming / unarmed), plus the
+office's own checks from `office.json` `health`, and lists orphan doorbells whose
+session is gone. A desk with `autostart: false` reads "off" unless its `desk.json`
+says `"watch": true`. Exit 0 green, 4 red, 7 unknown. It is also the `desk-health`
+check, so it sits on the board with every other check.
+
+`--heal` acts only within what the office grants: kill proven orphans, restart a
+dead desk through `office.json` `start` (3 per hour per desk at most), run a
+check's own `heal`, and leave alerts for the lead in `.office/alerts.log`. It
+never types into a desk. `--install-watchdog` runs `--heal` every two minutes
+from a LaunchAgent; nothing is installed until you run it.
 
 ## The board
 

@@ -62,3 +62,23 @@ test('inert: no office.json, no "boot", or a developer session', () => {
   const root = office({ boot: {} })
   assert.equal(run(root, root).out, '', 'the root with no role is a developer session')
 })
+
+test('⛔ the doorbell line says what a Monitor needs to last: the 30-minute maximum, re-armed on every expiry', () => {
+  // the Monitor tool kills every monitor at timeout_ms (default 5 min, at most
+  // 30) and hands the session an expiry notice; "persistent" is not a setting
+  // it has, and a desk told only that went deaf five minutes later
+  const root = office({ roleEnv: 'OFFICE_ROLE', boot: {} })
+  const out = run(root, join(root, 'desks', 'quotes')).out
+  assert.match(out, /timeout_ms 1800000/)
+  assert.match(out, /expir/i)
+  assert.ok(!/persistent/.test(out), 'no setting the tool does not have')
+})
+
+test('⛔ the boot hook fires on RESUME too, not only on a fresh start', async () => {
+  const { readFileSync } = await import('node:fs')
+  const hooks = JSON.parse(readFileSync(join(dirname(HOOK), 'hooks.json'), 'utf8')).hooks
+  const boot = (hooks.SessionStart ?? []).filter((e) => e.hooks.some((h) => /desk-boot\.mjs/.test(h.command)))
+  assert.equal(boot.length, 1)
+  const m = boot[0].matcher
+  assert.ok(!m || /resume/.test(m), `SessionStart matcher "${m}" would skip a resumed desk`)
+})
