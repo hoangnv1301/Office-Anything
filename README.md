@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-329%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-332%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -342,6 +342,41 @@ the office's alert log (`office.json` `"alerts": { "file": "…" }`, default `.o
 background updates a fail-closed default would stop every desk silently. `/desk-status` prints
 the loaded, approved and latest versions. Turn off background updates for this marketplace in
 your settings if you want updates to wait for a person.
+
+## Saving tokens, with no model in the loop
+
+**Where the tokens went.** `node lib/usage.mjs [root] [--days N | --hours N]` (7 days by default)
+reads Claude Code's own transcripts and counts each API call once. It reports, by session
+folder (lead, desk, subagent), by model and by day: calls, cache-write, cache-read, output and
+the average context per call. That last number is what a long session costs on every turn.
+
+It prints a plain warning when:
+- a session still working averages over 300K context per call (restart it);
+- Opus subagents make over 20% of the calls.
+
+Both limits are set in `office.json` `usage: { maxContextPerCall, maxOpusSubagentPct }`.
+
+**The lead's periodic check.** `node lib/sweep.mjs [root] once` runs the checks in `office.json`:
+
+```json
+"sweep": { "repeatHours": 3, "checks": [
+  { "name": "server", "command": "lsof -tiTCP:3000 -sTCP:LISTEN >/dev/null || echo ':3000 is down'", "parse": "lines" },
+  { "name": "drafts", "command": ["node", "scripts/stuck-drafts.mjs"], "parse": "json" } ] }
+```
+
+`parse` is one of:
+- `lines`: every line printed is an item;
+- `json`: the command prints `[{key, line}]`;
+- `exit`: a non-zero exit is an item.
+
+A check that cannot run is an item too, so a quiet sweep means the checks ran and found
+nothing. An item prints once, then again only if it is still there after `repeatHours`. When
+nothing is new it prints nothing. So run it from a background shell, and a model wakes only
+when there is work:
+
+```bash
+until out=$(node lib/sweep.mjs once); [ -n "$out" ]; do sleep 1800; done; echo "$out"
+```
 
 ## Health: is every desk actually listening
 

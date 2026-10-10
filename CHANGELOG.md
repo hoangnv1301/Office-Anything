@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- `lib/usage.mjs`: where the tokens went, from Claude Code's own transcripts,
+  with no model. Each call is counted once (message.id + requestId). It
+  reports by session folder (lead / desk / subagent), by model and by day,
+  including the average context per call. It warns about a still-working
+  session over 300K context per call, and about Opus subagents over 20% of
+  calls (`office.json` `usage`).
+- `lib/sweep.mjs`: the lead's periodic check, with no model. It runs the
+  `office.json` `sweep.checks` commands (`parse`: lines / json / exit) and
+  prints only items that are new, or still there after `repeatHours` (3 h).
+  It prints nothing when quiet. A check that cannot run is reported, not
+  silent. State: `.office/sweep-state.json`.
+
 ## 0.9.4
 
 - ⛔ HEREDOCS ARE FOUND IN THE WHOLE COMMAND, NOT LINE BY LINE (security
