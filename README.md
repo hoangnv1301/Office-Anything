@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-263%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-265%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -167,10 +167,10 @@ Two more pieces every office ends up writing, now in the plugin. Both are
 **off until your `office.json` turns them on**, so installing the plugin
 changes nothing in a project that does not ask.
 
-**The desk wall** (`"wall"`) is a PreToolUse gate on Bash, Read, the
+**The desk wall** (`"wall"`) is a PreToolUse gate on Bash, Read, Grep, Glob, the
 writing tools, SendMessage and the delegation tools. A desk writes only inside its own folder, never its `.claude/`
 or `runtime/` (its door and its keys); reads no secret file and no other
-desk's `runtime/`; does not `cd` into another desk or make git writes. The
+desk's `runtime/` (Grep and Glob are reads too: a desk searches its own folder or outside `desks/`); does not `cd` into another desk or make git writes. The
 role and token variables (`roleEnv`, `wall.lockedEnv`) are **read-only in
 every spelling**: `$NAME` and `${NAME}` pass; `=`, `+=`, `export`, `unset`,
 `env -u`, `${NAME:=…}`, quote splicing, `eval` and `${!…}` are refused. The

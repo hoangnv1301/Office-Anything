@@ -15,7 +15,7 @@
         ]
       },
       {
-        "matcher": "Bash|Read|Write|Edit|MultiEdit|NotebookEdit|SendMessage|Agent|Task|Workflow|RemoteTrigger|EnterWorktree|mcp__.*",
+        "matcher": "Bash|Read|Grep|Glob|Write|Edit|MultiEdit|NotebookEdit|SendMessage|Agent|Task|Workflow|RemoteTrigger|EnterWorktree|mcp__.*",
         "hooks": [
           {
             "type": "command",

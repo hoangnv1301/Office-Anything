@@ -112,3 +112,26 @@ test('(review 3) the default MCP rule allows reading and refuses everything else
     'mcp__claude_ai_Gmail__update_label', 'mcp__claude_ai_Gmail__trash_message', 'mcp__x__post_update', 'mcp__x__upload_file', 'mcp__x__invite_member', 'mcp__x__get_and_send']) assert.equal(run(root, 'inventory', t, {}), 2, t)
   for (const t of ['mcp__claude_ai_Gmail__search_threads', 'mcp__claude_ai_Gmail__get_message', 'mcp__claude_ai_Google_Drive__read_file_content', 'mcp__x__list_labels']) assert.equal(run(root, 'inventory', t, {}), 0, t)
 })
+
+test('(review 4) redirects the shell reads differently: >| and >&file write where bash says', () => {
+  const root = office()
+  for (const command of ['echo x >|../../lib/x.mjs', 'echo x >&../../lib/x.mjs', 'echo x >| "../../lib/x.mjs"', 'echo x 1>|../../lib/x.mjs']) assert.equal(run(root, 'inventory', 'Bash', { command }), 2, command)
+  for (const command of ['echo x >&2', 'echo x 2>&1', 'echo x >&-', 'echo x >| notes.md']) assert.equal(run(root, 'inventory', 'Bash', { command }), 0, command)
+})
+
+test('(review 4) Grep and Glob are reads: no secret files, nothing that reaches another desk\'s runtime/', () => {
+  const root = office()
+  const hooks = JSON.parse(readFileSync(join(REPO, 'hooks', 'hooks.json'), 'utf8')).hooks.PreToolUse
+  const m = hooks.find((h) => /desk-wall/.test(JSON.stringify(h))).matcher
+  for (const t of ['Grep', 'Glob']) assert.ok(new RegExp(`^(?:${m})$`).test(t), `the matcher reaches ${t}`)
+  assert.equal(run(root, 'inventory', 'Grep', { pattern: 'TOKEN', path: join(root, 'desks', 'customer', 'runtime') }), 2)
+  assert.equal(run(root, 'inventory', 'Grep', { pattern: 'TOKEN', path: root }), 2, 'the repo root reaches every desk\'s runtime/')
+  assert.equal(run(root, 'inventory', 'Grep', { pattern: 'TOKEN', path: join(root, 'desks') }), 2)
+  assert.equal(run(root, 'inventory', 'Grep', { pattern: 'x', path: join(root, '.env') }), 2)
+  assert.equal(run(root, 'inventory', 'Grep', { pattern: 'x', path: join(root, 'lib'), glob: '**/.env*' }), 2)
+  assert.equal(run(root, 'inventory', 'Glob', { pattern: '**/.env', path: join(root, 'lib') }), 2)
+  assert.equal(run(root, 'inventory', 'Glob', { pattern: 'desks/*/runtime/*', path: root }), 2)
+  assert.equal(run(root, 'inventory', 'Grep', { pattern: 'x', path: join(root, 'lib') }), 0)
+  assert.equal(run(root, 'inventory', 'Grep', { pattern: 'x', path: join(root, 'desks', 'inventory') }), 0)
+  assert.equal(run(root, 'inventory', 'Glob', { pattern: '**/*.md' }), 0, 'from its own folder')
+})
