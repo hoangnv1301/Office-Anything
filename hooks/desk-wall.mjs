@@ -124,8 +124,10 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     let who = null
     for (const cwd of places) { who = whoIs(root, cfg, { cwd, env, name }); if (who) break }
     if (!who) {
-      // a developer session, unless its name claims a desk the module could not resolve
-      return failClosed && modErr && deskShaped(session) ? refuseDesk(modErr) : { code: 0 }
+      // ⛔ A NAME SHAPED LIKE A DESK THAT RESOLVES TO NONE IS NOT A DEVELOPER.
+      // An unrecorded cs-<x> fell through to "nobody" and was waved through.
+      if (failClosed && deskShaped(session)) return modErr ? refuseDesk(modErr) : { code: 2, why: `⛔ desk wall: this session is named ${session}, which this office reserves for desk sessions, and no desk answers to it` }
+      return { code: 0 }
     }
     const W0 = cfg.wall.footer ?? {}
     const label = who.kind === 'lead' ? 'the lead' : who.kind === 'desk' ? 'desk ' + who.desk : who.role
@@ -137,13 +139,17 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     catch (e) { return failClosed ? say('the wall broke while judging (' + e.message + '), and this office\'s wall fails closed') : { code: 0 } }
     if (cfg.wall.module) module()
     if (modErr && who.kind === 'desk') return failClosed ? refuseDesk(modErr) : { code: 0 }
+    if (modErr && who.kind === 'lead') { const core = judge(p, who, root, W, {}); return core ? say(core) : { code: 0 } }
     try {
       const to = String(p?.tool_input?.to ?? '').replace(/\s*\[[^\]]*\]\s*$/, '').trim()
       const aliasTo = p?.tool_name === 'SendMessage' && mod && aliasable(to) ? ((await mod.call('alias', to, { root })) || null) : null
       const why = judge(p, who, root, W, { aliasTo }) ?? (mod ? await mod.call('judge', p, who, { root, cfg, session }) : null)
       return why ? say(why) : { code: 0 }
     } catch (e) {
-      if (who.kind === 'lead') { const core = judge(p, who, root, W, {}); return core ? say(core) : { code: 0 } }
+      // the lead goes on under the core rules only when the module is broken
+      // as a whole (unloadable, alias failed); a judge() that throws on this
+      // one call is no reason to skip the office's rules for it
+      if (who.kind === 'lead' && modErr) { const core = judge(p, who, root, W, {}); return core ? say(core) : { code: 0 } }
       return failClosed ? say('the wall broke while judging (' + e.message + '), and this office\'s wall fails closed') : { code: 0 }
     }
   } finally { mod?.close() }

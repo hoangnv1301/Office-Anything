@@ -73,3 +73,15 @@ test('(d) a session the module cannot concern starts no worker', () => {
   assert.equal(dev.code, 0)
   assert.ok(dev.ms < 1800, `a developer waited ${dev.ms} ms on a module that is not about it`)
 })
+
+test('(review) a desk-shaped name the module cannot resolve is refused, not waved through as a developer', () => {
+  const root = office({ module: 'desks/hooks/extra.mjs', aliasNames: ['^cs-'] }, 'export function alias(n) { return n === "cs-Known" ? "desk-support--T-1" : null }')
+  assert.equal(as(root, 'cs-Unknown', 'Write', { file_path: join(root, 'lib', 'x.mjs') }).code, 2)
+  assert.equal(as(root, 'repo-dev-12', 'Write', { file_path: join(root, 'lib', 'x.mjs') }).code, 0)
+})
+
+test('(review) a module judge() that throws on one call still denies the lead that call', () => {
+  const root = office({ module: 'desks/hooks/extra.mjs' }, 'export function judge(p) { if (p.tool_input?.command === "boom") throw new Error("x"); return null }')
+  assert.equal(as(root, 'Office Lead', 'Bash', { command: 'boom' }, { role: 'Office Lead' }).code, 2)
+  assert.equal(as(root, 'Office Lead', 'Bash', { command: 'ls' }, { role: 'Office Lead' }).code, 0)
+})

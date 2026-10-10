@@ -18,6 +18,12 @@ These are gaps local-cabinets-ops found while adopting the wall. Each has a test
   standing in a desk's folder) is refused. The lead and a developer go on
   under the plugin's own rules. Before, every named session at the root
   was refused.
+- A name the office reserves for desks (`aliasNames`) that the module maps to
+  no desk is refused. An unrecorded `cs-<x>` used to fall through as a
+  developer.
+- The lead falls back to the core rules only when the module is broken as a
+  whole (unloadable, or `alias()` failed). A `judge()` that throws on one
+  call denies that call.
 - The module's worker starts only for a session it concerns: an aliased
   name, a desk or the lead. With `aliasNames` declared, a developer session
   starts none (measured about 100 to 200 ms less per tool call, at load 15
