@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.39
+
+- A FOURTH DESK KIND: `liaison`. It is for a desk that talks to the team on a
+  channel (coworkers, partners), never to customers. Like `channel`, it is
+  given a sender only once it is live. Before this, desk.json refused the kind,
+  so desk health reported a working team-channel desk as "unreadable" and
+  stopped watching it.
+- The send-wall gate now reads the issue table instead of a list of kind
+  names. A `lead` desk, which is never issued a sender, used to pass the gate,
+  and so would any kind added later.
+
 ## 0.7.38
 
 - ALIVE AND IDLE IS NOT LISTENING. After a Mac restart every desk came back

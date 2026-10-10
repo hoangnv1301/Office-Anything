@@ -191,7 +191,7 @@ test('one unreadable desk.json does not blind the check to the others (fault #4 
   const { report } = await import('../checks/desk-health.mjs')
   const o = office()
   mkdirSync(join(o.root, 'desks', 'odd'), { recursive: true })
-  writeFileSync(join(o.root, 'desks', 'odd', 'desk.json'), JSON.stringify({ name: 'odd', kind: 'liaison', port: 9399, wake: 'node x.mjs' }))
+  writeFileSync(join(o.root, 'desks', 'odd', 'desk.json'), JSON.stringify({ name: 'odd', kind: 'oracle', port: 9399, wake: 'node x.mjs' }))
   const r = report(o.root, { home: o.home, procs: new Map() })
   assert.equal(r.applicable, true)
   assert.ok(r.findings.some((f) => f.desk === 'bell'), 'the readable desk is still judged')

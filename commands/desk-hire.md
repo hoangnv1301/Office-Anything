@@ -13,6 +13,8 @@ Those live inside `hire()` and nowhere else.
    - `channel` — it talks to people outside the company
    - `knowledge` — it answers other desks, and never a customer
    - `lead` — it organizes the team. There is only ever one.
+   - `liaison` — it talks to the team on a channel (coworkers, partners), never to a customer.
+     Like `channel`, it is given a sender only once it is live.
 
 2. **Call `hire(root, { name, kind, description })`.** Pass the description through: it is
    what the second reader checks your decision against.
