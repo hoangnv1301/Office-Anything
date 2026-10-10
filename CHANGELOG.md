@@ -51,6 +51,15 @@ first (`tests/wall-adopt2.test.mjs`).
   stdbuf, sudo, doas, xargs and busybox. The write checks and the read scan
   both use it. `env -C` and `sudo -D` (which run the command in another
   folder) count as a cd.
+- HIDDEN COMMANDS ARE JUDGED, OR REFUSED.
+  - The script in `sh -c '…'` (and `bash -lc`, `xargs sh -c`) is judged as a
+    command line, like `$(…)`.
+  - The command `find` runs with `-exec`, `-execdir`, `-ok` or `-okdir` is
+    judged as its own segment.
+  - A shell that reads its script from a pipe or a heredoc (`bash <<EOF`,
+    `… | sh`, `bash -s`) is refused, because the wall cannot see the script.
+- An input redirection is a read: `cat <../other/runtime/token.json` and
+  `$(<file)` are judged like `cat file`.
 - Writers the list never knew are judged too: `dd of=`, `truncate`,
   `install`, and `perl`/`ruby -i`. A program that opens a file itself
   (`python -c`, `node -e`, `awk -i inplace`) is still beyond a string wall;
