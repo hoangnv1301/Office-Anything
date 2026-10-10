@@ -60,6 +60,12 @@ first (`tests/wall-adopt2.test.mjs`).
     `… | sh`, `bash -s`) is refused, because the wall cannot see the script.
 - An input redirection is a read: `cat <../other/runtime/token.json` and
   `$(<file)` are judged like `cat file`.
+- Heredoc bodies are data for the read scan too: `python3 - <<'EOF'` with a
+  helper named `sh(…)`, or a file written whose first line is `#!/bin/sh`,
+  is not a shell reading a hidden script. `bash <<'EOF'` still is.
+- `~/.claude/uploads/` (images the owner sends a desk) is readable.
+- A Glob anchored above `desks/` whose fixed prefix stays out of it
+  (`lib/**/*.ts` from the repo root) is allowed.
 - A command line holding more nested commands than the wall reads (256) is
   refused. Past the cap, a text used to be kept while its own substitutions
   were never opened.

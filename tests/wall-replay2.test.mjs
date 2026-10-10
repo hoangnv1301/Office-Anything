@@ -136,3 +136,19 @@ test('(review) more nested commands than the wall reads is a refusal, not a pass
   no('Bash', { command: 'echo $(echo ' + '$(true) '.repeat(70) + '$(echo $(cp x.mjs ../../lib/)))' })
   ok('Bash', { command: 'echo ' + '$(true) '.repeat(10) })
 })
+
+test('(gate replay) a heredoc body is data unless a shell is the one reading it; uploads read-only; a Glob from the root that stays out of desks/', () => {
+  // 19 of the 20 false refusals: the body of a quoted heredoc was parsed as commands
+  ok('Bash', { command: "python3 - <<'EOF'\nprint(sh)\nEOF" })
+  ok('Bash', { command: "cat > work-quynh/a.txt <<'EOF'\n#!/bin/sh\nEOF" })
+  ok('Bash', { command: "node - <<'EOF'\nconst sh = 1; console.log(sh)\nEOF" })
+  no('Bash', { command: "bash <<'EOF'\ncp x ../../lib/\nEOF" })
+  no('Bash', { command: "env bash <<'EOF'\necho hi\nEOF" })
+  no('Bash', { command: 'echo "cp x ../../lib/" | sh' })
+  mkdirSync(join(CC, 'uploads', 'lead-session'), { recursive: true })
+  ok('Read', { file_path: join(CC, 'uploads', 'lead-session', 'image.jpg') })
+  no('Read', { file_path: join(CC, 'settings.json') })
+  ok('Glob', { pattern: 'lib/**/*.ts', path: ROOT })
+  no('Glob', { pattern: '**/*.json', path: ROOT })
+  no('Glob', { pattern: 'desks/*/runtime/*', path: ROOT })
+})
