@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-354%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-357%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -427,6 +427,22 @@ when there is work:
 ```bash
 until out=$(node lib/sweep.mjs once); [ -n "$out" ]; do sleep 1800; done; echo "$out"
 ```
+
+## The context cap: compact before a session gets expensive
+
+A long session sends its whole context on every call. `office.json` `context` sets the point
+at which Claude Code compacts it on its own:
+
+```json
+"context": { "capTokens": 700000, "lead": 700000, "teammates": 400000, "perDesk": { "billing": 500000 } }
+```
+
+Every session the office starts (desks, the lead, case teammates) is launched with
+`CLAUDE_CODE_AUTO_COMPACT_WINDOW=<cap>`. On a 1M-context model, `/context` then reads
+`/ 700k`, and compaction comes at about the cap minus Claude Code's 33k buffer. The variable
+takes precedence over the `autoCompactWindow` setting, so a desk's own settings cannot raise
+it. To roll back, remove the key and restart that desk (`/desk-start <desk>`). A desk-watch
+`DESK-CONTEXT` warning follows the cap: 75% of it, unless `deskWatch.maxContextPerCall` is set.
 
 ## Are the desks working, and not troublesome?
 
