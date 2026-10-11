@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-336%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-345%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -395,6 +395,35 @@ when there is work:
 
 ```bash
 until out=$(node lib/sweep.mjs once); [ -n "$out" ]; do sleep 1800; done; echo "$out"
+```
+
+## Are the desks working, and not troublesome?
+
+`node lib/desk-watch.mjs [root]` looks at every desk and teammate session in the office. It
+uses local facts only: Claude Code's session registry, each session's transcript, `desk.json`
+and the alert log. No model is involved. It prints one line per problem, and nothing when all is
+well. `--table` shows one row per session: alive or dead, state, minutes since its last
+transcript line, context per call, and model.
+
+| flag | means |
+|---|---|
+| `DESK-DEAD` | a desk expected to run has no live session |
+| `DESK-STUCK` | a dialog left open, busy with a silent transcript, or a message nobody answered |
+| `DESK-LOOP` | the same call (or message) over and over, or errors and wall refusals in a row |
+| `DESK-NOISY` | too many messages in an hour |
+| `DESK-CONTEXT` | its context per call is too large; compact or restart it when idle |
+| `DESK-TROUBLE` | a line from the office's own checks (claims nobody renews, a thread it does not own) |
+
+Limits live in `office.json` `deskWatch` (`windowMinutes`, `staleMinutes`, `waitingMinutes`,
+`unansweredMinutes`, `loopRepeats`, `errorStreak`, `noisyPerHour`, `maxContextPerCall`,
+`leadNames`, `checks`). With `--alert` it writes typed lines to the alert log: once per cause,
+again every 30 minutes while the cause stands, and a `DESK-RESOLVED` line when it clears.
+
+It never kills, restarts or sends anything. A problem that a message can fix carries a nudge:
+the exact text for the lead to send to that session. To run it from the sweep:
+
+```json
+{ "name": "desks", "command": ["node", "<plugin>/lib/desk-watch.mjs", ".", "--json", "--alert"], "parse": "json" }
 ```
 
 ## Health: is every desk actually listening

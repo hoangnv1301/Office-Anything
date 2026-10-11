@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- `lib/desk-watch.mjs`: are the desks working, and not troublesome? From the
+  session registry, transcripts, desk.json and the alert log, with no model,
+  it flags DESK-DEAD, DESK-STUCK (dialog open, busy but silent, unanswered
+  message), DESK-LOOP (repeated call, error/refusal streak), DESK-NOISY,
+  DESK-CONTEXT and DESK-TROUBLE (the office's own checks). It prints nothing
+  when healthy. `--alert` writes typed lines once per cause, every 30 min,
+  then DESK-RESOLVED. It never kills or sends; it prints nudges for the lead.
+
 ## 0.9.5
 
 - THE NATIVE BASH SANDBOX, PER DESK: the guarantee under the string wall.
