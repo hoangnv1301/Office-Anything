@@ -12,6 +12,12 @@
   adds the office's own promises, one per line naming `desk-<name>`. An
   unreadable file stops starts. No file: all on.
 
+- The context cap: `office.json` `context` (`capTokens`, `lead`, `teammates`,
+  `perDesk`). Each session the office starts is launched with
+  `CLAUDE_CODE_AUTO_COMPACT_WINDOW=<cap>`, so it compacts there, not at the
+  model's 1M. Verified on 2.1.289: `/context` reads `/ 700k`; a project
+  settings file asking for more did not override it. Rollback: remove the
+  key, restart the desk. DESK-CONTEXT now warns at 75% of a session's cap.
 - `lib/desk-watch.mjs`: are the desks working, and not troublesome? From the
   session registry, transcripts, desk.json and the alert log, with no model,
   it flags DESK-DEAD, DESK-STUCK (dialog open, busy but silent, unanswered
