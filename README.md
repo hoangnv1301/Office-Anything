@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-345%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-354%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -237,6 +237,37 @@ the `office.json` sections, install the plugin version that carries them and
 restart the desks (hooks arm only on a restart). With both running, the two
 walls agree and the desks hear the boot text twice; then remove your copies
 from each desk's `.claude/settings.json` and retire the scripts.
+
+## Run only some desks on this machine
+
+```
+/desk-onoff
+```
+
+One office, several people: the owner runs every desk, a colleague runs design and inventory and
+never customer service. The switch is per machine, in `.office/local.json`, which the office's
+own `.gitignore` keeps out of every commit:
+
+```
+node lib/desks.mjs list               # this machine runs 2 of 5 desks (3 off)
+node lib/desks.mjs off customer
+node lib/desks.mjs default off        # an allowlist: then `on` each desk wanted
+```
+
+```json
+{ "desks": { "default": true, "enabled": { "customer": false } } }
+```
+
+With no file, every desk is on, exactly as before. A desk that is off is not started (by
+`all`, `everything` or by name), health reads it as off, not dead, so the watchdog never
+restarts it, its boot text leaves out the doorbell, and it takes no new cases. **Off stops new
+work and never drops old work:** a running desk is not closed, its case claims keep their
+heartbeat, and the book keeps every waiting case. If an off desk still holds or is owed cases,
+the lead gets a typed `DESK-OFF` line. What an office counts as owed beyond cases (promises,
+waiting work) it names in `office.json` `"openWork": "<read-only command>"`: every output line
+naming `desk-<name>` is one open item, and a command that fails is unknown, never "nothing". Only the `desks` key of the file is read; it can never
+change the wall, the sandbox or the launch flags. A file that cannot be read stops starts
+instead of turning every desk on. A desk cannot write it: it is outside its wall.
 
 ## The checks
 

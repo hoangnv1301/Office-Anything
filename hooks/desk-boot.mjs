@@ -29,6 +29,7 @@ import { readOfficeConfig, findOffice, whoIs, childOf, sessionName } from '../li
 import { versionVerdict } from '../lib/version.mjs'
 import { writeAlert } from '../lib/alerts.mjs'
 import { isMain } from '../lib/is-main.mjs'
+import { readSwitch, deskOn } from '../lib/desks.mjs'
 
 const DEFAULT = {
   memory: ['^facts\\.md$', '^(REPORT|RULE|BRIEF|REPLY)-.*\\.md$'],
@@ -48,6 +49,7 @@ const DEFAULT = {
 }
 
 const DEFAULT_SANDBOX = '- Your Bash runs in a sandbox: it writes only in your own folder and temp, reads no other desk\'s runtime/, and reaches only the hosts this office lists. "Operation not permitted" or EPERM means the office forbids it: do not retry, and do not try another way; tell the lead if the work needs it.'
+const DEFAULT_OFF = '- ⚠ desk-{desk} is OFF on this machine (.office/local.json). Do not start your doorbell and take no new cases. Finish or hand over what you already hold, tell the lead, and stop.'
 const DEFAULT_CASE = '- You are the case session for {key}. Your brief: {brief} (read it first). Work only on this case; anything else, and any other case, goes to desk-{desk} by SendMessage.'
 const fill = (s, v) => String(s ?? '').replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m))
 
@@ -75,7 +77,11 @@ export function bootLines(root, who, cfg, cwd) {
   if (who.caseKey) out.push(fill(T.caseLine ?? DEFAULT_CASE, { ...v, key: who.caseKey, brief: rel(join(root, '.office', 'cases', `${who.desk}--${who.caseKey}.md`)) }))
   let wake = ''
   try { wake = String(JSON.parse(readFileSync(join(deskDir, 'desk.json'), 'utf8')).wake ?? '').trim() } catch {}
-  if (wake) { out.push(fill(T.wake, { ...v, wake })); if (T.wakeNote) out.push(fill(T.wakeNote, v)) }
+  // off on this machine (lib/desks.mjs): no doorbell, no new cases. The
+  // session is told instead of refused: it may hold work it has to hand over
+  const sw = readSwitch(root)
+  if (sw.error || !deskOn(sw, who.desk).on) out.push(fill(T.off ?? DEFAULT_OFF, v))
+  else if (wake) { out.push(fill(T.wake, { ...v, wake })); if (T.wakeNote) out.push(fill(T.wakeNote, v)) }
   let sandboxed = false
   try { sandboxed = JSON.parse(readFileSync(join(deskDir, 'desk.json'), 'utf8')).sandbox === true } catch {}
   if (sandboxed) out.push(fill(T.sandbox ?? DEFAULT_SANDBOX, v))
