@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.6
 
 - WHICH DESKS RUN ON THIS MACHINE: `lib/desks.mjs` and `/desk-onoff`.
   `.office/local.json` `{ "desks": { "default", "enabled": {name: bool} } }`,
