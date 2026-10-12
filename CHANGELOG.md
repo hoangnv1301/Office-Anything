@@ -8,7 +8,9 @@
   dead, so no watchdog restart), the boot hook (no doorbell), desk-watch and
   the case sweep (no new claims) all ask one function. Off closes and
   releases nothing; an off desk that still holds or is owed cases raises
-  DESK-OFF for the lead. An unreadable file stops starts. No file: all on.
+  DESK-OFF for the lead; `office.json` `"openWork"` (a read-only command)
+  adds the office's own promises, one per line naming `desk-<name>`. An
+  unreadable file stops starts. No file: all on.
 
 - `lib/desk-watch.mjs`: are the desks working, and not troublesome? From the
   session registry, transcripts, desk.json and the alert log, with no model,

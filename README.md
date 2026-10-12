@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-353%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-354%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -263,7 +263,9 @@ With no file, every desk is on, exactly as before. A desk that is off is not sta
 restarts it, its boot text leaves out the doorbell, and it takes no new cases. **Off stops new
 work and never drops old work:** a running desk is not closed, its case claims keep their
 heartbeat, and the book keeps every waiting case. If an off desk still holds or is owed cases,
-the lead gets a typed `DESK-OFF` line. Only the `desks` key of the file is read; it can never
+the lead gets a typed `DESK-OFF` line. What an office counts as owed beyond cases (promises,
+waiting work) it names in `office.json` `"openWork": "<read-only command>"`: every output line
+naming `desk-<name>` is one open item, and a command that fails is unknown, never "nothing". Only the `desks` key of the file is read; it can never
 change the wall, the sandbox or the launch flags. A file that cannot be read stops starts
 instead of turning every desk on. A desk cannot write it: it is outside its wall.
 

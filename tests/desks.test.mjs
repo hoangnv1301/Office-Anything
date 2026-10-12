@@ -154,3 +154,21 @@ test('⛔ a desk cannot flip the switch: writing .office/local.json is outside i
   assert.equal(gate('Bash', { command: `node ../../lib/desks.mjs on customer > ${localFile(root)}` }), 2)
   assert.equal(gate('Write', { file_path: join(cwd, 'notes.md'), content: 'x' }), 0)
 })
+
+test('office.json openWork: lines naming desk-<name> (or its cases) are what it owes; a failing command is UNKNOWN, not "nothing"', async () => {
+  const { openWork } = await import('../lib/desks.mjs')
+  const root = office({ desks: { enabled: { customer: false } } })
+  writeFileSync(join(root, 'promises.sh'), 'echo "DRY due 2h: desk-customer BT-77 promise"\necho "DRY due 1h: desk-customer2 BT-9 waiting"\necho "DRY due 5h: desk-design--SC-260101-001 waiting"\n')
+  const cfg = { openWork: 'sh promises.sh' }
+  const d = (n) => ({ name: n, perCase: null })
+  assert.deepEqual(openWork(root, d('customer'), { cfg, adapter: () => ({ cases: [] }) }).items, ['DRY due 2h: desk-customer BT-77 promise'])
+  assert.deepEqual(openWork(root, d('design'), { cfg }).items, ['DRY due 5h: desk-design--SC-260101-001 waiting'])
+  assert.deepEqual(openWork(root, d('inventory'), { cfg }).items, [])
+  const bad = openWork(root, d('customer'), { cfg: { openWork: 'exit 3' } })
+  assert.deepEqual(bad.items, [])
+  assert.match(bad.unknown[0], /openWork exited 3/)
+  // and it reaches the lead through the sweep
+  const live = []
+  await sweep(root, { cfg, live: () => live, terminal: fakeTerm(live), sleep: async () => {}, dir: mkdtempSync(join(tmpdir(), 'oa-dcl-')), kill: () => {}, adapter: adapter().fn })
+  assert.match(readFileSync(join(root, '.office', 'alerts.log'), 'utf8'), /DESK-OFF - desk-customer .*BT-77/)
+})
