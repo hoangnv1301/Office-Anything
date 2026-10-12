@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- WHICH DESKS RUN ON THIS MACHINE: `lib/desks.mjs` and `/desk-onoff`.
+  `.office/local.json` `{ "desks": { "default", "enabled": {name: bool} } }`,
+  never committed. Start (all, everything, by name), health (off, not
+  dead, so no watchdog restart), the boot hook (no doorbell), desk-watch and
+  the case sweep (no new claims) all ask one function. Off closes and
+  releases nothing; an off desk that still holds or is owed cases raises
+  DESK-OFF for the lead. An unreadable file stops starts. No file: all on.
+
 - `lib/desk-watch.mjs`: are the desks working, and not troublesome? From the
   session registry, transcripts, desk.json and the alert log, with no model,
   it flags DESK-DEAD, DESK-STUCK (dialog open, busy but silent, unanswered
