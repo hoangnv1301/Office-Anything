@@ -77,9 +77,14 @@ test('(4) MCP tools that reach outsiders are refused to a desk by default; wall.
 
 test('(5) a case-blind disk and a symlinked folder do not open a way out', () => {
   const root = office()
-  assert.equal(run(root, 'inventory', 'Write', { file_path: join(root, 'desks', 'inventory', '.CLAUDE', 'settings.json') }), 2)
-  assert.equal(run(root, 'inventory', 'Write', { file_path: join(root, 'desks', 'inventory', 'Runtime', 'x') }), 2)
-  assert.equal(run(root, 'inventory', 'Read', { file_path: join(root, 'desks', 'customer', 'RUNTIME', 'x') }), 2)
+  // the wall folds case where the disk does (macOS, Windows, as lib/wall.mjs
+  // CASE_BLIND says). On a case-sensitive disk (Linux CI) .CLAUDE is another
+  // folder, not the desk's door, so these three are only asked where it is the same one
+  if (process.platform === 'darwin' || process.platform === 'win32') {
+    assert.equal(run(root, 'inventory', 'Write', { file_path: join(root, 'desks', 'inventory', '.CLAUDE', 'settings.json') }), 2)
+    assert.equal(run(root, 'inventory', 'Write', { file_path: join(root, 'desks', 'inventory', 'Runtime', 'x') }), 2)
+    assert.equal(run(root, 'inventory', 'Read', { file_path: join(root, 'desks', 'customer', 'RUNTIME', 'x') }), 2)
+  }
   assert.equal(run(root, 'inventory', 'Read', { file_path: join(root, 'x', '.ENV') }), 2)
   assert.equal(run(root, 'inventory', 'Write', { file_path: join(root, 'desks', 'inventory', '.', '..', 'customer', 'x.md') }), 2)
   symlinkSync(join(root, 'lib'), join(root, 'desks', 'inventory', 'out'))

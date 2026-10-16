@@ -12,7 +12,8 @@ import { launchCommand } from '../lib/start.mjs'
 
 function office() {
   // outside the session's TMPDIR on purpose (that folder is always writable)
-  const root = realpathSync(mkdtempSync('/private/tmp/oa-sbx-test-'))
+  // (/private/tmp on macOS; /var/tmp elsewhere, since Linux CI's TMPDIR is /tmp)
+  const root = realpathSync(mkdtempSync(process.platform === 'darwin' ? '/private/tmp/oa-sbx-test-' : '/var/tmp/oa-sbx-test-'))
   for (const n of ['dashboard', 'customer']) {
     mkdirSync(join(root, 'desks', n, 'runtime'), { recursive: true })
     writeFileSync(join(root, 'desks', n, 'desk.json'), JSON.stringify({ name: n, kind: 'knowledge', port: 9990 + n.length, ...(n === 'dashboard' ? { hosts: ['api.example.org'] } : {}) }))
