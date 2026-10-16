@@ -55,7 +55,13 @@ const fill = (s, v) => String(s ?? '').replace(/\{(\w+)\}/g, (m, k) => (k in v ?
 
 export function bootLines(root, who, cfg, cwd) {
   const b = cfg.boot ?? {}
-  if (who.kind === 'lead') return Array.isArray(b.lead) ? b.lead.map(String) : []
+  if (who.kind === 'lead') {
+    const out = Array.isArray(b.lead) ? b.lead.map(String) : []
+    // office.json lead.wake: the lead's own doorbell, armed like a desk's
+    const wake = typeof cfg.lead?.wake === 'string' ? cfg.lead.wake.trim() : ''
+    if (wake) { const T = { ...DEFAULT.text, ...(b.text ?? {}) }; out.push(fill(T.wake, { wake, where: 'the office root' })); if (T.wakeNote) out.push(fill(T.wakeNote, {})) }
+    return out
+  }
   if (who.kind !== 'desk') return []
   const T = { ...DEFAULT.text, ...(b.text ?? {}) }
   const memory = (Array.isArray(b.memory) ? b.memory : DEFAULT.memory).map((p) => new RegExp(p))
@@ -109,7 +115,7 @@ if (isMain(import.meta.url)) {
         console.log(`⚠ This session loaded office-anything ${v.loaded ?? '(unknown)'}, which this office has not approved (approved: ${v.approved.join(', ') || 'none'}). ${v.enforce ? 'Desk sessions are refused until it is.' : 'The lead has been told.'}`)
         try { writeAlert(root, cfg, { type: 'VERSION', subject: 'office-anything', text: `loaded ${v.loaded}, approved ${v.approved.join(',')}${v.enforce ? ' (enforce: desks refused)' : ''}`, quietKey: 'version:' + v.loaded }) } catch {}
       }
-      if (!cfg.boot || typeof cfg.boot !== 'object') process.exit(0)
+      if ((!cfg.boot || typeof cfg.boot !== 'object') && !(typeof cfg.lead?.wake === 'string' && cfg.lead.wake.trim())) process.exit(0)
       const who = whoIs(root, cfg, { cwd })
       // a case session runs under its parent's role, so its own name says which case it is
       const child = childOf(root, sessionName())

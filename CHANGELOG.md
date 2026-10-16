@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- THE LEAD, REACHABLE (the lead's findings of 2026-10-16). `lib/lead-reach.mjs`:
+  desk-watch and health flag LEAD-UNREACHABLE when the lead runs under a name
+  office.json does not give it, its registry entry froze while it kept
+  working, or the entry is not valid JSON (the 2026-10-16 cause: a stray
+  `}`; Claude Code skips such an entry, so no peer listed the lead), with the exact command to resume it under its office name. The
+  registry is only read.
+  - `desk-watch.mjs seen <desk> "<text>"`: not seen / delivered / read / answered.
+  - `office.json` `lead.wake`: the lead's doorbell, armed by its boot text,
+    reported by health when unarmed.
+  - The wall: `wall.messageFallback` is printed with a refused SendMessage;
+    a socket address gets its own refusal; a Bash write outside the desk
+    names the desk's folder and the refused path.
+
 ## 0.9.6
 
 - WHICH DESKS RUN ON THIS MACHINE: `lib/desks.mjs` and `/desk-onoff`.

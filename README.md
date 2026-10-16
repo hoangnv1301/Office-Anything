@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-357%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-363%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -495,6 +495,23 @@ dead desk through `office.json` `start` (3 per hour per desk at most), run a
 check's own `heal`, and leave alerts for the lead in `.office/alerts.log`. It
 never types into a desk. `--install-watchdog` runs `--heal` every two minutes
 from a LaunchAgent; nothing is installed until you run it.
+
+### Can the desks reach the lead?
+
+SendMessage finds a session by its name in Claude Code's session registry. Two things break that
+while the lead is alive and its own messages still go out: the lead runs under a name `office.json`
+`lead.session` / `lead.aliases` does not give it, its registry entry stops updating, or the entry is not
+valid JSON (seen: a stray `}` after the object). In each case other sessions stop listing it. Desk-watch and `/desk-health` flag both as `LEAD-UNREACHABLE`, with the
+one line to run (close the lead, then this, which resumes its own conversation under its office
+name). The registry is never edited.
+
+- **Did it see my message?** `node lib/desk-watch.mjs seen <desk> "<text from the message>"` reads
+  the desk's own transcript: not seen, delivered, read (it worked since) or answered.
+- **The lead's doorbell:** `office.json` `lead.wake` gives the lead a doorbell like a desk's. Its
+  boot text says to arm it and re-arm it on every expiry, and health says when it is unarmed.
+- **A refused message names the way out:** `office.json` `wall.messageFallback` (e.g. the office's
+  tell-lead command) is printed with every refused SendMessage. A socket address is refused with
+  the lead's name to use instead. A Bash write outside the desk names the desk's folder and the path.
 
 ## The board
 
