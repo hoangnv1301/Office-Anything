@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.10.1
+
+- THE OFFICE-WIDE QUEUE (owner, 2026-10-18: "I do not know which of the things
+  we are doing are being worked on and which are not"). Builds on the lead's
+  task list (0.10.0).
+  - `list --assigned <name> | --overdue | --owner`, combinable with `--all`/`--json`.
+  - The SessionStart hook shows a desk or a dev session only the tasks
+    assigned to its name (and the commands it may use); nothing when it has
+    none. A session identified by its registry name can update its own tasks
+    and add one for the lead, never verify or drop.
+  - `.office/digest.md`, once a day from 08:00, written by the watchdog's
+    heal; the first section is plain text under 1,800 characters.
+  - A NUDGE line in the lead's alerts, once a day, for an assignee quiet 24 h.
+  - Not yet: the board panel (next release).
+  - Upgrade: nothing to add. A `wall.lead.bash` entry for `tasks.mjs` should
+    include `digest` in its verb list.
+
 ## 0.10.0
 
 - THE LEAD'S PERSISTENT TASK LIST (owner request, 2026-10-18; two buyers had
