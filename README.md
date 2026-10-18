@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-376%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-377%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -320,6 +320,29 @@ never killed. `/desk-recover` is the order after a crash: the lead first, then e
 "resume": false }, "waitSec": 120 }`. A desk's `desk.json` `"model"` overrides it. Flags and
 models are checked to be plain words, never shell. Native primitives: the session registry
 (`~/.claude/sessions`), `claude --resume <id>` and `--name`.
+
+### The lead's permission mode, and "Held peer message"
+
+A session in one permission mode **holds a message from a session in another mode** until its own
+user (the person at that terminal) approves it. A hold nobody approves expires
+(`Cross-session message expired without approval`): it is not delivered and not retried. In the lead's terminal that reads `Held peer message … crossSessionInbound`; the
+sender sees a delivery that succeeded and an answer that never comes. With both sessions in bypass
+the same messages arrive at once. The desks run with
+`--dangerously-skip-permissions`; a lead in the default mode is a different mode, so what a desk sends
+the lead, and what the lead sends a bypass desk, can sit waiting for a human.
+
+The rule the plugin follows: **the lead is launched with every flag the desks get.** `lib/start.mjs`
+(`/desk-start lead`, `everything`, `/desk-recover`) builds the lead's command from `launch.flags`
+(shared with the desks) and then `launch.lead.flags`, so with
+`"launch": { "flags": ["--dangerously-skip-permissions"] }` the lead is bypass too. Put a flag that
+should reach only the lead (say `--remote-control`) in `launch.lead.flags`, and a mode flag in
+`launch.flags`, never in the lead's alone. A test pins that command.
+
+What the plugin cannot do: change the mode of a running session. A lead opened by hand, or started
+before `launch.flags` held the flag, keeps its mode until it is closed and started again with
+`/desk-start lead`. `/desk-health` shows each desk's permission mode (`--json`: `desks[].session.mode`),
+so a lead that does not match is visible. The lead's wall (`wall.lead`) is what limits a bypass lead:
+it writes no file, and runs only the `wall.lead.bash` commands listed.
 
 ## One session per case
 
