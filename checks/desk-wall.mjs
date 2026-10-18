@@ -31,6 +31,7 @@ export function report(root = process.cwd(), { home = homedir() } = {}) {
   const w = readOfficeConfig(root).wall
   const findings = []
   try { compileWall(w) } catch (e) { findings.push({ desk: 'office.json', say: `a wall rule does not compile, so the gate cannot apply it: ${e.message}` }) }
+  try { for (const x of compileWall({ ...w, root }).leadBashProblems) findings.push({ desk: 'office.json', say: `wall.lead.bash[${x.index}] ${x.why} (the entry is not used, so the lead cannot run it)` }) } catch {}
   for (const [i, p] of (Array.isArray(w.audit) ? w.audit : []).entries()) {
     try { new RegExp(p) } catch (e) { findings.push({ desk: 'office.json', say: `wall.audit[${i}] does not compile: ${e.message}` }) }
   }
