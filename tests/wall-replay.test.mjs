@@ -89,3 +89,15 @@ test('(review) bash quoting and expansion: $\'…\', $(…), backticks and $VAR 
   ok('Bash', { command: 'cat "$HOME/notes.txt"' })
   ok('Bash', { command: "printf '%s\\n' $'a\\tb'" })
 })
+
+test('(draft JSON) ? * [ inside quotes is text, not a glob across the other desks (a desk on 0.9.0 was refused for it)', () => {
+  // the refusal read `a/b?` in a draft's JSON as a glob whose prefix reaches ../
+  ok('Bash', { command: `node ../../ops.mjs draft '{"note":"see ../x/[1] or a/b?"}'` })
+  ok('Bash', { command: 'node ../../ops.mjs draft "{\\"note\\":\\"all of ../*/notes?\\"}"' })
+  ok('Bash', { command: 'cat "../draft?.json"' })
+  ok('Bash', { command: `echo '{"p":"../manufacturing/run*/x"}' > draft.json` })
+  // an UNQUOTED glob, or one partly quoted, still reaches another desk and is refused
+  no('Bash', { command: 'cat ../*/runtime/token' })
+  no('Bash', { command: `cat '../manufacturing'/run*/token.json` })
+  no('Bash', { command: 'node ../../ops.mjs draft "{}" ../*/runtime/x' })
+})
