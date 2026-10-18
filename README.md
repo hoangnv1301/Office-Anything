@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-385%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-397%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -343,6 +343,42 @@ before `launch.flags` held the flag, keeps its mode until it is closed and start
 `/desk-start lead`. `/desk-health` shows each desk's permission mode (`--json`: `desks[].session.mode`),
 so a lead that does not match is visible. The lead's wall (`wall.lead`) is what limits a bypass lead:
 it writes no file, and runs only the `wall.lead.bash` commands listed.
+
+## The lead's task list
+
+What the owner asks for must not live only in a chat. `.office/tasks.jsonl` is a list the lead
+puts things down in: **append-only events**, one JSON line each (`add`, `update`, `verify`,
+`drop`), folded on read, so the file cannot disagree with itself. A task is
+`{ id T-YYMMDD-n, said (the owner's words, verbatim), source chat|discord|desk|alert|other, title,
+assigned (any session or desk), state, due?, evidence[], notes[], created, updated }`, with the state
+`open → working | waiting → done → verified`, or `dropped`. Offline, no server.
+
+```bash
+node lib/tasks.mjs add --said "reply to the two buyers today" --title "Answer buyers" [--assigned ops-construction] [--due 2026-10-20]
+node lib/tasks.mjs update T-261018-1 --state working --note "drafting"        # open | working | waiting | done
+node lib/tasks.mjs verify T-261018-1 --evidence "sent-2026-10-18.txt" --proof "both buyers have a reply"
+node lib/tasks.mjs drop T-261018-1 --reason "the owner cancelled it in chat"   # 10+ characters
+node lib/tasks.mjs list [--all] [--json]
+```
+
+- **Done is not verified.** `verify` needs an evidence entry and a one-line proof; `drop` needs a reason.
+  `verified` and `dropped` are final: a reopened task is one nobody can trust, so add a new one.
+- **Who you are comes from the session, not a flag.** The lead does everything. A desk can `add` (for the
+  lead unless it names someone) and work the tasks assigned to it, never `verify` or `drop`.
+- **A context reset can not lose it.** A SessionStart hook (`hooks/tasks-boot.mjs`: start, resume, clear
+  and compact) prints the open tasks into the lead's context: id, age, state, assigned, the first 60
+  characters of the title, `OVERDUE` past a due date, and the command shapes. `/desk-recover` shows the same.
+- **The lead writes no file itself.** The script does. Put one entry in `wall.lead.bash`:
+  `"^node {plugin}/lib/tasks\\.mjs (add|update|verify|drop|list)( ARG)*$"` (ARG as in the lead.bash
+  example above). `{plugin}` is the one placeholder the wall knows: it expands to the running
+  plugin's own folder, so the entry survives an update. It must appear once, right after `node`, and
+  name one real file in that folder; any other use is dropped like an unanchored entry.
+- **Staleness is said.** Health is red for a task open with no update for 24 h, or `done` but not verified
+  for 6 h, and `health --heal` (the watchdog) writes it to `.office/alerts.log` for the lead (once per
+  15 minutes per task).
+- **Backup.** `.office/` is gitignored, so the first write or inject of each day copies the file to
+  `.office/tasks-snapshots/tasks-YYYYMMDD.jsonl` (the state before that day's first change), keeping 14.
+  Back up `.office/` itself if the list matters to you.
 
 ## One session per case
 

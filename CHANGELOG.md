@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.10.0
+
+- THE LEAD'S PERSISTENT TASK LIST (owner request, 2026-10-18; two buyers had
+  been found unanswered by the owner himself after a context summary dropped
+  the lead's list).
+  - `.office/tasks.jsonl`, append-only events folded on read, and
+    `node lib/tasks.mjs add|update|verify|drop|list [--json]`. `verify` needs
+    evidence and a one-line proof; `drop` needs a reason; verified and
+    dropped are final. A desk adds tasks and works its own, never verifies.
+  - `hooks/tasks-boot.mjs` (SessionStart: start, resume, clear, compact)
+    prints the lead's open tasks into its context; `/desk-recover` shows them.
+  - Health is red for a task open 24 h with no update or done-not-verified 6 h;
+    `health --heal` writes it to the lead's alerts.
+  - `wall.lead.bash` entries may use `{plugin}`: this plugin's own folder,
+    once, right after `node`, one real file in it. A daily snapshot of the
+    file is kept in `.office/tasks-snapshots/` (14 days).
+  - Upgrade: new keys none; the feature is inert until something is added.
+    Add the one anchored `wall.lead.bash` entry (README) so the lead can use it.
+
 ## 0.9.9
 
 - SELF-HEALING IN THE CORE (lead's request, owner approved 2026-10-18).
