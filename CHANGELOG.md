@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.9.9
+
+- SELF-HEALING IN THE CORE (lead's request, owner approved 2026-10-18).
+  - `office.json` `"watchdog": true` (or `watchdog.install: true`): `/desk-start
+    lead`, `everything`, `/desk-recover` and `health --heal` install the
+    LaunchAgent or verify it is loaded, idempotently. Plain `health` reports
+    `watchdog not installed` as a red finding with the one command (paths
+    quoted). The object form `{ maxHealsPerHour, notify }` alone still installs
+    nothing.
+  - The watchdog restarts the lead when no session answers to `lead.session` or
+    `lead.aliases`, through `lead.start` or the plugin's own start, 3 an hour,
+    never while one is still registering, and never when the lead runs under
+    another name, its registry entry is unreadable or two are alive.
+    `watchdog.restartLead: false` opts out. Acts go to `heal.log`, failures and
+    the cap to the lead's `alerts.log`.
+  - A desk that stays down: health says how long (`down 7m`) from
+    `.office/heal-state.json`, and after 5 minutes the lead is told whatever the
+    restart did. (A dead desk was already red at once; what was silent was
+    nobody being told.)
+  - Upgrade: every new key is optional and defaults to today's behaviour.
+    Without `"watchdog": true` nothing is installed or checked.
+
 ## 0.9.8
 
 - THE LEAD, TIGHTER (the lead's audit of 0.9.7, 2026-10-18).

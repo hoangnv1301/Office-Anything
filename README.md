@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-377%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-385%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -520,6 +520,32 @@ dead desk through `office.json` `start` (3 per hour per desk at most), run a
 check's own `heal`, and leave alerts for the lead in `.office/alerts.log`. It
 never types into a desk. `--install-watchdog` runs `--heal` every two minutes
 from a LaunchAgent; nothing is installed until you run it.
+
+### Self-healing, unattended
+
+`office.json` `"watchdog": true` (or `"watchdog": { "install": true }`) says this office wants the
+watchdog. `/desk-start lead`, `everything`, `/desk-recover` and `health --heal` then install it, or
+verify it is loaded, and leave it alone when it is (idempotent; a LaunchAgent every 120 s, macOS
+only). Plain `health` only reads: with the watchdog asked for and missing it reports
+`watchdog not installed` as a finding, red, with the one command to run. The older object form
+(`{ "maxHealsPerHour": 3, "notify": "lead" }`) only tunes a watchdog and installs nothing.
+
+Each run of the watchdog:
+
+- restarts a dead desk through `office.json` `start` (`"office:start"` is the plugin's own, which
+  resumes the desk's own conversation), at most 3 an hour per desk;
+- restarts **the lead** when no session answers to `lead.session` or any `lead.aliases` name, through
+  `lead.start` if the office gives one and the plugin's own start otherwise, at most 3 an hour, never
+  while a start is still registering. It does nothing when the lead runs under another name, its
+  registry entry is unreadable, or two leads are alive: those are `LEAD-UNREACHABLE` /
+  `LEAD-DUPLICATE` for a person, because starting another would make a second lead.
+  `"watchdog": { "restartLead": false }` turns it off;
+- runs the `heal` of every failing `health` check;
+- writes every act to `.office/heal.log` and what needs a person to `.office/alerts.log`, where the lead reads it.
+
+A desk that stays down is red in health with how long (`is not running · down 7m`), and once it has
+been down 5 minutes the lead is told whatever the restart did (`desk-x has been down 7 min`),
+once per 15 minutes.
 
 ### Can the desks reach the lead?
 
