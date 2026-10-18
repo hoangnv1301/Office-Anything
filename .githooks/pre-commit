@@ -11,6 +11,10 @@
 set -e
 ROOT="$(git rev-parse --show-toplevel)"
 node "$ROOT/hooks/no-secrets.mjs" --staged
+# ⛔ A HOOK RUN FROM A LINKED WORKTREE CARRIES GIT_DIR AND GIT_INDEX_FILE. The suite's
+# fixtures run git in temp repos; with these set they ran in THIS repo instead:
+# commits on the branch and core.bare=true / user.name=x in the shared .git/config.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
 cd "$ROOT" && node --test "tests/**/*.test.mjs" > /tmp/oa-precommit-tests.log 2>&1 || {
   echo "⛔ pre-commit: the suite is red. Last lines:" >&2
   tail -12 /tmp/oa-precommit-tests.log >&2
