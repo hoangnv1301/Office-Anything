@@ -338,6 +338,75 @@ function OfficeTimeline({ onPick }: { onPick: (desk: string) => void }) {
   )
 }
 
+type TaskRow = { id: string; title: string; said: string; state: string; assigned: string; due: string | null; age: string; idle: string; overdue: boolean; stale: boolean; notes: { at: number; by: string; text: string }[]; evidence: { evidence: string; proof: string; at: number }[]; reason?: string }
+type QueueData = { totals: { open: number; working: number; waiting: number; done: number; overdue: number; stale: number }; assignees: { name: string; counts: Record<string, number>; overdue: number; stale: number; tasks: TaskRow[] }[]; closed: TaskRow[] }
+type Evidence = { kind: string; content?: string; url?: string; why?: string; path?: string }
+// the office-wide queue: the lead's task list, read-only, from the same fold the lead uses
+function TasksView() {
+  const [q, setQ] = useState<QueueData | null>(null)
+  const [open, setOpen] = useState<string | null>(null)
+  const [ev, setEv] = useState<Record<string, Evidence>>({})
+  useEffect(() => {
+    let alive = true
+    const go = () => fetch('api/tasks').then((r) => r.json()).then((j) => { if (alive) setQ(j) }).catch(() => {})
+    go(); const t = setInterval(go, 10000)
+    return () => { alive = false; clearInterval(t) }
+  }, [])
+  const showEvidence = (id: string, n: number) => fetch('api/task-evidence?id=' + encodeURIComponent(id) + '&n=' + n).then((r) => r.json()).then((j) => setEv((m) => ({ ...m, [id + ':' + n]: j }))).catch(() => {})
+  const stateTone = (t: TaskRow) => t.overdue ? 'border-destructive/60 bg-destructive/5' : t.stale ? 'border-amber-500/50 bg-amber-500/5' : 'border-border/50'
+  const Row = ({ t }: { t: TaskRow }) => (
+    <div className={'rounded-lg border px-3 py-2 ' + stateTone(t)} data-testid="task-row">
+      <button type="button" className="flex w-full flex-wrap items-center gap-1.5 text-left text-sm" onClick={() => setOpen(open === t.id ? null : t.id)} aria-expanded={open === t.id}>
+        <span className="font-mono text-[11px] text-muted-foreground">{t.id}</span>
+        <Badge variant="secondary" className="h-4 px-1 text-[9px]">{t.state}</Badge>
+        {t.overdue && <Badge className="h-4 bg-destructive px-1 text-[9px] text-white">OVERDUE</Badge>}
+        {t.stale && !t.overdue && <Badge className="h-4 bg-amber-500 px-1 text-[9px] text-black">quiet {t.idle}</Badge>}
+        <span className="min-w-0 flex-1 truncate font-medium">{t.title}</span>
+        <span className="flex-none text-[11px] text-muted-foreground">{t.age}{t.due ? ' · due ' + t.due : ''}</span>
+      </button>
+      {open === t.id && (
+        <div className="mt-2 space-y-1.5 text-xs">
+          <div className="whitespace-pre-wrap text-muted-foreground">“{t.said}”</div>
+          {t.reason && <div>dropped: {t.reason}</div>}
+          {t.notes.map((n, i) => <div key={i} className="text-muted-foreground">{when(new Date(n.at).toISOString())} · {n.by}: {n.text}</div>)}
+          {t.evidence.map((e, i) => (
+            <div key={i}>
+              <button type="button" className="text-left underline-offset-2 hover:underline" onClick={() => showEvidence(t.id, i)}>evidence: {e.evidence}</button> — {e.proof}
+              {ev[t.id + ':' + i]?.kind === 'link' && <a className="ml-2 underline" href={ev[t.id + ':' + i].url} target="_blank" rel="noreferrer">open link</a>}
+              {ev[t.id + ':' + i] && ev[t.id + ':' + i].kind !== 'link' && <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-muted/40 p-2">{ev[t.id + ':' + i].content ?? ev[t.id + ':' + i].why}</pre>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+  return (
+    <ScrollArea className="min-h-0 flex-1">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 py-3">
+        {q === null && <Skeleton className="h-10 w-2/3" />}
+        {q && (
+          <div className="flex flex-wrap gap-1.5 text-xs" aria-live="polite">
+            <Badge variant="secondary">{q.totals.open} open</Badge><Badge variant="secondary">{q.totals.working} working</Badge><Badge variant="secondary">{q.totals.waiting} waiting</Badge><Badge variant="secondary">{q.totals.done} done, not verified</Badge>
+            {q.totals.overdue > 0 && <Badge className="bg-destructive text-white">{q.totals.overdue} overdue</Badge>}
+            {q.totals.stale > 0 && <Badge className="bg-amber-500 text-black">{q.totals.stale} quiet 24h+</Badge>}
+          </div>
+        )}
+        {q && q.assignees.length === 0 && <div className="py-6 text-center text-sm text-muted-foreground">Nothing open. The lead puts the owner’s requests here.</div>}
+        {q?.assignees.map((a) => (
+          <section key={a.name} className="space-y-1.5">
+            <h3 className="flex items-center gap-2 text-sm font-semibold"><DeskAvatar name={a.name} size={16} />{a.name}
+              <span className="text-[11px] font-normal text-muted-foreground">{a.counts.open} open · {a.counts.working} working · {a.counts.waiting} waiting · {a.counts.done} done</span></h3>
+            {a.tasks.map((t) => <Row key={t.id} t={t} />)}
+          </section>
+        ))}
+        {q && q.closed.length > 0 && (
+          <section className="space-y-1.5"><h3 className="text-sm font-semibold text-muted-foreground">Closed recently</h3>{q.closed.map((t) => <Row key={t.id} t={t} />)}</section>
+        )}
+      </div>
+    </ScrollArea>
+  )
+}
+
 type PanelData = { ok?: boolean; title?: string; note?: string | null; items?: { title: string; detail?: string | null; url?: string | null; at?: string | null }[]; why?: string }
 // a panel the PROJECT declared in office.json; the board shows its items as given
 function PanelView({ id }: { id: string }) {
@@ -673,6 +742,10 @@ export default function App() {
         <MessagesSquare className="size-4 flex-none text-muted-foreground" /><span className="truncate">between desks</span>
         {openAsks > 0 && <Badge className="ml-auto h-4 flex-none bg-amber-500 px-1 text-[9px] text-black">{openAsks} open</Badge>}
       </Button>
+      <Button variant={view === 'tasks' ? 'secondary' : 'ghost'} className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 text-[13px] md:py-1.5"
+        onClick={() => { setView('tasks'); setDrawerOpen(false) }} title="the office-wide task queue: who is working on what, what is overdue">
+        <LayoutList className="size-4 flex-none text-muted-foreground" /><span className="truncate">tasks</span>
+      </Button>
       {panels.map((p) => (
         <Button key={p.id} variant={view === 'panel:' + p.id ? 'secondary' : 'ghost'} className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 text-[13px] md:py-1.5"
           onClick={() => { setView('panel:' + p.id); setDrawerOpen(false) }}>
@@ -936,7 +1009,7 @@ export default function App() {
             </Sheet>
             {view ? (<>
               {view === 'timeline' ? <MessagesSquare className="size-4 text-muted-foreground" /> : <LayoutList className="size-4 text-muted-foreground" />}
-              <span className="min-w-0 truncate whitespace-nowrap font-semibold">{view === 'timeline' ? 'between desks' : panels.find((p) => 'panel:' + p.id === view)?.title ?? view.slice(6)}</span>
+              <span className="min-w-0 truncate whitespace-nowrap font-semibold">{view === 'timeline' ? 'between desks' : view === 'tasks' ? 'tasks' : panels.find((p) => 'panel:' + p.id === view)?.title ?? view.slice(6)}</span>
             </>) : (<>
               {pane?.label && <DeskAvatar name={pane.label} size={22} />}
               <span className="min-w-0 truncate whitespace-nowrap font-semibold">{pane?.label ?? '…'}</span>
@@ -952,6 +1025,7 @@ export default function App() {
             </>)}
           </header>
           {view === 'timeline' && <OfficeTimeline onPick={pickDesk} />}
+          {view === 'tasks' && <TasksView />}
           {view?.startsWith('panel:') && <PanelView id={view.slice(6)} />}
 
           {/* ⛔ SIDE BY SIDE, owner's ruling: the mirror opens NEXT TO the

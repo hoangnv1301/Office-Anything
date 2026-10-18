@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.2
+
+- THE QUEUE ON THE BOARD: a read-only Tasks panel (`/api/tasks`, `/api/task-evidence`)
+  from the same fold as the lead's list: by assignee, with state counts, age, due,
+  OVERDUE and quiet marks, the owner's words, notes and evidence. Evidence is read only
+  from what a task recorded; a file must be inside the office and not a secret. The
+  built UI (`board/ui/dist`) is rebuilt; not exercised in a browser here beyond the
+  server tests.
+
 ## 0.10.1
 
 - THE OFFICE-WIDE QUEUE (owner, 2026-10-18: "I do not know which of the things
