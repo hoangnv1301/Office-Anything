@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-363%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-366%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -187,7 +187,9 @@ Once an office has a `wall`, these are **on unless it says `false`**; the rest a
 | `wall.module: "<path>"` | your office's own rules: an ES module inside the office exporting `judge(payload, who, { root, cfg, session })` → reason or null, and/or `alias(name, { root })` → a canonical session name for a name only your office understands. It runs after the plugin's rules, so it can refuse more and never allow more |
 | `wall.failClosed` (default on) | when the wall cannot judge (office.json broken, payload unreadable, office module missing, throwing or slower than 2 s), a desk session is refused. the wall keeps its own deadline rather than relying on what Claude Code does when a hook times out |
 | `wall.mcp: { allow \| deny }` | regexes over MCP tool names, for desks. With `allow`, only those run; with `deny`, all but those; with neither, only a tool whose name leads with a reading verb (search, list, get, read, query, fetch, find, view, …) and names no sending word after it |
-| `lead.aliases: ["…"]` | other names the lead session goes by |
+| `lead.aliases: ["…"]` | other names the lead session goes by. A live session under any of them is the lead: `/desk-start lead` and `/desk-recover` never open a second one |
+| `wall.lead.devSessions: ["…"]` | developer sessions **the lead** may SendMessage, by exact name or glob (`dev-*`). Desks gain nothing from it |
+| `wall.lead.bash: ["^…"]` | the only commands the lead's Bash runs, one command, unchained. Quoted text is an argument, so a decision logged as `add "a > b; c & d"` runs. `$(…)` and backticks in double quotes, a backslash or an unclosed quote still do not |
 | `wall.moduleTimeoutMs` (default 5000) | how long the office module may take per tool call before the wall treats it as failed (at most 8000) |
 | `wall.messageTo: ["…"]` | names a desk may message that grant no identity (e.g. `lead`, a developer session at the root), unlike `lead.aliases` |
 | `wall.aliasNames: ["^cs-"]` | the names your module's `alias()` maps to desks. Only those reach the module, and while the module is broken they are refused like `desk-` names. The lead and developers can still repair it |
