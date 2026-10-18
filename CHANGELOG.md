@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.9.8
+
+- THE LEAD, TIGHTER (the lead's audit of 0.9.7, 2026-10-18).
+  - `LEAD-DUPLICATE` (#28): two live sessions under `lead.session` and
+    `lead.aliases` are one finding naming both pids, the one to keep (most
+    recently active) and the one to close. Health shows it as "duplicate
+    lead" and the office goes red; `/desk-start lead` and `/desk-recover`
+    report `clash` with the same advice and open nothing.
+  - `wall.lead.bash` entries must be anchored (#31). An entry that does not
+    start with `^` (or has a top-level `|` alternative that does not) also
+    matched inside a longer command, so `node scripts/dev/x\.mjs add` let the
+    lead run `rm -rf y node scripts/dev/x.mjs add`. Such an entry is dropped
+    (a throw would switch the wall off in an office that does not fail
+    closed), named in the lead's refusal and reported by
+    `checks/desk-wall.mjs`. An entry that names a script (`node|python3|bash|sh
+    <path>`) must write the whole path, relative to the office root, with no
+    `..`, to a real file inside the root. A closing `$` is advised, not
+    required, so existing entries keep working.
+  - README (#32): what `Held peer message … crossSessionInbound` means (a
+    session holds a message from a session in another permission mode until
+    its own user approves it; an unapproved hold expires, undelivered and not
+    retried), and that the lead is launched with every flag the desks get.
+- PINNED (#29): `? * [` inside quotes in a draft's JSON is text, not a glob
+  across the other desks. Fixed since 0.9.2; an office still on 0.9.0 is
+  refused for it.
+- FIXED (#28): `.githooks/pre-commit` unsets `GIT_DIR`, `GIT_INDEX_FILE`,
+  `GIT_WORK_TREE` and `GIT_PREFIX` before the suite. A hook run from a linked
+  worktree carries them, so the suite's fixture `git` calls ran in the real
+  repo: junk commits, and `core.bare=true` plus `user.name=x` written to the
+  shared `.git/config`.
+- UPGRADE FROM 0.9.0 / 0.9.7: every new key defaults to today's behaviour, and
+  nothing needs adding to `office.json`. Restart every session (hooks are read
+  at session start). A `wall.lead.bash` entry that is not start-anchored stops
+  matching; `node checks/run.mjs` names it. An office on 0.9.0 gains
+  `wall.lead.devSessions`, `lead.aliases` and the quote-aware lead Bash only
+  from 0.9.7; a lead that is not in the desks' permission mode has its peer
+  messages held (set `launch.flags`, restart the lead).
+
 ## 0.9.7
 
 - THE LEAD AND DEVELOPERS (owner's request, 2026-10-18).
