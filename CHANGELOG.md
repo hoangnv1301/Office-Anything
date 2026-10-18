@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- THE LEAD AND DEVELOPERS (owner's request, 2026-10-18).
+  - `wall.lead.devSessions`: the lead (only) may message those developer
+    sessions, by name or glob. Nothing else is widened.
+  - `lead.aliases` in `/desk-start lead` and `--recover`: a live session
+    under any lead name is the lead, so a second one is never opened (a
+    duplicate lead was opened on 10-18); two of them are a clash.
+  - `wall.lead.bash`: quoted text no longer reads as chaining, so one
+    listed command (e.g. a decision log) takes free text. Expansions,
+    backslashes and unclosed quotes are still refused.
+  - Pinned: a lead started by the office carries every desk launch flag,
+    so a bypass desk does not hold its messages.
+
 - THE LEAD, REACHABLE (the lead's findings of 2026-10-16). `lib/lead-reach.mjs`:
   desk-watch and health flag LEAD-UNREACHABLE when the lead runs under a name
   office.json does not give it, its registry entry froze while it kept
