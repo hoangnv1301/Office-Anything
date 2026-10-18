@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-371%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-376%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -189,7 +189,7 @@ Once an office has a `wall`, these are **on unless it says `false`**; the rest a
 | `wall.mcp: { allow \| deny }` | regexes over MCP tool names, for desks. With `allow`, only those run; with `deny`, all but those; with neither, only a tool whose name leads with a reading verb (search, list, get, read, query, fetch, find, view, …) and names no sending word after it |
 | `lead.aliases: ["…"]` | other names the lead session goes by. A live session under any of them is the lead: `/desk-start lead` and `/desk-recover` never open a second one |
 | `wall.lead.devSessions: ["…"]` | developer sessions **the lead** may SendMessage, by exact name or glob (`dev-*`). Desks gain nothing from it |
-| `wall.lead.bash: ["^…"]` | the only commands the lead's Bash runs, one command, unchained. Quoted text is an argument, so a decision logged as `add "a > b; c & d"` runs. `$(…)` and backticks in double quotes, a backslash or an unclosed quote still do not |
+| `wall.lead.bash: ["^…"]` | the only commands the lead's Bash runs, one command, unchained. Every entry must start with `^` (and so must each top-level `|` alternative): an unanchored entry also matches inside a longer command (`rm -rf x node scripts/…`), so it is dropped, named in the lead's refusal, and reported by `checks/desk-wall.mjs`. An entry that names a script (`^node scripts/dev/x\.mjs …`) writes the whole path relative to the office root, no `..`, a real file inside the root, or it is dropped the same way. End an entry with `$` so no further arguments are accepted. Quoted text is an argument, so a decision logged as `add "a > b; c & d"` runs. `$(…)` and backticks in double quotes, a backslash or an unclosed quote still do not |
 | `wall.moduleTimeoutMs` (default 5000) | how long the office module may take per tool call before the wall treats it as failed (at most 8000) |
 | `wall.messageTo: ["…"]` | names a desk may message that grant no identity (e.g. `lead`, a developer session at the root), unlike `lead.aliases` |
 | `wall.aliasNames: ["^cs-"]` | the names your module's `alias()` maps to desks. Only those reach the module, and while the module is broken they are refused like `desk-` names. The lead and developers can still repair it |
