@@ -153,7 +153,7 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     const ver = versionVerdict(cfg)
     if (ver && !ver.ok && ver.enforce && who.kind === 'desk') return say(`this machine loaded office-anything ${ver.loaded}, which this office has not approved (approved: ${ver.approved.join(', ')}); desks wait until the lead approves it or installs an approved one`)
     let W
-    try { W = compileWall({ ...cfg.wall, ...(aliasBroken ? { aliasNames: [] } : {}), roleEnv: cfg.roleEnv, leadSession: cfg.lead?.session, leadAliases: cfg.lead?.aliases }) }
+    try { W = compileWall({ ...cfg.wall, ...(aliasBroken ? { aliasNames: [] } : {}), root, roleEnv: cfg.roleEnv, leadSession: cfg.lead?.session, leadAliases: cfg.lead?.aliases }) }
     catch (e) { return failClosed ? say('the wall broke while judging (' + e.message + '), and this office\'s wall fails closed') : { code: 0 } }
     if (cfg.wall.module) module()
     if (modErr && who.kind === 'desk') return failClosed ? refuseDesk(modErr) : { code: 0 }
