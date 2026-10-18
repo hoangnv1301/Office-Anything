@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-397%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-403%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -373,6 +373,19 @@ node lib/tasks.mjs list [--all] [--json]
   example above). `{plugin}` is the one placeholder the wall knows: it expands to the running
   plugin's own folder, so the entry survives an update. It must appear once, right after `node`, and
   name one real file in that folder; any other use is dropped like an unanchored entry.
+- **Every session works from it.** `list --assigned <name>` (`desk-x` matches `x`), `--overdue` and
+  `--owner` filter the list. At start, resume, clear and compact a desk or a dev session (any session
+  with a registry name: `ops-construction`, `alibaba-98`…) is shown only the open tasks assigned to
+  its name, with `update … --state working|waiting|done --note`; it prints nothing when it has none.
+  A dev session or desk can update its own tasks and add one for the lead, never `verify` or `drop`
+  (its identity is the session, not a flag). A case session reads its parent desk's tasks.
+- **A daily digest.** `health --heal` (the watchdog) writes `.office/digest.md` on its first run after
+  08:00 local, once a day: counts by assignee, the overdue list, what was done in 24 h. Its first
+  section is plain text under 1,800 characters (each list shows eight and says how many more), so
+  it fits one team post; the rest is the full open list. `node lib/tasks.mjs digest` writes it by hand.
+- **Staleness is said, and the quiet one is nudged.** An open task its assignee has not touched
+  for 24 h also leaves `NUDGE <assignee> <id> "<title>" has not been updated in 30h: …` in
+  `.office/alerts.log`, once a day, ready for the lead's sweep to send. The lead's own tasks are not nudged.
 - **Staleness is said.** Health is red for a task open with no update for 24 h, or `done` but not verified
   for 6 h, and `health --heal` (the watchdog) writes it to `.office/alerts.log` for the lead (once per
   15 minutes per task).

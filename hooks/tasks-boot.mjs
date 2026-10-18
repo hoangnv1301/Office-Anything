@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // SESSIONSTART (start, resume, clear AND compact): the lead is shown the tasks it holds
-// for the owner, so a context reset can not lose them. Its stdout lands in the model's context.
+// for the owner, and every other session the tasks assigned to ITS name, so a context reset can not lose them. Its stdout lands in the model's context.
 //
 // ⛔ A REMINDER, NOT A GATE: any failure exits 0 and prints nothing. Inert outside an
 // office, for a desk, and when nothing is open. Also takes the day's first snapshot.
 import { readFileSync } from 'node:fs'
-import { readOfficeConfig, findOffice, whoIs } from '../lib/office.mjs'
-import { openTable, snapshot } from '../lib/tasks.mjs'
+import { readOfficeConfig, findOffice, whoIs, sessionName } from '../lib/office.mjs'
+import { openTable, sessionTable, snapshot } from '../lib/tasks.mjs'
 
 try {
   let payload = {}
@@ -15,9 +15,15 @@ try {
   const root = findOffice(cwd)
   if (root) {
     const cfg = readOfficeConfig(root)
-    if (whoIs(root, cfg, { cwd })?.kind === 'lead') {
+    const w = whoIs(root, cfg, { cwd })
+    if (w?.kind === 'lead') {
       snapshot(root)
       const table = openTable(root)
+      if (table) console.log(table)
+    } else if (w?.kind !== 'unknown') {
+      // a desk (a case session reads its parent's) or a dev session: only what is assigned to its name
+      const name = w?.kind === 'desk' ? `desk-${w.desk}` : (process.env[cfg.roleEnv] || sessionName())
+      const table = name ? sessionTable(root, name) : ''
       if (table) console.log(table)
     }
   }
