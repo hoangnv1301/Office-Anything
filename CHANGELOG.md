@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.7
 
 - THE LEAD AND DEVELOPERS (owner's request, 2026-10-18).
   - `wall.lead.devSessions`: the lead (only) may message those developer
