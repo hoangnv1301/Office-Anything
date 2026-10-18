@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-403%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-407%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -383,6 +383,7 @@ node lib/tasks.mjs list [--all] [--json]
   08:00 local, once a day: counts by assignee, the overdue list, what was done in 24 h. Its first
   section is plain text under 1,800 characters (each list shows eight and says how many more), so
   it fits one team post; the rest is the full open list. `node lib/tasks.mjs digest` writes it by hand.
+- **On the board.** A **Tasks panel** in the board's left list (read-only, from the same fold): open, working, waiting and done by assignee, with age, due, `OVERDUE` and `quiet 24h+` marks; click a task for the owner's words, notes and evidence, and click an evidence entry to see a file inside the office (never a secret, `runtime/` or anything outside it), a link, or the note.
 - **Staleness is said, and the quiet one is nudged.** An open task its assignee has not touched
   for 24 h also leaves `NUDGE <assignee> <id> "<title>" has not been updated in 30h: …` in
   `.office/alerts.log`, once a day, ready for the lead's sweep to send. The lead's own tasks are not nudged.
