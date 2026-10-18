@@ -9,7 +9,9 @@ When the machine, the terminal app or a disk took every session down:
    hear the desks, then every autostart desk, each resuming its own last conversation by id.
 2. Read every line to the user. Desks that were already running are left as they are;
    `degraded`, `foreign` and `clash` are reported for the owner to decide.
-3. Then run `/desk-health`: the desks re-arm their doorbells from their boot text, and health
+3. Show the lead what it holds for the owner: `node lib/tasks.mjs list` (open tasks; the session hook
+   prints the same table at start). A recovered office with open tasks has work nobody has lost.
+4. Then run `/desk-health`: the desks re-arm their doorbells from their boot text, and health
    is what proves each doorbell runs under its own session.
 
 ⛔ Do not work around it by restarting desks one by one by hand, or with `--continue`. The order
