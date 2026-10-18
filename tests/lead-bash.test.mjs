@@ -75,6 +75,13 @@ test('an entry that names a script: relative to the office root, inside it, one 
     const W = wallOf(root, [p])
     assert.equal(W.leadBashProblems.length, 1, `${k}: ${JSON.stringify(W.leadBashProblems)}`)
   }
+  // the script may be followed by a group of optional arguments
+  const opt = wallOf(root, [`^node scripts/dev/lead-decisions\\.mjs( ${ARG})*$`])
+  assert.deepEqual(opt.leadBashProblems, [])
+  assert.equal(run(opt, root, 'node scripts/dev/lead-decisions.mjs'), null)
+  assert.equal(run(opt, root, 'node scripts/dev/lead-decisions.mjs 0.9.8 --x'), null)
+  // ...but a group cannot stand in for part of the path
+  assert.equal(wallOf(root, ['^node scripts/dev/(lead-decisions|merge-verify)\\.mjs$']).leadBashProblems.length, 1)
   assert.deepEqual(wallOf(root, [GOOD]).leadBashProblems, [])
   const W = wallOf(root, [GOOD])
   assert.equal(run(W, root, `node scripts/dev/lead-decisions.mjs add 'ship 0.9.8 (a > b; c)' --why 'owner asked'`), null)
