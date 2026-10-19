@@ -204,16 +204,26 @@ test('⛔ two contenders for a dead lock: exactly one holds it (6 processes, 8 t
     const dir = mkdtempSync(join(tmpdir(), 'oa-race-'))
     writeFileSync(join(dir, 'heal.lock'), '999999 crashed\n')
     const at = Date.now() + 500
+    // a holder keeps the lock until EVERY contender has tried (its stdin
+    // closes then): a fixed hold let a contender spawned late on a loaded
+    // machine take the lock after a clean release, which is correct, and
+    // counted as a second holder
+    const procs = [], tried = []
     const kids = Array.from({ length: 6 }, () => new Promise((res) => {
-      let out = ''
+      let out = '', said
+      tried.push(new Promise((r) => { said = r }))
       const c = spawn(process.execPath, ['--input-type=module', '-e', `
         const { acquireLock } = await import(${JSON.stringify(lib)})
         while (Date.now() < ${at}) {}
         const l = acquireLock(${JSON.stringify(dir)})
-        if (l.ok) { console.log('HELD'); await new Promise((r) => setTimeout(r, 400)) }`], { stdio: ['ignore', 'pipe', 'inherit'] })
-      c.stdout.on('data', (d) => { out += d })
-      c.on('close', () => res(out))
+        console.log(l.ok ? 'HELD' : 'NO')
+        if (l.ok) await new Promise((r) => { process.stdin.on('end', r); process.stdin.resume() })`], { stdio: ['pipe', 'pipe', 'inherit'] })
+      procs.push(c)
+      c.stdout.on('data', (d) => { out += d; if (/HELD|NO/.test(out)) said() })
+      c.on('close', () => { said(); res(out) })
     }))
+    await Promise.all(tried)
+    for (const c of procs) c.stdin.end()
     const outs = await Promise.all(kids)
     assert.equal(outs.filter((o) => o.includes('HELD')).length, 1, `trial ${t}: holders ${outs.filter((o) => o.includes('HELD')).length}`)
   }
