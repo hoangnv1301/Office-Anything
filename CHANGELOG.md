@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.6
+
+- A CASE SESSION THAT REGISTERED AND IS BUSY IS UP (#50, found on the live rfq test,
+  2026-10-19). A case session starts with its brief as its prompt, so it is usually
+  working before `launch.waitSec` runs out. `openCase` read that "busy" as "did not
+  come up", released the claim and left the session running. The next heartbeat
+  would then have reported the claim lost and closed the session mid-draft. Busy now
+  counts as up: the claim is kept and `openedAt` is recorded.
+- `desks.mjs on <desk>` for a per-case desk says its cases open on the next case
+  sweep. It used to say "start it with /desk-start", which is the wrong action for a
+  per-case desk.
+
 ## 0.10.5
 
 - A DESK TAKEN OUT OF `closeWhenIdle` WHILE IDLED IS WOKEN (#48, the lead, 2026-10-19).
