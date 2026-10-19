@@ -288,3 +288,16 @@ test('clock A decides a doorbell shell the transcript cannot judge; a failing he
   assert.equal(await closes({ ownAgo: 90 * 60_000, fail: true }), 1, 'heartbeat failed: B alone (idle 90 min)')
   assert.equal(await closes({ ownAgo: 90 * 60_000, book: 70 * 60_000, status: 'busy' }), 0, 'busy is never closed, whatever the book says')
 })
+
+// the same fault from the closing end: an idle-closed case left its tab, so
+// six dead tabs piled up and a reopened case got a second tab of one title
+test('closing a case closes its tab too; a terminal that cannot close is no failure', () => {
+  const root = office(); const live = [{ pid: 51, name: 'desk-design--SC-261009-051', status: 'idle' }]
+  const a = fakeAdapter({ held: { 'SC-261009-051': 'desk-design--SC-261009-051' } }); const closed = []
+  const terminal = { titles: () => [{ handle: 'term_a', title: 'desk-design--SC-261009-051', agent: true }, { handle: 'term_b', title: 'desk-design', agent: true }], close: (h) => closed.push(h) }
+  const r = closeCase(root, 'design', 'SC-261009-051', 'done', run(root, live, { adapter: a.fn, terminal }))
+  assert.equal(r.state, 'closed')
+  assert.deepEqual(closed, ['term_a'], 'its own tab, not the parent\'s')
+  const r2 = closeCase(root, 'design', 'SC-261009-051', 'done', run(root, live, { adapter: a.fn, terminal: { titles: () => { throw new Error('orca down') } } }))
+  assert.equal(r2.state, 'closed')
+})
