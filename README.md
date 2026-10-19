@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-418%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-426%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -596,6 +596,42 @@ Each run of the watchdog:
 A desk that stays down is red in health with how long (`is not running · down 7m`), and once it has
 been down 5 minutes the lead is told whatever the restart did (`desk-x has been down 7 min`),
 once per 15 minutes.
+
+### Close a standing desk when idle, wake it on work
+
+A desk that sits idle still holds a session, and on a busy machine that costs memory and money.
+List the desks that may be closed in `office.json`:
+
+```json
+"openWork": { "command": "node scripts/desk/desk-work.mjs --all --dry", "timeoutSec": 60 },
+"closeWhenIdle": { "inventory": 30, "manufacturing": 30, "discord": 60 }
+```
+
+Each value is minutes, or `true` for 30. A desk that is not listed is never closed. Health judges
+each listed desk and the watchdog acts on that judgement:
+
+- **Closed** when the desk is idle (or parked in its own doorbell) past its minutes, has made no tool
+  call in the last 5 minutes, and nothing is waiting for it. Waiting work is an `openWork` line
+  naming `desk-<name>`, or an open task in the lead's task list assigned to it. The watchdog checks
+  again on a fresh look, stops that pid only, closes its tab, and records the close in
+  `.office/idled.json`. Health then shows the desk as `idled`, not dead: the office is not red,
+  nothing restarts it, desk-watch does not call it DESK-DEAD, and `/desk-start all` and
+  `/desk-recover` leave it closed. Start it by name to open it now.
+- **Woken** as soon as an `openWork` line names it. The watchdog's own restart brings it back,
+  resuming its own conversation. A wake has its own budget: it spends no heal, starts no
+  "down" clock, and sends no down alert.
+
+⛔ **A closed desk hears only what `openWork` prints.** Its socket is gone, so a message sent to it
+reaches nobody. That is why there is no closing without `openWork`, why an `openWork` that
+fails (UNKNOWN) closes nothing and wakes any desk already closed, and why anything worth
+delivering must also show up as a line in `openWork`.
+
+⛔ **The mark never hides a crash.** Once the desk's own conversation has written anything after the
+mark (it was started by hand, worked, and then died), a dead desk is dead again, and the
+watchdog restarts it as a crash. A case session working in the same folder does not count.
+
+A `closeWhenIdle` key that names no desk is a red finding: it closes nothing, and a typo should not
+look like a setting.
 
 ### Can the desks reach the lead?
 
