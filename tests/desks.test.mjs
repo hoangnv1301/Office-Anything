@@ -172,3 +172,12 @@ test('office.json openWork: lines naming desk-<name> (or its cases) are what it 
   await sweep(root, { cfg, live: () => live, terminal: fakeTerm(live), sleep: async () => {}, dir: mkdtempSync(join(tmpdir(), 'oa-dcl-')), kill: () => {}, adapter: adapter().fn })
   assert.match(readFileSync(join(root, '.office', 'alerts.log'), 'utf8'), /DESK-OFF - desk-customer .*BT-77/)
 })
+
+test('turning a per-case desk on points at the case sweep, not at /desk-start; a plain desk still gets /desk-start', () => {
+  const root = office({ desks: { enabled: { design: false, inventory: false } } })
+  const pc = setDesk(root, 'design', true)
+  assert.ok(pc.ok)
+  assert.match(pc.lines.join('\n'), /its cases open on the next case sweep/)
+  assert.doesNotMatch(pc.lines.join('\n'), /desk-start/)
+  assert.match(setDesk(root, 'inventory', true).lines.join('\n'), /start it with \/desk-start inventory/)
+})
