@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-408%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-411%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -607,6 +607,8 @@ one line to run (close the lead, then this, which resumes its own conversation u
 name). The registry is never edited.
 
 Two live sessions under the lead's names (say `lead` and the name in `lead.session`) are not a spare: desks message one name and the other session hears nothing. Health and desk-watch flag it as `LEAD-DUPLICATE`, naming both pids, the one to keep (the most recently active) and the one to close. `/desk-start lead` and `/desk-recover` open nothing and report the same as `clash`.
+
+The same holds for every other name the office owns: a desk (`desk-<name>`), a case session (`desk-<name>--<key>`), and any name matching `wall.aliasNames` (for example the `cs-` buyer sessions an office's own launcher starts). If two live sessions carry one of these names, health flags `SESSION-DUPLICATE` as "duplicate session" and the office goes red. The finding names the pid to keep (the most recently active) and the pid to close. Health closes nothing itself. For a case session, the `/desk-case` sweep closes the extra one by its pid. For a name the office's own launcher runs, closing it is that launcher's job.
 
 - **Did it see my message?** `node lib/desk-watch.mjs seen <desk> "<text from the message>"` reads
   the desk's own transcript: not seen, delivered, read (it worked since) or answered.
