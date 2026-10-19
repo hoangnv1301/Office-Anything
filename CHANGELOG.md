@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.10.3
+
+- A DESK READS A PDF THE OWNER UPLOADED (#41, owner 2026-10-19). `~/.claude/uploads`
+  opens for `.pdf` as it does for images. It is read-only and widened by file type
+  only: nothing there is written, edited or searched, no other file type opens, and
+  a `.pdf` elsewhere in `~/.claude` stays closed. A local patch to `lib/wall.mjs`
+  for this can be dropped.
+- ONE CASE, ONE SESSION, ENFORCED (#39). When two live sessions carry one case name,
+  the `/desk-case` sweep keeps the most recently active and stops the others by their
+  own registered pid, never by name. The claim stays. Act: `duplicate-close`.
+- `SESSION-DUPLICATE` (#40). Health flags every name the office owns that two live
+  sessions carry: `desk-<name>`, `desk-<name>--<key>`, or a `wall.aliasNames` match
+  such as `cs-…`. It names the pid to keep and the pid to close, and the office goes
+  red. It reads only. The lead's names stay `LEAD-DUPLICATE`'s.
+- A DOORBELL IS IDLE (#42). A case session parked in a foreground doorbell reads
+  `shell` in the registry, never `idle`, so it was never idle-closed. It counts as
+  idle now when the process tree proves the shell is the desk's own `wake`. Its clock
+  is the transcript's last work (a prompt, or a tool call that is not the doorbell).
+  Any other command in the shell is work.
+- CLOCK A, THE BOOK'S (#43). The per-case adapter's heartbeat answer may carry
+  `idle: [{ key, since }]` (optional, backward compatible). `since` is ISO, or
+  `null` when something is owed, which keeps the session open. Core closes by the
+  later of the book's clock and its own. local-cabinets-ops sends it since #1168.
+- TESTS (#38): the heal lock race and health ARMED waited a fixed time and went red
+  on a loaded machine. They wait for the event now.
+- Not in this release: the lead operator mode (office-anything-dd's work) is
+  separate. Standing desks that close when idle and wake on work are next.
+
 ## 0.10.2
 
 - THE QUEUE ON THE BOARD: a read-only Tasks panel (`/api/tasks`, `/api/task-evidence`)
