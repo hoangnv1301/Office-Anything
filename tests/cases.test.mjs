@@ -199,3 +199,54 @@ test('the sweep closes a duplicate case session by pid, keeps the most recently 
   assert.equal(a.held['SC-261009-001'], 'desk-design--SC-261009-001', 'the claim stays with the kept session')
   assert.ok(!a.calls.some((c) => c.op === 'release'), 'nothing is released')
 })
+
+// ⛔ A DOORBELL IS IDLE (2026-10-19). A session parked in a foreground doorbell
+// reads "shell" in the registry, never "idle", and statusUpdatedAt restarts on
+// every re-arm: ~14 buyer sessions sat open for an hour and more. Parked =
+// "idle", or "shell" with the process tree proving the shell is the desk's own
+// doorbell. Its clock is the transcript's last work: a prompt, or a tool call
+// that is not the doorbell. Anything it cannot prove stays open.
+function bellOffice() {
+  const root = office({ idleCloseMinutes: 60 })
+  const dj = join(root, 'desks', 'design', 'desk.json')
+  writeFileSync(dj, JSON.stringify({ ...JSON.parse(readFileSync(dj, 'utf8')), wake: 'node ../../bell.mjs' }))
+  return root
+}
+const bellCall = (id, ts) => [
+  { type: 'assistant', timestamp: new Date(ts).toISOString(), message: { content: [{ type: 'text', text: 'nothing new; re-arming' }, { type: 'tool_use', id, name: 'Bash', input: { command: 'node ../../bell.mjs --t 300' } }] } },
+  { type: 'user', timestamp: new Date(ts + 1000).toISOString(), message: { content: [{ type: 'tool_result', tool_use_id: id, content: 'timeout' }] } },
+]
+function transcript(dir, root, sessionId, entries) {
+  const p = join(dir, 'projects', join(root, 'desks', 'design').replace(/[^A-Za-z0-9]/g, '-'))
+  mkdirSync(p, { recursive: true })
+  writeFileSync(join(p, sessionId + '.jsonl'), entries.map((e) => JSON.stringify(e)).join('\n') + '\n')
+}
+async function parked({ workAgo, bell = true, write = true }) {
+  const root = bellOffice()
+  const now = Date.now()
+  const sid = '00000000-0000-4000-8000-0000000000aa'
+  const live = [{ pid: 31, name: 'desk-design--SC-261009-031', status: 'shell', statusUpdatedAt: now - 60_000, sessionId: sid, cwd: join(root, 'desks', 'design') }]
+  const procs = new Map([[31, { pid: 31, ppid: 1, ageSec: 7200, cmd: 'claude --name desk-design--SC-261009-031' }], [32, { pid: 32, ppid: 31, ageSec: 60, cmd: '/bin/zsh -c node ../../bell.mjs --t 300' }]])
+  if (bell) procs.set(33, { pid: 33, ppid: 32, ageSec: 60, cmd: 'node ../../bell.mjs --t 300' })
+  else procs.set(33, { pid: 33, ppid: 32, ageSec: 60, cmd: 'node render-kitchen.mjs' })
+  const a = fakeAdapter({ held: { 'SC-261009-031': 'desk-design--SC-261009-031' } })
+  const o = run(root, live, { adapter: a.fn, procs: () => procs, now: () => now, kill: (p) => { const i = live.findIndex((s) => s.pid === p); if (i >= 0) live.splice(i, 1) } })
+  if (write) transcript(o.dir, root, sid, [
+    { type: 'user', timestamp: new Date(now - workAgo - 5000).toISOString(), message: { content: 'Read your case brief and start on case SC-261009-031.' } },
+    { type: 'assistant', timestamp: new Date(now - workAgo).toISOString(), message: { content: [{ type: 'tool_use', id: 'w1', name: 'Write', input: { file_path: 'x' } }] } },
+    ...bellCall('b1', now - 30 * 60_000), ...bellCall('b2', now - 5 * 60_000), ...bellCall('b3', now - 60_000),
+  ])
+  return (await sweep(root, o)).filter((x) => x.act === 'idle-close')
+}
+
+test('a session parked in its doorbell, with no work for idleCloseMinutes, is idle-closed', async () => {
+  const c = await parked({ workAgo: 70 * 60_000 })
+  assert.equal(c.length, 1, 'shell + its own doorbell + 70 min since the last work')
+  assert.match(c[0].why, /idle 70 min/)
+})
+
+test('a doorbell session with recent work, a shell that is not the doorbell, or no transcript stays open', async () => {
+  assert.equal((await parked({ workAgo: 20 * 60_000 })).length, 0, 'worked 20 min ago; the re-arms after it are not work')
+  assert.equal((await parked({ workAgo: 70 * 60_000, bell: false })).length, 0, 'a long command in the shell is work')
+  assert.equal((await parked({ workAgo: 70 * 60_000, write: false })).length, 0, 'no transcript: cannot prove idle')
+})

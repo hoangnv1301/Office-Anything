@@ -50,7 +50,7 @@ The adapter is one command declared per desk, run from the desk's folder, with a
 | `kind` | yes | a label shown on the board, e.g. `design-job`, `buyer-thread` |
 | `key` | yes | a regex every case key must match in full. It must not allow `--`, `/` or whitespace (validated at load) |
 | `max` | no, default 3 | live children of this parent at once. Further cases queue with the parent |
-| `idleCloseMinutes` | no, default 60 | a child idle this long (registry `status: idle`, `statusUpdatedAt` older) is closed and its claim released |
+| `idleCloseMinutes` | no, default 60 | a child idle this long is closed and its claim released. Idle means registry `status: idle` with `statusUpdatedAt` older than that, or (0.10.3) `status: shell` while the process tree proves the shell is the desk's own `wake` doorbell. In that case the clock is the transcript's last work: a prompt, or a tool call that is not the doorbell. A shell running anything else is work and stays open |
 | `adapter` | yes | the command below |
 
 ### Operations
