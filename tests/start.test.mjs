@@ -153,3 +153,32 @@ test('started but never registered is told apart from never started: a dialog no
   assert.equal(rows[0].state, 'failed')
   assert.match(rows[0].why, /pid 4242.*never registered.*trust/i)
 })
+
+// ⛔ A TAB OUTLIVES ITS CLAUDE (seen live 2026-10-19): every case session the
+// sweep idle-closed left its orca tab behind, connected, titled with the exact
+// session name, at a shell prompt. start() read that tab as "already, not
+// registered yet" and opened nothing, so a restart (heal's, or a wake) of a desk
+// whose tab lingered was a silent no-op. A tab the terminal says runs no agent,
+// with no live session under the name, is stale: closed, and a fresh one opened.
+// A terminal that cannot say (agent undefined) keeps the old, cautious answer.
+test('a stale tab (its claude exited) is closed and the desk opens; a tab that may be launching is left alone', async () => {
+  const w = world()
+  convo(w.dir, join(w.root, 'desks', 'quotes'), ID(1), ['desk-quotes'], 600)
+  let live = [], term = fakeTerm(live), closed = []
+  term.titles = () => [{ handle: 'term_old', title: 'desk-quotes', agent: false }]
+  term.close = (h) => closed.push(h)
+  let rows = await start(w.root, 'quotes', opts(w, live, term))
+  assert.equal(rows[0].state, 'up', JSON.stringify(rows))
+  assert.deepEqual(closed, ['term_old'])
+  assert.match(rows[0].why, /stale tab term_old/)
+  assert.equal(term.made.length, 1)
+  for (const agent of [true, undefined]) {
+    live = []; term = fakeTerm(live); closed = []
+    term.titles = () => [{ handle: 'term_x', title: 'desk-quotes', agent }]
+    term.close = (h) => closed.push(h)
+    rows = await start(w.root, 'quotes', opts(w, live, term))
+    assert.equal(rows[0].state, 'already', `agent ${agent}`)
+    assert.deepEqual(closed, [])
+    assert.equal(term.made.length, 0)
+  }
+})
