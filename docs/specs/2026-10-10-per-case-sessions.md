@@ -50,7 +50,7 @@ The adapter is one command declared per desk, run from the desk's folder, with a
 | `kind` | yes | a label shown on the board, e.g. `design-job`, `buyer-thread` |
 | `key` | yes | a regex every case key must match in full. It must not allow `--`, `/` or whitespace (validated at load) |
 | `max` | no, default 3 | live children of this parent at once. Further cases queue with the parent |
-| `idleCloseMinutes` | no, default 60 | a child idle this long is closed and its claim released. Idle means registry `status: idle` with `statusUpdatedAt` older than that, or (0.10.3) `status: shell` while the process tree proves the shell is the desk's own `wake` doorbell. In that case the clock is the transcript's last work: a prompt, or a tool call that is not the doorbell. A shell running anything else is work and stays open |
+| `idleCloseMinutes` | no, default 60 | a child idle this long (and, when the adapter's heartbeat gives `idle`, by the book too: core takes the later of the two clocks) is closed and its claim released. Idle means registry `status: idle` with `statusUpdatedAt` older than that, or (0.10.3) `status: shell` while the process tree proves the shell is the desk's own `wake` doorbell. In that case the clock is the transcript's last work: a prompt, or a tool call that is not the doorbell. A shell running anything else is work and stays open |
 | `adapter` | yes | the command below |
 
 ### Operations
@@ -61,7 +61,7 @@ Every request carries `"op"` and `"desk"` (the parent's name). `session` is alwa
 |---|---|---|
 | `open` | none | `{"cases":[{"key","title","brief"}]}`: cases that need a session now, oldest first. `brief` is the text the child boots with |
 | `claim` | `key`, `session` | `{"ok":true}`, or `{"ok":false,"status":409,"holder":"<session>"}` when another session holds it |
-| `heartbeat` | `claims:[{key,session}]` | `{"lost":[{"key","holder"}]}`: claims that are no longer this session's. Core closes those children |
+| `heartbeat` | `claims:[{key,session}]` | `{"lost":[{"key","holder"}]}`: claims that are no longer this session's. Core closes those children. Optional (0.10.3, backward compatible): `"idle":[{"key","since"}]`, the book's own clock for the idle close. `since` (ISO or ms) means quiet since then. `null` means something is owed (a draft in progress, a reply owed, a promise due), so core keeps the session open. A key that is left out falls back to core's own clock |
 | `release` | `key`, `session`, `why` | `{"ok":true}` (idempotent) |
 | `forceRelease` | `key`, `by`, `said` | `{"ok":true,"was":"<session>"}`. `said` is the human's words, required and recorded (an override must cost something) |
 | `supersede` (optional) | `key`, `session`, `ref` | `{"ok":true}`. The project marks older work on that case as replaced. Core only relays it |
