@@ -53,8 +53,10 @@ test('ARMED only when the wake process runs under the desk\'s own claude session
   const session = spawn(join(bin, 'claude'), ['-e', `require('child_process').spawn(process.execPath, [${JSON.stringify(wake)}], { stdio: 'ignore' }); setInterval(() => {}, 1e6)`], { stdio: 'ignore' })
   try {
     o.register('bell', session.pid, Date.now())
-    await new Promise((r) => setTimeout(r, 600))
-    const procs = processTable()
+    // wait for the doorbell child to exist, not a fixed time: a loaded machine
+    // took longer than 600 ms to spawn it and read "arming" (2026-10-19)
+    let procs = processTable()
+    for (const end = Date.now() + 10_000; Date.now() < end && ![...procs.values()].some((p) => p.ppid === session.pid && p.cmd.includes('wake.mjs')); procs = processTable()) await new Promise((r) => setTimeout(r, 100))
     const h = officeHealth(o.root, { home: o.home, procs })
     const bell = h.desks.find((d) => d.name === 'bell')
     assert.equal(bell.session.state, 'alive')
