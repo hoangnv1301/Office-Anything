@@ -167,7 +167,7 @@ test('(review) uploads open only for an image file; a root Glob that climbs back
   ok('Read', { file_path: join(CC, 'uploads', 'lead-session', 'photo.PNG') })
   no('Read', { file_path: join(CC, 'uploads', 'lead-session', 'notes.txt') })
   no('Grep', { pattern: 'token', path: join(CC, 'uploads') })
-  no('Bash', { command: `cat ${join(CC, 'uploads', 'lead-session', 'a.pdf')}` })
+  no('Bash', { command: `cat ${join(CC, 'uploads', 'lead-session', 'a.docx')}` })
   no('Glob', { pattern: 'lib/**/../../desks/*/runtime/*', path: ROOT })
   no('Glob', { pattern: 'lib/{,../desks}/*/runtime/*', path: ROOT })
   no('Glob', { pattern: 'lib/../desks/*/runtime/*', path: ROOT })
@@ -200,4 +200,21 @@ test('(review) the heredoc scanner reads $\'…\', ${…} and case inside $( ) a
 
 test('(review) $\'it\\\'s\' before a real heredoc: the body is still data', () => {
   ok('Bash', { command: "echo $'it\\'s' && python3 - <<'X'\nimport subprocess as sh\nsh.run(['cp', 'a', '../../lib/'])\nX" })
+})
+
+// ⛔ A DESK COULD NOT OPEN THE PDF THE OWNER SENT (2026-10-19, David's upload).
+// uploads opened for images only; a PDF is the same kind of thing, a document
+// a person handed the desk. Read-only, by file type: nothing else in uploads/
+// opens, nothing there is written, and the rest of ~/.claude stays closed.
+test('(owner) an uploaded PDF is read like an uploaded image; still nothing written there, nothing else opened', () => {
+  mkdirSync(join(CC, 'uploads', 'lead-session'), { recursive: true })
+  const pdf = join(CC, 'uploads', 'lead-session', 'Kitchen plan.PDF')
+  ok('Read', { file_path: pdf })
+  ok('Read', { file_path: join(CC, 'uploads', 'lead-session', 'quote.pdf') })
+  no('Write', { file_path: join(CC, 'uploads', 'lead-session', 'x.pdf'), content: 'x' })
+  no('Edit', { file_path: join(CC, 'uploads', 'lead-session', 'quote.pdf'), old_string: 'a', new_string: 'b' })
+  no('Read', { file_path: join(CC, 'uploads', 'lead-session', 'quote.pdf.txt') })
+  no('Read', { file_path: join(CC, 'uploads', 'lead-session') })
+  no('Grep', { pattern: 'x', path: join(CC, 'uploads'), glob: '*.pdf' })
+  no('Read', { file_path: join(CC, 'sessions', 'a.pdf') }, 'a .pdf outside uploads/ is still closed')
 })
