@@ -132,3 +132,32 @@ test('files: a new matching line in an office-named log rings; a new file starts
   assert.equal(gate('node scripts/desk/ops.mjs alerts --follow'), 0)
   assert.equal(gate('node scripts/desk/ops.mjs alerts --follow; rm -rf x'), 2, 'anchored at both ends')
 })
+
+test('⛔ files are hardened: a pattern that can hang is refused at load, a line is tested on its first 2,000 chars, and only a real desks/**/*.log is tailed', async () => {
+  const { symlinkSync } = await import('node:fs')
+  const { root, cfg } = office({ files: [
+    { name: 'slow', path: 'desks/design/runtime/a.log', match: '(a+)+$' },
+    { name: 'link', path: 'desks/design/runtime/x.log' },
+    { name: 'notlog', path: 'desks/design/runtime/token.txt' },
+    { name: 'hidden', path: 'desks/design/.secret/y.log' },
+    { name: 'outside', path: '.office/alerts.log' },
+    { name: 'ok', path: 'desks/design/runtime/b.log', match: 'END$' },
+  ] })
+  const rt = join(root, 'desks', 'design', 'runtime')
+  mkdirSync(rt, { recursive: true }); mkdirSync(join(root, 'desks', 'design', '.secret'), { recursive: true })
+  for (const f of ['a.log', 'b.log', 'token.txt']) writeFileSync(join(rt, f), '')
+  writeFileSync(join(root, 'desks', 'design', '.secret', 'y.log'), '')
+  symlinkSync(join(root, 'office.json'), join(rt, 'x.log'))
+  let r = poll(root, cfg, { now: T0, state: null })
+  const said = r.lines.join('\n')
+  assert.match(said, /lead\.bell\.files\[0\] is not used: its match repeats a group that itself repeats/)
+  assert.match(said, /x\.log is not under the office's desks\/ \(it resolves to .*office\.json\)/)
+  assert.match(said, /token\.txt is not a \.log file/)
+  assert.match(said, /y\.log goes through a hidden name/)
+  assert.match(said, /\.office\/alerts\.log is not under the office's desks\//)
+  r = poll(root, cfg, { now: T0 + 15_000, state: r.state })
+  assert.deepEqual(r.lines, [], 'each refusal is said once')
+  appendFileSync(join(rt, 'b.log'), 'x'.repeat(5000) + ' END\nshort END\n')
+  r = poll(root, cfg, { now: T0 + 30_000, state: r.state })
+  assert.deepEqual(r.lines, ['ok: short END'], 'a match past the first 2,000 characters is not seen')
+})

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- THE LEAD BELL'S FILES, HARDENED (alibaba-98's review of local-cabinets-ops #1257).
+  - A `lead.bell.files` match that repeats a repeating group (`(a+)+$` hung node on 31
+    characters) is refused at load.
+  - Only a line's first 2,000 characters are tested.
+  - The path's REAL location must be a `.log` under `desks/`, through no hidden name, so a
+    symlink called x.log cannot tail another file.
+  - A refused entry is said once and not watched.
+
 ## 0.10.7
 
 - THE LEAD'S DOORBELL (the lead, 2026-10-20). In bypass mode the lead held outside messages, so
