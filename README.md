@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-429%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-437%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -651,7 +651,22 @@ The same holds for every other name the office owns: a desk (`desk-<name>`), a c
 - **Did it see my message?** `node lib/desk-watch.mjs seen <desk> "<text from the message>"` reads
   the desk's own transcript: not seen, delivered, read (it worked since) or answered.
 - **The lead's doorbell:** `office.json` `lead.wake` gives the lead a doorbell like a desk's. Its
-  boot text says to arm it and re-arm it on every expiry, and health says when it is unarmed.
+  boot text says to arm it and re-arm it on every expiry, and health says when it is unarmed. The
+  plugin ships one: `"wake": "node {plugin}/lib/lead-bell.mjs"`. It prints one line per new thing:
+  - a new line in the alert log of a listed type (`lead.bell.types`; default HELD-LEAD, HELD-RELEASED,
+    UNREAD-STUCK, USAGE-LIMIT, DESK-DEAD, DESK-OFF, DESK-STUCK, LEAD-UNREACHABLE, LEAD-DUPLICATE, VERSION);
+  - a new matching line in a log the office names (`lead.bell.files`: `{name, path, match}`);
+  - a new open item from a read-only command the office names (`lead.bell.asks`: `{name, command}`,
+    one item per line, `<key>\t<text>`). An open item rings again every `repeatMinutes` (30), one
+    that closes and comes back rings again, and a failing ask is said once, never read as "nothing open".
+
+  At most `maxPerMinute` (6) lines; the rest are counted in one "+N more" line. Its state is
+  `.office/lead-bell-state.json`, so a restart resumes and never replays. Files and asks are the
+  office's, in `office.json`: a lead that writes no file cannot add one.
+- **Monitor is walled.** The Monitor tool runs a shell command, and it was outside the wall: a desk
+  or the lead could run anything through it. A session's own doorbell (desk.json `wake`,
+  `lead.wake`) always runs. Any other Monitor command is judged as the Bash it is, and for the lead
+  `wall.lead.monitor` lists more anchored commands the office allows.
 - **A refused message names the way out:** `office.json` `wall.messageFallback` (e.g. the office's
   tell-lead command) is printed with every refused SendMessage. A socket address is refused with
   the lead's name to use instead. A Bash write outside the desk names the desk's folder and the path.

@@ -29,6 +29,7 @@ import { readOfficeConfig, findOffice, whoIs, childOf, sessionName } from '../li
 import { versionVerdict } from '../lib/version.mjs'
 import { writeAlert } from '../lib/alerts.mjs'
 import { isMain } from '../lib/is-main.mjs'
+import { wakeCommand } from '../lib/wall.mjs'
 import { readSwitch, deskOn } from '../lib/desks.mjs'
 
 const DEFAULT = {
@@ -58,7 +59,7 @@ export function bootLines(root, who, cfg, cwd) {
   if (who.kind === 'lead') {
     const out = Array.isArray(b.lead) ? b.lead.map(String) : []
     // office.json lead.wake: the lead's own doorbell, armed like a desk's
-    const wake = typeof cfg.lead?.wake === 'string' ? cfg.lead.wake.trim() : ''
+    const wake = wakeCommand(cfg.lead?.wake)
     if (wake) { const T = { ...DEFAULT.text, ...(b.text ?? {}) }; out.push(fill(T.wake, { wake, where: 'the office root' })); if (T.wakeNote) out.push(fill(T.wakeNote, {})) }
     return out
   }

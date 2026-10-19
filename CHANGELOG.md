@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- THE LEAD'S DOORBELL (the lead, 2026-10-20). In bypass mode the lead held outside messages, so
+  escalations came back "nudged:false" and a buyer waited an hour. `lib/lead-bell.mjs`, armed by
+  `lead.wake: "node {plugin}/lib/lead-bell.mjs"`, prints one line per new item:
+  - listed alert types;
+  - matching lines in office-named logs (`lead.bell.files`);
+  - open items from office-named read-only asks (`lead.bell.asks`).
+
+  It de-duplicates, repeats while an item is open, is rate-limited and restart-safe. `{plugin}`
+  works in `lead.wake` (boot text and health).
+- ⛔ MONITOR WAS OUTSIDE THE WALL: a Monitor command ran unjudged for desks and the lead. It is in
+  the hook's matcher now. A session's own doorbell runs; anything else is judged as Bash, plus
+  `wall.lead.monitor` for the lead. Install note: a lead whose Monitors are not its `lead.wake`, its
+  `lead.bash` or `wall.lead.monitor` will see them refused.
+
 ## 0.10.6
 
 - A CASE SESSION THAT REGISTERED AND IS BUSY IS UP (#50, found on the live rfq test,
