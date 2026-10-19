@@ -15,7 +15,8 @@ token, same CLAUDE.md. The parent desk stays for everything that is not one case
    (another session holds it, or the key is not a case key), `unknown` (the adapter failed:
    never a grant), `failed`.
 2. `node lib/cases.mjs list` shows each desk's live case sessions against its cap.
-3. `node lib/cases.mjs sweep` is the minute loop: heartbeat the claims, close a session whose
+3. `node lib/cases.mjs sweep` is the minute loop: stop a duplicate session on one case by its pid
+   (the most recently active one stays, with the claim), heartbeat the claims, close a session whose
    claim was lost or that sat idle past `idleCloseMinutes`, release claims of sessions that are
    gone, then open waiting cases oldest first up to the cap. Schedule it; do not run it by hand
    in a loop.
