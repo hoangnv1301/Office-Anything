@@ -250,3 +250,41 @@ test('a doorbell session with recent work, a shell that is not the doorbell, or 
   assert.equal((await parked({ workAgo: 70 * 60_000, bell: false })).length, 0, 'a long command in the shell is work')
   assert.equal((await parked({ workAgo: 70 * 60_000, write: false })).length, 0, 'no transcript: cannot prove idle')
 })
+
+// THE BOOK'S CLOCK (clock A, the lead's ruling 2026-10-19). Only the book knows
+// "no draft in progress, no reply owed". The heartbeat answer may carry
+// idle: [{ key, since }]: since = quiet since then, null = something is owed.
+// The book can hold a session open, and closes one the session's own clock
+// cannot judge (a doorbell shell with no transcript); it never closes one
+// sooner than the session's own clock says. Silent or failing: clock B alone.
+function bookCase({ status = 'idle', ownAgo, book, write = true, fail = false }) {
+  const root = bellOffice()
+  const now = Date.now()
+  const sid = '00000000-0000-4000-8000-0000000000bb'
+  const key = 'SC-261009-041'
+  const live = [{ pid: 41, name: `desk-design--${key}`, status, statusUpdatedAt: now - ownAgo, sessionId: sid, cwd: join(root, 'desks', 'design') }]
+  const procs = new Map([[41, { pid: 41, ppid: 1, ageSec: 7200, cmd: 'claude' }], [42, { pid: 42, ppid: 41, ageSec: 60, cmd: 'node ../../bell.mjs' }]])
+  const a = fakeAdapter({ held: { [key]: `desk-design--${key}` }, fail: fail ? new Set(['heartbeat']) : new Set() })
+  const fn = (d, pc, req) => { const r = a.fn(d, pc, req); return req.op === 'heartbeat' && book !== undefined ? { ...r, idle: [{ key, since: book == null ? null : new Date(now - book).toISOString() }] } : r }
+  const o = run(root, live, { adapter: fn, procs: () => procs, now: () => now, kill: () => {} })
+  return { root, o, now, sid, write }
+}
+async function closes(args) {
+  const c = bookCase(args)
+  if (c.write) transcript(c.o.dir, c.root, c.sid, [{ type: 'user', timestamp: new Date(c.now - args.ownAgo).toISOString(), message: { content: 'go' } }])
+  return (await sweep(c.root, c.o)).filter((x) => x.act === 'idle-close').length
+}
+
+test('clock A: the book holds open what it owes, and never closes sooner than the session\'s own clock', async () => {
+  assert.equal(await closes({ ownAgo: 90 * 60_000, book: null }), 0, 'idle 90 min, but the book says a reply is owed')
+  assert.equal(await closes({ ownAgo: 90 * 60_000, book: 10 * 60_000 }), 0, 'the book saw work 10 min ago')
+  assert.equal(await closes({ ownAgo: 10 * 60_000, book: 90 * 60_000 }), 0, 'the session worked 10 min ago')
+  assert.equal(await closes({ ownAgo: 90 * 60_000, book: 70 * 60_000 }), 1, 'both quiet past 60 min')
+})
+
+test('clock A decides a doorbell shell the transcript cannot judge; a failing heartbeat falls back to clock B', async () => {
+  assert.equal(await closes({ status: 'shell', ownAgo: 1 * 60_000, book: 70 * 60_000, write: false }), 1, 'no transcript: the book\'s clock')
+  assert.equal(await closes({ status: 'shell', ownAgo: 1 * 60_000, write: false }), 0, 'no transcript, no book: open')
+  assert.equal(await closes({ ownAgo: 90 * 60_000, fail: true }), 1, 'heartbeat failed: B alone (idle 90 min)')
+  assert.equal(await closes({ ownAgo: 90 * 60_000, book: 70 * 60_000, status: 'busy' }), 0, 'busy is never closed, whatever the book says')
+})
