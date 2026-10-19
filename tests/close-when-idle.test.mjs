@@ -186,3 +186,21 @@ test('a case session working in the same folder does not void the parent\'s mark
   utimesSync(f, new Date(NOW + 10 * MIN), new Date(NOW + 10 * MIN))
   assert.equal(idledState(o.root, cfg, 'inventory', { configDir: join(o.home, '.claude'), sessions: [] }), null, 'its own conversation ran: void')
 })
+
+// the lead, 2026-10-19: inventory was taken out of closeWhenIdle while it was
+// idled, nothing named it, and it stayed closed until a person started it. A
+// desk no longer listed has nothing to keep it closed: it is woken.
+test('a desk taken out of closeWhenIdle while idled is woken by heal, nobody has to start it', () => {
+  const o = office()
+  o.live('inventory')
+  heal(o.root, o.health(), healOpts(o))
+  o.procs.delete(700)
+  const cfg = JSON.parse(readFileSync(join(o.root, 'office.json'), 'utf8'))
+  writeFileSync(join(o.root, 'office.json'), JSON.stringify({ ...cfg, closeWhenIdle: {}, start: 'echo started {desk} >> started.txt' }))
+  const row = o.row(o.health(), 'inventory')
+  assert.equal(row.session.state, 'dead')
+  assert.match(row.session.wake, /no longer in closeWhenIdle/)
+  const r = heal(o.root, o.health(), healOpts(o))
+  assert.ok(r.acts.some((a) => a.act === 'wake' && a.ok), JSON.stringify(r.acts))
+  assert.match(readFileSync(join(o.root, 'started.txt'), 'utf8'), /started inventory/)
+})
