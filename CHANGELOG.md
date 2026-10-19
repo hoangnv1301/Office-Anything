@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.5
+
+- A DESK TAKEN OUT OF `closeWhenIdle` WHILE IDLED IS WOKEN (#48, the lead, 2026-10-19).
+  inventory was removed from the list while closed, nothing named it, and it stayed
+  closed until a person started it. Heal now wakes it on its next run.
+- Note from the first live hour of 0.10.4: a woken desk starts with
+  `office.json` `launch.model` (or its desk.json `model`). Without one it runs on the
+  account default, so set `"launch": { "model": "sonnet" }` if your desks run Sonnet.
+
 ## 0.10.4
 
 - STANDING DESKS CLOSE WHEN IDLE AND WAKE ON WORK (#46, the lead's ruling 2026-10-19).
