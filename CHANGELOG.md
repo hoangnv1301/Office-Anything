@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.10.4
+
+- STANDING DESKS CLOSE WHEN IDLE AND WAKE ON WORK (#46, the lead's ruling 2026-10-19).
+  `office.json` `"closeWhenIdle": { "<desk>": minutes | true }` (true = 30). An unlisted
+  desk is never closed. A listed desk is closed when it is idle (or parked in its own
+  doorbell) past its minutes, has made no tool call in 5 min, and nothing is waiting:
+  no `openWork` line names `desk-<name>` and it has no open task assigned to it. Heal
+  re-proves it fresh, stops that pid, closes its tab and marks `.office/idled.json`.
+  Health then shows it as `idled`, not dead: the office is not red, desk-watch does not
+  report it, and `start all` and `--recover` leave it closed. Name it to start it.
+  When work names it, heal's restart wakes it on its own budget: no heal spent, no
+  "down" alert.
+  - ⛔ A closed desk hears only `openWork`. With no `openWork`, or an `openWork` that
+    fails, nothing is closed, and a closed desk is woken.
+  - ⛔ The mark never hides a crash: once the desk's own conversation writes after it,
+    a dead desk is a crash again.
+  - Upgrade: add `"openWork"` (local-cabinets-ops: `node scripts/desk/desk-work.mjs
+    --all --dry`, timeoutSec 60) and `"closeWhenIdle"` to `office.json`.
+- A TAB WHOSE CLAUDE EXITED IS NOT A RUNNING DESK (#45). Every idle-closed case left
+  its orca tab behind at a shell prompt, and `start` read such a tab as "already open"
+  and started nothing. That made a restart of any desk whose tab lingered a silent
+  no-op. `start` now closes a tab with no agent and opens afresh, and closing a case
+  closes its tab.
+
 ## 0.10.3
 
 - A DESK READS A PDF THE OWNER UPLOADED (#41, owner 2026-10-19). `~/.claude/uploads`
