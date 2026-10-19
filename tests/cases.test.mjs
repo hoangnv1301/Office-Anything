@@ -174,3 +174,28 @@ test('perCase without an adapter is naming only: the office runs those sessions 
   const acts = await sweep(root, run(root, [], { adapter: (d) => { if (d.name === 'support') throw new Error('must not be called'); return { lost: [], cases: [] } } }))
   assert.ok(!acts.some((a) => a.desk === 'support'))
 })
+
+// ⛔ TWO WRITERS ON ONE CASE (2026-10-19: two live copies of one buyer thread).
+// openCase refused to add a third, but nothing ever closed the second: the
+// sweep keeps the most recently active and stops the others by their own pid,
+// never by name (a name kill takes the one it meant to keep with it). The
+// claim stays: the kept session carries the same name and holds it.
+test('the sweep closes a duplicate case session by pid, keeps the most recently active, and keeps the claim', async () => {
+  const root = office()
+  const now = Date.now()
+  const live = [
+    { pid: 21, name: 'desk-design--SC-261009-001', status: 'idle', statusUpdatedAt: now - 5 * 60_000, updatedAt: now - 5 * 60_000 },
+    { pid: 22, name: 'desk-design--SC-261009-001', status: 'busy', statusUpdatedAt: now, updatedAt: now },
+  ]
+  const a = fakeAdapter({ held: { 'SC-261009-001': 'desk-design--SC-261009-001' } })
+  const killed = []
+  const o = run(root, live, { adapter: a.fn, kill: (p) => { killed.push(p); const i = live.findIndex((s) => s.pid === p); if (i >= 0) live.splice(i, 1) }, now: () => now })
+  const acts = await sweep(root, o)
+  const d = acts.filter((x) => x.act === 'duplicate-close')
+  assert.equal(d.length, 1)
+  assert.equal(d[0].key, 'SC-261009-001')
+  assert.match(d[0].why, /stopped pid 21.*kept pid 22/)
+  assert.deepEqual(killed, [21], 'only the extra one, by its pid')
+  assert.equal(a.held['SC-261009-001'], 'desk-design--SC-261009-001', 'the claim stays with the kept session')
+  assert.ok(!a.calls.some((c) => c.op === 'release'), 'nothing is released')
+})
