@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.10.7
 
 - THE LEAD'S DOORBELL (the lead, 2026-10-20). In bypass mode the lead held outside messages, so
   escalations came back "nudged:false" and a buyer waited an hour. `lib/lead-bell.mjs`, armed by
