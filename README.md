@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-426%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-427%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -620,6 +620,8 @@ each listed desk and the watchdog acts on that judgement:
 - **Woken** as soon as an `openWork` line names it. The watchdog's own restart brings it back,
   resuming its own conversation. A wake has its own budget: it spends no heal, starts no
   "down" clock, and sends no down alert.
+- **Taken off the list while closed:** a desk removed from `closeWhenIdle` while it is idled is
+  woken on the next watchdog run, so nobody has to start it by hand.
 
 ⛔ **A closed desk hears only what `openWork` prints.** Its socket is gone, so a message sent to it
 reaches nobody. That is why there is no closing without `openWork`, why an `openWork` that
