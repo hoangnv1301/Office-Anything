@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openCase, closeCase, forceRelease, sweep, route, list, perCaseOf, childName } from '../lib/cases.mjs'
+import { openCase, closeCase, forceRelease, sweep, route, list, perCaseOf, childName, readCases } from '../lib/cases.mjs'
 
 const KEY = '^SC-\\d{6}-\\d{3,}$'
 function office({ max = 3, idleCloseMinutes = 60 } = {}) {
@@ -33,11 +33,11 @@ function fakeAdapter({ held = {}, waiting = [], fail = new Set() } = {}) {
   }
   return { fn, calls, held }
 }
-function fakeTerm(live, { register = true } = {}) {
+function fakeTerm(live, { register = true, status = 'idle' } = {}) {
   const made = []
   return {
     made, titles: () => [], screen: () => '', answerImports: () => {},
-    create: ({ title, command }) => { made.push({ title, command }); if (register) live.push({ pid: 7000 + made.length, name: title, status: 'idle', sessionId: `00000000-0000-4000-8000-${String(made.length).padStart(12, '0')}`, statusUpdatedAt: Date.now() }); return 'term_' + made.length },
+    create: ({ title, command }) => { made.push({ title, command }); if (register) live.push({ pid: 7000 + made.length, name: title, status, sessionId: `00000000-0000-4000-8000-${String(made.length).padStart(12, '0')}`, statusUpdatedAt: Date.now() }); return 'term_' + made.length },
   }
 }
 const run = (root, live, extra = {}) => ({ live: () => live, terminal: fakeTerm(live), sleep: async () => {}, dir: mkdtempSync(join(tmpdir(), 'oa-cl-')), kill: () => {}, ...extra })
@@ -88,6 +88,18 @@ test('the duplicate guard is per (parent, key); the cap holds; a bad key or a de
   assert.equal((await openCase(root, 'design', 'SC-1', run(root, [], { adapter: a.fn }))).state, 'refused')
   assert.equal((await openCase(root, 'design', 'SC-261009-001--x', run(root, [], { adapter: a.fn }))).state, 'refused')
   assert.equal((await openCase(root, 'ledger', 'SC-261009-001', run(root, [], { adapter: a.fn }))).state, 'refused')
+})
+
+test('a case session that registered and is busy working its brief is up: the claim is kept', async () => {
+  const root = office(); writeFileSync(join(root, 'office.json'), JSON.stringify({ roleEnv: 'OFFICE_ROLE', launch: { waitSec: 2 } }))
+  const live = []; const a = fakeAdapter(); let clock = 0
+  const o = run(root, live, { adapter: a.fn, terminal: fakeTerm(live, { status: 'busy' }), now: () => (clock += 1000), procs: () => new Map() })
+  const r = await openCase(root, 'design', 'SC-261009-137', o)
+  assert.equal(r.state, 'up')
+  assert.match(r.why, /not idle after 2s \(status busy\): working its brief/)
+  assert.equal(a.held['SC-261009-137'], 'desk-design--SC-261009-137', 'the claim is not given back')
+  const c = readCases(root)['design--SC-261009-137']
+  assert.ok(c.openedAt && !c.closedAt, 'recorded as opened, not closed')
 })
 
 test('a session that never comes up gives its claim back', async () => {
