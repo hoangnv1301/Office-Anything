@@ -17,7 +17,7 @@ import { join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { rosterSafe } from '../lib/desk.mjs'
 import { readOfficeConfig } from '../lib/office.mjs'
-import { compileWall } from '../lib/wall.mjs'
+import { compileWall, leadBashProblems } from '../lib/wall.mjs'
 import { isMain } from '../lib/is-main.mjs'
 import { slugFor } from '../board/read.mjs'
 
@@ -32,6 +32,7 @@ export function report(root = process.cwd(), { home = homedir() } = {}) {
   const findings = []
   try { compileWall(w) } catch (e) { findings.push({ desk: 'office.json', say: `a wall rule does not compile, so the gate cannot apply it: ${e.message}` }) }
   try { for (const x of compileWall({ ...w, root }).leadBashProblems) findings.push({ desk: 'office.json', say: `wall.lead.bash[${x.index}] ${x.why} (the entry is not used, so the lead cannot run it)` }) } catch {}
+  try { for (const x of leadBashProblems(w.lead?.monitor, root)) findings.push({ desk: 'office.json', say: `wall.lead.monitor[${x.index}] ${x.why} (the entry is not used, so the lead's Monitor cannot run it)` }) } catch {}
   for (const [i, p] of (Array.isArray(w.audit) ? w.audit : []).entries()) {
     try { new RegExp(p) } catch (e) { findings.push({ desk: 'office.json', say: `wall.audit[${i}] does not compile: ${e.message}` }) }
   }
