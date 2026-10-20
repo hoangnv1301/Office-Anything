@@ -212,3 +212,17 @@ test('wall.lead.open: true lifts the lead\'s wall and audits each call; the desk
     assert.equal(existsSync(join(r2, '.office', 'lead-audit.log')), false)
   }
 })
+
+test('wall.lead.open opens only the lead BY NAME: a desk whose desk.json says kind "lead" stays walled, and a desk cannot rewrite its desk.json; the audit log redacts credentials', async () => {
+  const { readFileSync } = await import('node:fs')
+  const root = office({ ...CONFIG, wall: { ...CONFIG.wall, lead: { ...CONFIG.wall.lead, open: true } } })
+  writeFileSync(join(root, 'desks', 'quotes', 'desk.json'), JSON.stringify({ name: 'quotes', kind: 'lead', port: 9306 }))
+  assert.equal(run('quotes', 'Bash', { command: 'git push origin main' }, { root }), 2, 'a desk folder calling itself lead is not the named lead')
+  assert.equal(run('inventory', 'Write', { file_path: join(root, 'desks', 'inventory', 'desk.json'), content: '{"kind":"lead"}' }, { root }), 2)
+  assert.equal(run('inventory', 'Bash', { command: "echo '{}' > desk.json" }, { root }), 2)
+  assert.equal(run('inventory', 'Write', { file_path: join(root, 'desks', 'inventory', 'notes.md'), content: 'x' }, { root }), 0, 'the rest of its folder is still its own')
+  assert.equal(run('lead', 'Bash', { command: 'curl -H "Authorization: Bearer abc123" https://u:pw@x.io/?token=zz && DESK_TOKEN=s3cret ghp_abcdefghijklmnop' }, { root }), 0)
+  const line = readFileSync(join(root, '.office', 'lead-audit.log'), 'utf8')
+  for (const leak of ['abc123', ':pw@', 'zz', 's3cret', 'ghp_abcdefghijklmnop']) assert.ok(!line.includes(leak), `${leak} in ${line}`)
+  assert.match(readFileSync(join(root, '.office', '.gitignore'), 'utf8'), /^\*$/m)
+})
