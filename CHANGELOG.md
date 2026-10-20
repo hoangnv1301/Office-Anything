@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.11
+
+- The lead audit log also redacts QUOTED credential values (`--password "a b"`,
+  `--token='x'`, `-u 'user:pw'`) and `-p<password>` (database CLIs). Found by the
+  security review of 0.10.10.
+
 ## 0.10.10
 
 - `wall.lead.open: true` LIFTS THE LEAD'S WALL (#58, the owner 2026-10-20: "the lead

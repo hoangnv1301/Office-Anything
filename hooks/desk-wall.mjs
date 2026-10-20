@@ -80,8 +80,9 @@ export function auditLead(root, p) {
     // credential-shaped values never reach the log
     const clean = String(what)
       .replace(/"([\w-]*(?:password|passwd|token|secret|key|auth)[\w-]*)"\s*:\s*"[^"]*"/gi, '"$1":"[redacted]"')
-      .replace(/(authorization:\s*(?:(?:bearer|basic|token)\s+)?|bearer\s+|[\w-]*(?:token|key|secret|password|passwd|pwd|auth)[\w-]*(?:=|:\s*)|--?(?:token|key|secret|password|pass|pwd|api[-_]?key)[\s=]+)[^\s"']+/gi, '$1[redacted]')
-      .replace(/(\s-u\s+)[^\s:]+:\S+/g, '$1[redacted]')
+      .replace(/(authorization:\s*(?:(?:bearer|basic|token)\s+)?|bearer\s+|[\w-]*(?:token|key|secret|password|passwd|pwd|auth)[\w-]*(?:=|:\s*)|--?(?:token|key|secret|password|pass|pwd|api[-_]?key)[\s=]+)(?:"[^"]*"|'[^']*'|[^\s"']+)/gi, '$1[redacted]')
+      .replace(/(\s-u\s*)(?:"[^"]*:[^"]*"|'[^']*:[^']*'|[^\s:'"]+:\S+)/g, '$1[redacted]')
+      .replace(/(\s-p)(?:"[^"]*"|'[^']*'|[^\s"'-][^\s"']*)/g, '$1[redacted]')
       .replace(/\b(gh[pousr]_|github_pat_|sk-|xox[abpr]-|AKIA)[A-Za-z0-9_-]{8,}/g, '[redacted]')
       .replace(/(:\/\/[^\/\s:@]+:)[^@\s]+@/g, '$1[redacted]@')
     mkdirSync(join(root, '.office'), { recursive: true })
