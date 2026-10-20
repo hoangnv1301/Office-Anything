@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.9
+
+- THE LEAD CHAINS LISTED COMMANDS (#56, the owner 2026-10-20: "let the lead do things
+  as needed"). The lead's Bash may join commands with `&&`, `;` and `|`, and add
+  `2>&1`, when every part is itself a `wall.lead.bash` command. Still refused: `>` and
+  `>>` (writes), backticks, `$(` and `<(`, `<<`, a lone `&`, `||`, newlines, and `"…"`
+  that expands. Secret files, the locked token and role variables, and starting
+  claude or orca from Bash stay walled.
+- A case reopened after a close no longer carries its old close reason in
+  `.office/cases.json`.
+
 ## 0.10.8
 
 - THE LEAD BELL'S FILES, HARDENED (alibaba-98's review of local-cabinets-ops #1257).
