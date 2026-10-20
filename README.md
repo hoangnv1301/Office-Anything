@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-437%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-438%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -655,7 +655,11 @@ The same holds for every other name the office owns: a desk (`desk-<name>`), a c
   plugin ships one: `"wake": "node {plugin}/lib/lead-bell.mjs"`. It prints one line per new thing:
   - a new line in the alert log of a listed type (`lead.bell.types`; default HELD-LEAD, HELD-RELEASED,
     UNREAD-STUCK, USAGE-LIMIT, DESK-DEAD, DESK-OFF, DESK-STUCK, LEAD-UNREACHABLE, LEAD-DUPLICATE, VERSION);
-  - a new matching line in a log the office names (`lead.bell.files`: `{name, path, match}`);
+  - a new matching line in a log the office names (`lead.bell.files`: `{name, path, match}`). The
+    path's real location must be a `.log` under `desks/`, through no hidden name, so a symlink cannot
+    point it elsewhere. A `match` that repeats a group that itself repeats, like `(a+)+`, is refused
+    at load, because it can hang on one line. Only a line's first 2,000 characters are tested. A
+    refused entry is said once;
   - a new open item from a read-only command the office names (`lead.bell.asks`: `{name, command}`,
     one item per line, `<key>\t<text>`). An open item rings again every `repeatMinutes` (30), one
     that closes and comes back rings again, and a failing ask is said once, never read as "nothing open".
