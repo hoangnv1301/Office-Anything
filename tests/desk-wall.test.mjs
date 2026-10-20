@@ -189,3 +189,26 @@ test('a wall that breaks while judging fails closed when the office says so, ope
   assert.match(r.why, /fails closed/)
   assert.equal((await decide(payload(open), env(open), tmpdir())).code, 0)
 })
+
+// wall.lead.open (the owner, 2026-10-20): the lead's wall lifts, every lead call
+// is audited, and the desks keep theirs
+test('wall.lead.open: true lifts the lead\'s wall and audits each call; the desks keep their walls; anything but true keeps it', async () => {
+  const { readFileSync, existsSync } = await import('node:fs')
+  const openCfg = { ...CONFIG, wall: { ...CONFIG.wall, lead: { ...CONFIG.wall.lead, open: true } } }
+  const root = office(openCfg)
+  for (const [tool, input] of [['Bash', { command: 'git status && git push origin main' }], ['Write', { file_path: join(root, 'lib', 'x.ts'), content: 'x' }], ['Agent', { prompt: 'look' }], ['Bash', { command: 'cat .env' }], ['Monitor', { command: 'tail -f x.log' }]])
+    assert.equal(run('lead', tool, input, { root }), 0, `${tool} ${JSON.stringify(input)}`)
+  const log = readFileSync(join(root, '.office', 'lead-audit.log'), 'utf8').trim().split('\n').map((l) => JSON.parse(l))
+  assert.equal(log.length, 5)
+  assert.equal(log[0].tool, 'Bash'); assert.equal(log[0].what, 'git status && git push origin main')
+  // desks: unchanged
+  assert.equal(run('inventory', 'Bash', { command: 'wrangler d1 execute' }, { root }), 2)
+  assert.equal(run('inventory', 'Bash', { command: 'cat ../../.env' }, { root }), 2)
+  assert.equal(run('inventory', 'Write', { file_path: join(root, 'lib', 'x.ts') }, { root }), 2)
+  // "true" as a string, or 1, does not open it
+  for (const v of ['true', 1, 'open']) {
+    const r2 = office({ ...CONFIG, wall: { ...CONFIG.wall, lead: { ...CONFIG.wall.lead, open: v } } })
+    assert.equal(run('lead', 'Bash', { command: 'git push' }, { root: r2 }), 2, JSON.stringify(v))
+    assert.equal(existsSync(join(r2, '.office', 'lead-audit.log')), false)
+  }
+})
