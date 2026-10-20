@@ -102,6 +102,17 @@ test('a case session that registered and is busy working its brief is up: the cl
   assert.ok(c.openedAt && !c.closedAt, 'recorded as opened, not closed')
 })
 
+test('a case reopened after a close carries no stale close reason', async () => {
+  const root = office(); const live = []; const a = fakeAdapter()
+  mkdirSync(join(root, '.office'), { recursive: true })
+  writeFileSync(join(root, '.office', 'cases.json'), JSON.stringify({ 'design--SC-261009-137': { claimedAt: 'x', openedAt: 'y', closedAt: 'z', why: 'idle 61 min' } }))
+  const r = await openCase(root, 'design', 'SC-261009-137', run(root, live, { adapter: a.fn }))
+  assert.equal(r.state, 'up')
+  const c = readCases(root)['design--SC-261009-137']
+  assert.ok(c.openedAt && !c.closedAt)
+  assert.equal(c.why, undefined, 'the old close reason is gone')
+})
+
 test('a session that never comes up gives its claim back', async () => {
   const root = office(); writeFileSync(join(root, 'office.json'), JSON.stringify({ roleEnv: 'OFFICE_ROLE', launch: { waitSec: 2 } }))
   const live = []; const a = fakeAdapter(); let clock = 0
