@@ -77,8 +77,11 @@ export function auditLead(root, p) {
   try {
     const i = p?.tool_input ?? {}
     const what = i.command ?? i.file_path ?? i.path ?? i.pattern ?? i.to ?? i.prompt ?? i.url ?? ''
+    // credential-shaped values never reach the log
+    const clean = String(what).replace(/(authorization:\s*(?:(?:bearer|basic|token)\s+)?|bearer\s+|[\w-]*(?:token|key|secret|password|passwd|pwd)=)\S+/gi, '$1[redacted]').replace(/\b(gh[pousr]_|github_pat_|sk-|xox[abpr]-|AKIA)[A-Za-z0-9_-]{8,}/g, '[redacted]').replace(/(:\/\/[^\/\s:@]+:)[^@\s]+@/g, '$1[redacted]@')
     mkdirSync(join(root, '.office'), { recursive: true })
-    appendFileSync(join(root, '.office', 'lead-audit.log'), JSON.stringify({ at: new Date().toISOString(), tool: String(p?.tool_name ?? ''), what: String(what).slice(0, 500) }) + '\n')
+    if (!existsSync(join(root, '.office', '.gitignore'))) appendFileSync(join(root, '.office', '.gitignore'), '# office-anything state and logs; never committed\n*\n')
+    appendFileSync(join(root, '.office', 'lead-audit.log'), JSON.stringify({ at: new Date().toISOString(), tool: String(p?.tool_name ?? ''), what: clean.slice(0, 500) }) + '\n')
   } catch {}
 }
 
@@ -164,7 +167,10 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     // the lead does is refused, by the core or the office's module; every call
     // is written to .office/lead-audit.log so the owner can see what it did.
     // Desks are judged exactly as before. Only the literal true opens it.
-    if (who.kind === 'lead' && cfg.wall?.lead?.open === true) { auditLead(root, p); return { code: 0 } }
+    // ⛔ ONLY THE LEAD BY NAME: whoIs also calls a desk folder whose desk.json says
+    // kind "lead" the lead, and a file is not who a session is (security review)
+    const leadNamed = [cfg.lead?.session, ...(Array.isArray(cfg.lead?.aliases) ? cfg.lead.aliases : [])].filter((n) => typeof n === 'string' && n).includes(who.role)
+    if (who.kind === 'lead' && leadNamed && cfg.wall?.lead?.open === true) { auditLead(root, p); return { code: 0 } }
     // office.json plugin.enforce: a desk does not run on a plugin version the office has not approved
     const ver = versionVerdict(cfg)
     if (ver && !ver.ok && ver.enforce && who.kind === 'desk') return say(`this machine loaded office-anything ${ver.loaded}, which this office has not approved (approved: ${ver.approved.join(', ')}); desks wait until the lead approves it or installs an approved one`)

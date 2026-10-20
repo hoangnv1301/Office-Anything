@@ -153,3 +153,12 @@ test('no listed entry lets the lead read a secret or run the never-list, quoted 
   }
   for (const [cmd, why] of Object.entries(refused)) assert.match(run(W, root, cmd) ?? 'RAN', why, cmd)
 })
+
+test('a walled lead names files, not globs (except ls); git -c/-C anywhere and a variable in front of a command are refused', () => {
+  const root = office([])
+  const W = compileWall({ lead: { bash: ['^(head|cat|ls)( [A-Za-z0-9_.:/@~=*?{},\\[\\]-]+| \'[^\']*\')*$', '^git (log|status)( [A-Za-z0-9_.:/=@~^,-]+)*$', '^[A-Z_]+=[a-z]+ git log$'] }, root })
+  assert.equal(run(W, root, 'ls desks/*'), null, 'ls prints names, reads nothing')
+  assert.equal(run(W, root, "head 'a*b'"), null, 'a quoted * is a literal character')
+  for (const [cmd, why] of Object.entries({ 'head desks/runtime/*': /globs/, 'head desks/runtime/mail.e?v': /globs/, 'cat desks/runtime/m[a]il.env': /globs|secret/, 'head desks/{a,b}': /globs/, 'git log -c x': /-c/, 'git log -C': /-C/, 'git log -cfoo=bar': /-c/, 'GIT_PAGER=sh git log': /variable/ }))
+    assert.match(run(W, root, cmd) ?? 'RAN', why, cmd)
+})
