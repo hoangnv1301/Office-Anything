@@ -104,3 +104,30 @@ test('the README says it', async () => {
   const { readFileSync } = await import('node:fs')
   assert.match(readFileSync(new URL('../README.md', import.meta.url), 'utf8'), /wall\.lead\.bash.*anchored/s)
 })
+
+// THE LEAD CHAINS LISTED COMMANDS (owner 2026-10-20: "let the lead do things as
+// needed"). && ; | and 2>&1 are fine when every part is itself listed; a write,
+// a command inside a command, a newline or a background job are still refused.
+test('the lead chains listed commands with && ; | and 2>&1; every part must be listed; writes and nesting stay refused', () => {
+  const root = office([])
+  const W = wallOf(root, ['^gh pr (view|list|checks|diff)( [A-Za-z0-9_.:/=#-]+)*$', '^git (status|log|diff)( [A-Za-z0-9_.:/=@~^-]+)*$', '^(head|tail|wc|grep)( [A-Za-z0-9_.:/=-]+| \'[^\']*\')*$'])
+  for (const ok of ['gh pr list && git status', 'git log --oneline -5; git status', 'gh pr view 31 2>&1 | tail -5', "git log -3 | grep 'fix: a > b; c'", 'gh pr checks 50 2>&1'])
+    assert.equal(run(W, root, ok), null, ok)
+  const refused = {
+    'gh pr list && rm -rf x': /limited to the commands this office lists \(not listed: "rm -rf x"\)/,
+    'gh pr list | sh': /not listed: "sh"/,
+    'git status > out.txt': /writes no file/,
+    'git status >> out.txt': /writes no file/,
+    'gh pr list 2>err.txt': /writes no file/,
+    'git log $(rm -rf x)': /command inside a command/,
+    'git log `rm x`': /command inside a command/,
+    'grep x <(rm x)': /command inside a command/,
+    'git status &': /background/,
+    'git status || rm x': /not \|\|/,
+    'git status\nrm x': /one line/,
+    'git status ;; git log': /empty command/,
+    'grep "$HOME" x': /expands inside/,
+    "grep 'x": /unclosed quote/,
+  }
+  for (const [cmd, why] of Object.entries(refused)) assert.match(run(W, root, cmd) ?? 'RAN', why, cmd)
+})
