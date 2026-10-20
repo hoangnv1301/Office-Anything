@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.10.8
 
 - THE LEAD BELL'S FILES, HARDENED (alibaba-98's review of local-cabinets-ops #1257).
   - A `lead.bell.files` match that repeats a repeating group (`(a+)+$` hung node on 31
