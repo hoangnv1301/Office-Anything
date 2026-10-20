@@ -9,7 +9,8 @@
   their walls. Only the literal `true` opens it, and only for the lead named in
   `lead.session` / `lead.aliases`: a desk folder whose desk.json says `kind: "lead"` is
   not the lead, and a desk can no longer rewrite its own desk.json (#59). The audit
-  log redacts credential-shaped values.
+  log redacts credential-shaped values (headers, flags, JSON fields, URL passwords,
+  known token prefixes), and desks cannot read it.
 - A SECRETS FLOOR NO OFFICE CAN UNLIST, matched on the command as typed and as the
   shell reads it (quotes removed): `.env`, `.dev.vars`, `.ssh`, `.netrc`, `.pem`,
   `id_*` keys, `.token`, `credentials.json`, `.claude.json`, `.claude/channels`,

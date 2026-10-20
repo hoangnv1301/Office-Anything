@@ -223,6 +223,11 @@ test('wall.lead.open opens only the lead BY NAME: a desk whose desk.json says ki
   assert.equal(run('inventory', 'Write', { file_path: join(root, 'desks', 'inventory', 'notes.md'), content: 'x' }, { root }), 0, 'the rest of its folder is still its own')
   assert.equal(run('lead', 'Bash', { command: 'curl -H "Authorization: Bearer abc123" https://u:pw@x.io/?token=zz && DESK_TOKEN=s3cret ghp_abcdefghijklmnop' }, { root }), 0)
   const line = readFileSync(join(root, '.office', 'lead-audit.log'), 'utf8')
-  for (const leak of ['abc123', ':pw@', 'zz', 's3cret', 'ghp_abcdefghijklmnop']) assert.ok(!line.includes(leak), `${leak} in ${line}`)
+  assert.equal(run('lead', 'Bash', { command: `mytool --password hunter2 --api-key=k9 -u bob:pw2 -H 'X-Api-Key: hk1' -d '{"token":"jt1"}'` }, { root }), 0)
+  const line2 = readFileSync(join(root, '.office', 'lead-audit.log'), 'utf8')
+  for (const leak of ['abc123', ':pw@', 'zz', 's3cret', 'ghp_abcdefghijklmnop', 'hunter2', 'k9', 'pw2', 'hk1', 'jt1']) assert.ok(!line2.includes(leak), `${leak} in ${line2}`)
+  assert.ok(line.length > 0)
+  // desks cannot read it
+  assert.equal(run('inventory', 'Bash', { command: 'cat ../../.office/lead-audit.log' }, { root }), 2)
   assert.match(readFileSync(join(root, '.office', '.gitignore'), 'utf8'), /^\*$/m)
 })

@@ -78,7 +78,12 @@ export function auditLead(root, p) {
     const i = p?.tool_input ?? {}
     const what = i.command ?? i.file_path ?? i.path ?? i.pattern ?? i.to ?? i.prompt ?? i.url ?? ''
     // credential-shaped values never reach the log
-    const clean = String(what).replace(/(authorization:\s*(?:(?:bearer|basic|token)\s+)?|bearer\s+|[\w-]*(?:token|key|secret|password|passwd|pwd)=)\S+/gi, '$1[redacted]').replace(/\b(gh[pousr]_|github_pat_|sk-|xox[abpr]-|AKIA)[A-Za-z0-9_-]{8,}/g, '[redacted]').replace(/(:\/\/[^\/\s:@]+:)[^@\s]+@/g, '$1[redacted]@')
+    const clean = String(what)
+      .replace(/"([\w-]*(?:password|passwd|token|secret|key|auth)[\w-]*)"\s*:\s*"[^"]*"/gi, '"$1":"[redacted]"')
+      .replace(/(authorization:\s*(?:(?:bearer|basic|token)\s+)?|bearer\s+|[\w-]*(?:token|key|secret|password|passwd|pwd|auth)[\w-]*(?:=|:\s*)|--?(?:token|key|secret|password|pass|pwd|api[-_]?key)[\s=]+)[^\s"']+/gi, '$1[redacted]')
+      .replace(/(\s-u\s+)[^\s:]+:\S+/g, '$1[redacted]')
+      .replace(/\b(gh[pousr]_|github_pat_|sk-|xox[abpr]-|AKIA)[A-Za-z0-9_-]{8,}/g, '[redacted]')
+      .replace(/(:\/\/[^\/\s:@]+:)[^@\s]+@/g, '$1[redacted]@')
     mkdirSync(join(root, '.office'), { recursive: true })
     if (!existsSync(join(root, '.office', '.gitignore'))) appendFileSync(join(root, '.office', '.gitignore'), '# office-anything state and logs; never committed\n*\n')
     appendFileSync(join(root, '.office', 'lead-audit.log'), JSON.stringify({ at: new Date().toISOString(), tool: String(p?.tool_name ?? ''), what: clean.slice(0, 500) }) + '\n')
