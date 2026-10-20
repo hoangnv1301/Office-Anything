@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.10.10
+
+- `wall.lead.open: true` LIFTS THE LEAD'S WALL (#58, the owner 2026-10-20: "the lead
+  should be able to do everything when needed, like me"). Every lead tool call is
+  allowed, by the core and by the office's module, and is written to
+  `.office/lead-audit.log` (one JSON line: time, tool, command or path). Desks keep
+  their walls. Only the literal `true` opens it, and only for the lead named in
+  `lead.session` / `lead.aliases`: a desk folder whose desk.json says `kind: "lead"` is
+  not the lead, and a desk can no longer rewrite its own desk.json (#59). The audit
+  log redacts credential-shaped values.
+- A SECRETS FLOOR NO OFFICE CAN UNLIST, matched on the command as typed and as the
+  shell reads it (quotes removed): `.env`, `.dev.vars`, `.ssh`, `.netrc`, `.pem`,
+  `id_*` keys, `.token`, `credentials.json`, `.claude.json`, `.claude/channels`,
+  `/etc/lco`. For a walled lead the floor also covers `~/.claude` (except plugins,
+  uploads and memory), `..` after `.claude/`, and token files.
+- A WALLED LEAD'S CHAINED PARTS ARE JUDGED AS THE SHELL READS THEM (alibaba-98's W30).
+  These are never run, whatever the list says: git `--no-index`, `--upload-pack`,
+  `--output`, `--exec` and their abbreviations (`--upl`), `ext::` and `fd::`
+  remotes; grep recursion (`-r`, `'-r'`, `-d recurse`) and `-f`; `gh --web`; jq
+  `-f`, `-L`, `--rawfile` and env; `git -c`/`-C` anywhere; a `VAR=` in front of a
+  command; and unquoted globs (`* ? [ {`) except for `ls`. `2>&1` must stand alone.
+
 ## 0.10.9
 
 - THE LEAD CHAINS LISTED COMMANDS (#56, the owner 2026-10-20: "let the lead do things
