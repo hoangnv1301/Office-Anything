@@ -131,3 +131,25 @@ test('the lead chains listed commands with && ; | and 2>&1; every part must be l
   }
   for (const [cmd, why] of Object.entries(refused)) assert.match(run(W, root, cmd) ?? 'RAN', why, cmd)
 })
+
+// THE SECRETS FLOOR AND WHAT THE LEAD NEVER RUNS (security review 2026-10-20,
+// alibaba-98's W30): each chained part is judged on its words as the shell reads
+// them, git's abbreviated long options count, and no office list can unlist a secret
+test('no listed entry lets the lead read a secret or run the never-list, quoted or abbreviated', () => {
+  const root = office([])
+  const W = compileWall({ secrets: '\\.dev\\.vars\\b', lead: { bash: [
+    '^git (log|status|diff|show|fetch)( [A-Za-z0-9_.:/=@~^,-]+| \'[^\']*\')*$', '^(head|tail|ls|wc)( [A-Za-z0-9_.:/@~=-]+| \'[^\']*\')*$',
+    '^grep( [A-Za-z0-9_.:/@~=-]+| \'[^\']*\')*$', '^jq( [A-Za-z0-9_.:/@~=-]+| \'[^\']*\')*$', '^gh run (list|view)( [A-Za-z0-9_.:/=#,@-]+)*$'] }, root })
+  for (const ok of ['git log -3', 'head -5 office.json | wc -l', 'grep -n x a.txt', "jq '.a' office.json", 'gh run view 12 --log', 'ls /Users/airm1/.claude/plugins/cache', 'git fetch origin', 'tail -5 x.log 2>&1'])
+    assert.equal(run(W, root, ok), null, ok)
+  const refused = {
+    'head .env': /secret/, "head '.e'nv": /secret|limited/, "head '.env'": /secret/, 'tail desks/runtime/mail.env': /secret/, 'head ~/.ssh/id_rsa': /secret/,
+    'head /Users/airm1/.claude/.credentials.json': /secret/, 'ls /Users/airm1/.claude/plugins/../projects': /secret/, 'head /etc/lco/env': /secret/,
+    'wc -l x.pem': /secret/, 'head desks/runtime/cloudflare.token': /secret/, 'head .claude/channels/discord/access.json': /secret/, 'git show HEAD:.env': /secret/,
+    'git diff --no-index /etc/passwd /dev/null': /--no-index/, 'git diff --no-i a b': /--no-i/, 'git fetch --upl=evil': /--upl/, 'git fetch ext::sh': /ext::/,
+    'git log --out=x': /--out/, "grep '-r' x .": /recurses/, 'grep -d recurse x .': /recurses/, 'grep -nR x .': /recurses/, 'grep --rec x .': /recurses/,
+    'grep -f pats a': /recurses|from a file/, 'gh run view 1 -w': /--web/, 'jq -f prog.jq a': /program/, "jq -n 'env'": /environment/,
+    'git log 2>&10': /writes no file/, 'git log | grep -r x .': /recurses/,
+  }
+  for (const [cmd, why] of Object.entries(refused)) assert.match(run(W, root, cmd) ?? 'RAN', why, cmd)
+})

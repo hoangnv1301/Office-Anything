@@ -32,7 +32,7 @@ import { openModule, MODULE_DEADLINE_MS } from '../lib/wall-module.mjs'
 import { isMain } from '../lib/is-main.mjs'
 import { versionVerdict } from '../lib/version.mjs'
 import { resolve, join, sep } from 'node:path'
-import { existsSync, realpathSync } from 'node:fs'
+import { existsSync, realpathSync, mkdirSync, appendFileSync } from 'node:fs'
 
 // The office's own rules, in its own file: office.json "wall.module" names an
 // ES module inside the office exporting judge(payload, who, { root, cfg, session }) ->
@@ -72,6 +72,16 @@ export function locate(p, env = process.env, here = process.cwd()) {
 // says "failClosed": false, a desk session is refused when the wall cannot
 // judge (its config broken, its payload unreadable, its module missing,
 // throwing or hanging). A session that claims no desk is never stopped by it.
+// one JSON line per lead tool call when the lead's wall is open; a failed write never blocks
+export function auditLead(root, p) {
+  try {
+    const i = p?.tool_input ?? {}
+    const what = i.command ?? i.file_path ?? i.path ?? i.pattern ?? i.to ?? i.prompt ?? i.url ?? ''
+    mkdirSync(join(root, '.office'), { recursive: true })
+    appendFileSync(join(root, '.office', 'lead-audit.log'), JSON.stringify({ at: new Date().toISOString(), tool: String(p?.tool_name ?? ''), what: String(what).slice(0, 500) }) + '\n')
+  } catch {}
+}
+
 export async function decide(raw, env = process.env, here = process.cwd()) {
   let p = null, unreadable = false
   try { p = JSON.parse(raw || '{}'); if (!p || typeof p !== 'object') { p = null; unreadable = true } } catch { unreadable = true }
@@ -149,6 +159,12 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     const foot = who.kind === 'lead' ? W0.lead : W0.desk
     const say = (why) => ({ code: 2, why: `⛔ desk wall (${label}): ${why}` + (foot ? '\n' + foot : '') })
     if (who.kind === 'unknown') return say(`this session calls itself ${who.role}, and this office has no such desk`)
+    // ⛔ office.json wall.lead.open: true LIFTS THE LEAD'S WALL (the owner, 2026-10-20:
+    // "the lead should be able to do everything when needed, like me"). Nothing
+    // the lead does is refused, by the core or the office's module; every call
+    // is written to .office/lead-audit.log so the owner can see what it did.
+    // Desks are judged exactly as before. Only the literal true opens it.
+    if (who.kind === 'lead' && cfg.wall?.lead?.open === true) { auditLead(root, p); return { code: 0 } }
     // office.json plugin.enforce: a desk does not run on a plugin version the office has not approved
     const ver = versionVerdict(cfg)
     if (ver && !ver.ok && ver.enforce && who.kind === 'desk') return say(`this machine loaded office-anything ${ver.loaded}, which this office has not approved (approved: ${ver.approved.join(', ')}); desks wait until the lead approves it or installs an approved one`)
