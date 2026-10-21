@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-483%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-487%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -350,6 +350,7 @@ node checks/run.mjs ~/code/some-repo    # every check, one exit code
 | `browser-on-demand` | does anything open a browser just because a session started |
 | `desk-wall` | do the office's wall rules compile, and has any desk run what they forbid |
 | `departments` | does the office's departments block say one thing: each desk in one department, each lead name in one |
+| `compact-instructions` | does every session the office compacts say, in its CLAUDE.md, what compaction must keep |
 
 Exit 0 clean, 4 finding, 7 UNKNOWN — and **an empty walk is UNKNOWN, never clean**.
 
@@ -584,6 +585,18 @@ A desk may set `compactIdleMin`, `compactAboveK`, `compactFocus`, or `"compact":
   line, the open task ids. Anything durable belongs in the book or memory already.
 - Health shows every office session at or above `aboveK`, fattest first:
   `fat contexts: lead 845K, cs-… 686K, desk-customer 296K`.
+
+**What compaction keeps, manual or automatic.** Two halves, each on a documented path:
+
+- **Rules**: a `## Compact Instructions` section in the desk's `CLAUDE.md` (the root one for the
+  lead), which Claude Code documents as controlling what compaction preserves. Generate it, then
+  paste it: `node lib/compact.mjs instructions <desk-id|lead>`. It is built from `compact.keep` /
+  `compact.drop` (or the defaults), the desk's `compactKeep` and, for the lead, `compact.leadKeep`.
+  The `compact-instructions` check names every compacted session whose `CLAUDE.md` has none.
+- **What is open right now**: `"after": { "lead": "<read-only command>", "desk": "<command, {desk} = id>" }`
+  under `compact`. Its output (at most 40 lines, 20 s) is printed into the session only when it
+  restarts from a compaction (SessionStart `compact`, documented to add its output to the
+  compacted context). A command that fails says so; nothing is invented.
 
 ## The context cap: compact before a session gets expensive
 
