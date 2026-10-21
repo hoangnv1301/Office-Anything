@@ -249,3 +249,23 @@ test('the board on a machine running both: its lead row is the owner\'s own (ope
   assert.equal(leadSessionName(o.root), 'AICS')
   assert.equal(leadSessionName(office({ machine: LOCAL }).root), 'ERP')
 })
+
+test('⛔ the cutover order works: set the machine BEFORE office.json has a block; the ids are checked once it does', () => {
+  const o = office({ depts: null })
+  const r = setDepartments(o.root, ['local-ops', 'customer-service'])
+  assert.ok(r.ok, r.lines.join('\n'))
+  assert.match(r.lines.join('\n'), /declares no departments yet: this applies when office\.json adds them/)
+  assert.equal(setDepartments(o.root, ['Local Ops']).ok, false, 'still a department id')
+  // nothing changes before the block: one lead, every desk
+  assert.deepEqual(machineLeads(o.root, o.cfg).map((l) => l.session), ['lead'])
+  assert.equal(deskOn(readSwitch(o.root), 'customer').on, true)
+  // and the buyer machinery's question is answered yes already, so it keeps running through the cutover
+  assert.equal(inDepartment(o.root, 'customer-service').ok, true)
+  assert.match(listDepartments(o.root).lines.join('\n'), /set for: local-ops, customer-service \(applies when/)
+  // the block arrives: the setting is read; an id it does not declare is refused
+  const withBlock = { ...o.cfg, departments: DEPTS }
+  writeFileSync(join(o.root, 'office.json'), JSON.stringify(withBlock))
+  assert.deepEqual(machineLeads(o.root, withBlock).map((l) => l.session), ['ERP', 'AICS'])
+  writeFileSync(join(o.root, 'office.json'), JSON.stringify({ ...o.cfg, departments: { 'local-ops': DEPTS['local-ops'] } }))
+  assert.match(readSwitch(o.root).error, /does not declare: customer-service/)
+})
