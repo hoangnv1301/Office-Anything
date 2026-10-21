@@ -25,6 +25,7 @@ import { report as commitConvention } from './commit-convention.mjs'
 import { report as browserOnDemand } from './browser-on-demand.mjs'
 import { report as deskWall } from './desk-wall.mjs'
 import { report as deskHealth } from './desk-health.mjs'
+import { report as departments } from './departments.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 export const CHECKS = [
@@ -39,6 +40,7 @@ export const CHECKS = [
   { name: 'commit-convention', run: commitConvention, answers: 'does every commit since adoption say what kind of change it is' },
   { name: 'browser-on-demand', run: browserOnDemand, answers: 'does anything open a browser just because a session started' },
   { name: 'desk-wall', run: deskWall, answers: 'do the office\'s wall rules compile, and has any desk run what they forbid' },
+  { name: 'departments', run: departments, answers: 'does the office\'s departments block say one thing: each desk in one department, each lead name in one' },
   { name: 'desk-health', run: deskHealth, answers: 'is every desk running, and is every doorbell armed under its own session' },
 ]
 

@@ -33,6 +33,7 @@ import { isMain } from '../lib/is-main.mjs'
 import { wakeCommand } from '../lib/wall.mjs'
 import { readSwitch, deskOn } from '../lib/desks.mjs'
 import { rosterSafe } from '../lib/desk.mjs'
+import { allLeads, deskScope } from '../lib/departments.mjs'
 
 const DEFAULT = {
   memory: ['^facts\\.md$', '^(REPORT|RULE|BRIEF|REPLY)-.*\\.md$'],
@@ -61,8 +62,16 @@ export function bootLines(root, who, cfg, cwd) {
   const b = cfg.boot ?? {}
   if (who.kind === 'lead') {
     const out = Array.isArray(b.lead) ? b.lead.map(String) : []
+    // a department's lead (lib/departments.mjs): its own instructions and its
+    // own desks, under their names now; its own doorbell, else lead.wake
+    const L = allLeads(cfg).find((l) => l.names.includes(who.role)) ?? null
+    if (L?.department) {
+      const ds = rosterSafe(join(root, 'desks')).desks.filter((d) => (L.desks ?? []).includes(d.name)).map((d) => d.session)
+      out.push(`You are ${L.session}, the lead of department ${L.department}.${ds.length ? ` Your desks: ${ds.join(', ')}.` : ''} Other departments' work reaches you through the book, not by message.`)
+      if (L.instructions) out.push(`Read ${L.instructions} before anything else.`)
+    }
     // office.json lead.wake: the lead's own doorbell, armed like a desk's
-    const wake = wakeCommand(cfg.lead?.wake)
+    const wake = wakeCommand(L?.wake ?? cfg.lead?.wake)
     if (wake) { const T = { ...DEFAULT.text, ...(b.text ?? {}) }; out.push(fill(T.wake, { wake, where: 'the office root' })); if (T.wakeNote) out.push(fill(T.wakeNote, {})) }
     return out
   }
@@ -84,8 +93,10 @@ export function bootLines(root, who, cfg, cwd) {
   // ⛔ THE ROSTER IS PRINTED, NEVER COPIED (0.11.0). A desk learns who it can
   // message from here, under each desk's name NOW, so a rename reaches every
   // desk at its next start without anybody editing their instructions.
-  const roster = rosterSafe(join(root, 'desks')).desks
-  const me = roster.find((d) => d.name === who.desk)
+  const all = rosterSafe(join(root, 'desks')).desks
+  const scope = deskScope(root, cfg, all)
+  const roster = scope ? all.filter((d) => scope.has(d.name)) : all
+  const me = all.find((d) => d.name === who.desk)
   const others = roster.filter((d) => d.name !== who.desk && d.kind !== 'lead').map((d) => `${d.session} (${d.kind}${d.description ? ': ' + String(d.description).split(/[.;:]/)[0].slice(0, 80) : ''})`)
   const v = { desk: me?.title ?? who.desk, id: who.desk, roster: others.join('; '), deskRel: rel(deskDir), cwd, where: basename(dirname(deskDir)) + '/' + basename(deskDir), n: Math.max(0, files.length - max) }
   const out = [fill(T.intro, v)]

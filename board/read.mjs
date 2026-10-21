@@ -15,6 +15,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { rosterSafe } from '../lib/desk.mjs'
+import { desksHere } from '../lib/departments.mjs'
+import { readOfficeConfig } from '../lib/office.mjs'
 import { newestSession, readTail } from './transcript.mjs'
 import { openSync, readSync, closeSync } from 'node:fs'
 
@@ -178,7 +180,9 @@ export function gatherOffice(root, {
   uid = process.getuid(),
   now = Date.now(),
 } = {}) {
-  const { desks, broken } = rosterSafe(join(root, 'desks'))
+  const { desks: every, broken } = rosterSafe(join(root, 'desks'))
+  let desks = every
+  try { desks = desksHere(root, readOfficeConfig(root), every) } catch {}
   const rows = desks.map((d) => {
     const slug = slugFor(join(root, 'desks', d.name))
     const stats = transcriptStats(join(home, '.claude', 'projects', slug))

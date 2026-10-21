@@ -46,12 +46,14 @@ import { officeTimeline } from './timeline.mjs'
 import { collect } from '../checks/run.mjs'
 import { isMain } from '../lib/is-main.mjs'
 import { readOfficeConfig } from '../lib/office.mjs'
+import { desksHere, machineLeads } from '../lib/departments.mjs'
 
 // The chat's session list: every desk plus the LEAD, whose desk is the repo
 // root. key = the cwd slug, which is how Claude Code files both the
 // transcript and the scratchpad.
 export function chatRosterCheap(root) {
-  const { desks } = rosterSafe(join(root, 'desks'))
+  // another department's desks are not on this machine's board (lib/departments.mjs)
+  const desks = desksHere(root, readOfficeConfig(root), rosterSafe(join(root, 'desks')).desks)
   let lead = null
   try { lead = leadDesk(root) } catch { lead = null }
   return [
@@ -74,6 +76,10 @@ export const officeConfig = (root) => readOfficeConfig(root)
 // and recency only breaks ties.
 export function leadSessionName(root) {
   const c = officeConfig(root)
+  // with departments, this machine's first lead (lib/departments.mjs); the
+  // board's lead row is the root, and the first lead it names is the one sent to
+  const m = machineLeads(root, c)[0]
+  if (m) return m.session
   return typeof c.lead?.session === 'string' && c.lead.session.trim() ? c.lead.session.trim() : null
 }
 
@@ -274,7 +280,7 @@ export function panelBody(err, stdout, stderr) {
 
 export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
   const live = officeSessions(root, home)
-  const { desks } = rosterSafe(join(root, 'desks'))
+  const desks = desksHere(root, readOfficeConfig(root), rosterSafe(join(root, 'desks')).desks)
   const leadName = leadSessionName(root)
   const rows = [
     { key: slugFor(root), label: 'team-lead', sub: 'the repo root · ' + (leadName ? 'session ' + leadName : 'this machine\'s lead session'), desk: 'team-lead' },
