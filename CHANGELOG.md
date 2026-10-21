@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.1
+
+- `desks.mjs departments set <id> …` WORKS BEFORE office.json HAS A BLOCK. The
+  cutover is set every machine, then add the block, and 0.12.0 refused the first
+  step ("declares no departments: there is nothing to set"; the lead, at the
+  cutover). Without a block the ids are written as asked (department-id shaped)
+  and nothing changes; once the block arrives, an id it does not declare is an
+  error and starts are refused until it is fixed.
+- `desks.mjs department <id>` answers from an explicit setting before the block
+  exists too, so the owner's buyer machinery keeps starting through the cutover.
+
 ## 0.12.0
 
 > ## ⛔ BEFORE YOU ADD A `departments` BLOCK TO office.json
