@@ -183,7 +183,7 @@ export function gatherOffice(root, {
     const slug = slugFor(join(root, 'desks', d.name))
     const stats = transcriptStats(join(home, '.claude', 'projects', slug))
     return {
-      name: d.name, kind: d.kind, port: d.port, live: d.live,
+      name: d.name, title: d.title ?? d.name, kind: d.kind, port: d.port, live: d.live,
       stats,
       idleMin: stats ? Math.round((now - stats.lastActiveMs) / 60000) : null,
       worktop: worktop(join(tmp, `claude-${uid}`, slug)).map((f) => ({ ...f, ageMin: Math.round((now - f.at) / 60000) })),
