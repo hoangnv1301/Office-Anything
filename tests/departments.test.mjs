@@ -211,3 +211,41 @@ test('services: a shell that only mentions the pattern, or a process in another 
   assert.match(here.line, /service running here \(pid 903\)/)
   assert.doesNotMatch(here.line, /pid 902/)
 })
+
+test('⛔ a department lead never inherits office.json lead.start (it starts "lead", now an AICS alias); it starts by its own name', () => {
+  const depts = { 'local-ops': { lead: 'ERP', desks: ['design'] }, 'customer-service': { lead: 'AICS', aliases: ['lead'], desks: ['customer'] } }
+  const o = office({ machine: LOCAL, depts, cfg: { lead: { start: 'echo OLD-LEAD-LAUNCHER >> started.txt', wake: 'node bell.mjs' } } })
+  const erp = allLeads(o.cfg).find((l) => l.session === 'ERP')
+  assert.equal(erp.start, null)
+  assert.equal(erp.wake, 'node bell.mjs', 'the doorbell is shared; its state is per lead (lead-bell)')
+  const acts = o.healIt(o.health()).acts
+  const r = acts.find((a) => a.act === 'restart' && a.desk === 'lead:ERP')
+  assert.ok(r, JSON.stringify(acts))
+  assert.ok(!o.started().includes('OLD-LEAD-LAUNCHER'), 'the old launcher was not run')
+})
+
+test('⛔ a half-written block does not let a lead out of the wall: a bad department id, and the old lead.session, are still leads', async () => {
+  const o = office({ machine: LOCAL, depts: { 'Local Ops': { lead: 'ERP', desks: ['design'] } }, cfg: { lead: { session: 'old-lead' } } })
+  assert.ok(departmentsCheck(o.root).findings.some((f) => /not a department id/.test(f.say)))
+  for (const role of ['ERP', 'old-lead']) {
+    assert.equal(whoIs(o.root, o.cfg, { name: role, env: {} }).kind, 'lead', role)
+    const r = await decide(JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'rm -rf build' }, cwd: o.root }), { OFFICE_ROLE: role }, o.root)
+    assert.equal(r.code, 2, `${role} is walled`)
+  }
+  // the old name is never started as a lead of its own
+  assert.ok(!machineLeads(o.root, o.cfg).some((l) => l.session === 'old-lead'))
+})
+
+test('the lead bell keeps one state per lead when the office has departments', async () => {
+  const { stateFile } = await import('../lib/lead-bell.mjs')
+  assert.match(stateFile('/o'), /lead-bell-state\.json$/)
+  assert.notEqual(stateFile('/o', 'ERP'), stateFile('/o', 'AICS'))
+  assert.match(stateFile('/o', '工厂ERP'), /lead-bell-state-_[0-9a-f]+_[0-9a-f]+ERP\.json$/)
+})
+
+test('the board on a machine running both: its lead row is the owner\'s own (open) department lead, not key order', async () => {
+  const { leadSessionName } = await import('../board/serve.mjs')
+  const o = office({ machine: BOTH })
+  assert.equal(leadSessionName(o.root), 'AICS')
+  assert.equal(leadSessionName(office({ machine: LOCAL }).root), 'ERP')
+})

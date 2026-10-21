@@ -76,9 +76,11 @@ export const officeConfig = (root) => readOfficeConfig(root)
 // and recency only breaks ties.
 export function leadSessionName(root) {
   const c = officeConfig(root)
-  // with departments, this machine's first lead (lib/departments.mjs); the
-  // board's lead row is the root, and the first lead it names is the one sent to
-  const m = machineLeads(root, c)[0]
+  // with departments (lib/departments.mjs): the board is the owner's page, so
+  // its lead row is the lead of an "open" department (the owner's own) when
+  // this machine runs one, else this machine's first lead. Never key order alone
+  const ls = machineLeads(root, c)
+  const m = ls.find((l) => l.open) ?? ls[0]
   if (m) return m.session
   return typeof c.lead?.session === 'string' && c.lead.session.trim() ? c.lead.session.trim() : null
 }

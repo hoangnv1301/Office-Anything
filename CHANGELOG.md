@@ -6,8 +6,9 @@
 > ## run this on the owner's Mac FIRST:
 > ## `node lib/desks.mjs departments set local-ops customer-service`
 > A machine with a block and no setting starts and heals **no department lead**
-> (health says so in red), and the office's buyer machinery refuses to start
-> without an explicit customer-service setting. Set every machine, then add the block.
+> (health says so in red). The office's own buyer machinery is meant to check
+> `node lib/desks.mjs department customer-service` before it starts (ops' side),
+> so it too needs the setting. Set every machine, then add the block.
 
 - DEPARTMENTS, A LEAD PER DEPARTMENT (the owner 2026-10-21; spec
   docs/superpowers/specs/2026-10-21-departments-design.md in the office repo).
@@ -24,7 +25,15 @@
 - The wall: a desk reaches its own department's lead (any lead, in none), and
   leads reach each other. Desks on one machine still talk across departments.
   `wall.lead.open` lifts only a department with `"open": true`. ERP stays walled.
-- Heal restarts each lead on its own key and budget (`lead:<name>`).
+- Heal restarts each lead on its own key and budget (`lead:<name>`), by its own
+  name. A department lead never inherits `lead.start` (it starts the session "lead").
+- The lead bell keeps one state file per lead with departments, so ERP and AICS
+  on one machine do not consume each other's lines. Both still hear every alert:
+  routing alerts by department is not in 0.12.0.
+- A half-written block does not weaken the wall: a department with a bad id is
+  still read, and the old `lead.session` stays a (walled) lead by name.
+- The board's lead row is the `open` department's lead (the owner's own) on a
+  machine that runs one, else this machine's first lead.
 - Boot tells a department lead who it is, its desks and its instructions file,
   and lists to a desk only the desks this machine runs.
 - Health: red for a machine naming no department, a broken setting, a
