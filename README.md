@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-456%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-474%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -292,6 +292,44 @@ naming `desk-<name>` is one open item, and a command that fails is unknown, neve
 change the wall, the sandbox or the launch flags. A file that cannot be read stops starts
 instead of turning every desk on. A desk cannot write it: it is outside its wall.
 
+## Departments: a lead per department
+
+One office, several teams: the owner leads customer service, two colleagues run design and
+production on their own machines and never see a buyer. An office declares departments in
+`office.json`, each with its own lead session and its own desks (by id, the folder):
+
+```json
+"departments": {
+  "local-ops":        { "lead": "ERP",  "desks": ["design-quotation", "inventory"],
+                        "instructions": "desks/leads/ERP.md" },
+  "customer-service": { "lead": "AICS", "aliases": ["lead"], "desks": ["customer"], "open": true,
+                        "services": ["onetalk-reader\\.mjs"], "sweepsLease": "node scripts/lease.mjs" }
+}
+```
+
+Each machine says which it runs, in its own `.office/local.json`:
+
+```
+node lib/desks.mjs departments                               # what this machine runs, and what that means
+node lib/desks.mjs departments set local-ops customer-service
+node lib/desks.mjs department customer-service               # exit 0 only when this machine names it
+node lib/desks.mjs departments sweeps on                     # this machine runs the office-wide sweeps
+```
+
+- **No `departments` block: nothing changes.** One lead (`lead.session`), every desk everywhere.
+- A desk of a department this machine does not run is **outside**, not off: it is not started,
+  watched, swept, listed on the board or messaged here. A desk in no department is everyone's.
+- This machine starts and heals only its own departments' leads, each on its own restart budget.
+  **A block and no machine setting starts no department lead**, and health says so in red.
+- A desk reports to its own department's lead; leads reach each other. Desks of two departments
+  that run on one machine still message each other.
+- `wall.lead.open` lifts only a department that says `"open": true`. A department may give its
+  lead its own `bash` list, `wake` and `start`.
+- `services`: that department's background machinery, as regexes on a process's command line.
+  One running on a machine that does not name the department is red in health, by pid.
+- `sweepsLease`: a read-only command on a machine with `"sweeps": true`. Exit 0 this machine holds
+  the lease, 3 another does (its first line names it), anything else UNKNOWN.
+
 ## The checks
 
 One command audits any repo that carries desks, from anywhere:
@@ -311,6 +349,7 @@ node checks/run.mjs ~/code/some-repo    # every check, one exit code
 | `commit-convention` | does every commit since adoption say what kind of change it is |
 | `browser-on-demand` | does anything open a browser just because a session started |
 | `desk-wall` | do the office's wall rules compile, and has any desk run what they forbid |
+| `departments` | does the office's departments block say one thing: each desk in one department, each lead name in one |
 
 Exit 0 clean, 4 finding, 7 UNKNOWN — and **an empty walk is UNKNOWN, never clean**.
 

@@ -31,6 +31,8 @@ import { compileWall, judge } from '../lib/wall.mjs'
 import { openModule, MODULE_DEADLINE_MS } from '../lib/wall-module.mjs'
 import { isMain } from '../lib/is-main.mjs'
 import { versionVerdict } from '../lib/version.mjs'
+import { allLeads, leadsOfDesk, departmentsOf, deskScope } from '../lib/departments.mjs'
+import { rosterSafe } from '../lib/desk.mjs'
 import { resolve, join, sep } from 'node:path'
 import { existsSync, realpathSync, mkdirSync, appendFileSync } from 'node:fs'
 
@@ -118,10 +120,9 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     // ⛔ A BROKEN aliasNames IS NOT "NO DESK NAMES". The office said some
     // names are desks; dropping the pattern let them pass as developers.
     // Until it is fixed only the lead goes on (the desk-wall check names it).
-    const lead = typeof cfg.lead?.session === 'string' ? cfg.lead.session : null
     const role = (typeof cfg.roleEnv === 'string' && env[cfg.roleEnv]) || session
     aliasBroken = true
-    if (!(lead && role === lead) && session) return { code: 2, why: `⛔ desk wall: office.json wall.aliasNames does not compile (${e.message}), so this wall cannot tell a desk from a developer; only the lead goes on until it is fixed` }
+    if (!allLeads(cfg).some((l) => l.session === role) && session) return { code: 2, why: `⛔ desk wall: office.json wall.aliasNames does not compile (${e.message}), so this wall cannot tell a desk from a developer; only the lead goes on until it is fixed` }
   }
   const declared = Array.isArray(cfg.wall.aliasNames)
   // names the office's module maps to a desk: the declared patterns, or (an
@@ -175,13 +176,23 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     // Desks are judged exactly as before. Only the literal true opens it.
     // ⛔ ONLY THE LEAD BY NAME: whoIs also calls a desk folder whose desk.json says
     // kind "lead" the lead, and a file is not who a session is (security review)
-    const leadNamed = [cfg.lead?.session, ...(Array.isArray(cfg.lead?.aliases) ? cfg.lead.aliases : [])].filter((n) => typeof n === 'string' && n).includes(who.role)
+    // ⛔ WITH DEPARTMENTS, ONLY A DEPARTMENT THAT SAYS "open": true (the lead,
+    // 2026-10-22: the owner's own lead, customer-service). ERP runs on other
+    // people's machines and accounts, walled like the lead was before.
+    const myLead = allLeads(cfg).find((l) => l.names.includes(who.role)) ?? null
+    const leadNamed = !!myLead && (!departmentsOf(cfg).on || myLead.open)
     if (who.kind === 'lead' && leadNamed && cfg.wall?.lead?.open === true) { auditLead(root, p); return { code: 0 } }
     // office.json plugin.enforce: a desk does not run on a plugin version the office has not approved
     const ver = versionVerdict(cfg)
     if (ver && !ver.ok && ver.enforce && who.kind === 'desk') return say(`this machine loaded office-anything ${ver.loaded}, which this office has not approved (approved: ${ver.approved.join(', ')}); desks wait until the lead approves it or installs an approved one`)
     let W
-    try { W = compileWall({ ...cfg.wall, ...(aliasBroken ? { aliasNames: [] } : {}), root, roleEnv: cfg.roleEnv, leadSession: cfg.lead?.session, leadAliases: cfg.lead?.aliases, leadWake: cfg.lead?.wake }) }
+    // who this session may message as "the lead": a desk, its department's lead
+    // (any lead, for a desk in none); a lead, every lead (they hand over).
+    // A department lead's own wake, and its own Bash list when it gives one
+    const reach = who.kind === 'desk' ? leadsOfDesk(cfg, who.desk) : allLeads(cfg)
+    const names = reach.flatMap((l) => l.names)
+    const wallCfg = myLead?.bash ? { ...cfg.wall, lead: { ...(cfg.wall?.lead ?? {}), bash: myLead.bash } } : cfg.wall
+    try { W = compileWall({ ...wallCfg, ...(aliasBroken ? { aliasNames: [] } : {}), root, scope: deskScope(root, cfg, rosterSafe(join(root, 'desks')).desks), roleEnv: cfg.roleEnv, leadSession: names[0] ?? cfg.lead?.session, leadAliases: names.slice(1), leadWake: myLead?.wake ?? cfg.lead?.wake }) }
     catch (e) { return failClosed ? say('the wall broke while judging (' + e.message + '), and this office\'s wall fails closed') : { code: 0 } }
     if (cfg.wall.module) module()
     if (modErr && who.kind === 'desk') return failClosed ? refuseDesk(modErr) : { code: 0 }

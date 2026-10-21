@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 456 tests
+node --test "tests/**/*.test.mjs"    # 474 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -40,6 +40,13 @@ id (every key site reads it), `d.title` is desk.json `"name"` and `d.session` is
 back into a desk with `deskOfSession`. A rename is one edit to `"name"`. Every real desk
 had id == name, so a site reading the wrong one passes everything else:
 `tests/desk-id.test.mjs` drives each path through a desk whose folder is not its name.
+
+⛔ **Departments have two lead resolvers (0.12.0), and mixing them up starts AICS on a stranger's
+machine.** `allLeads` (identity: who IS a lead, the wall, duplicates) is office-wide;
+`machineLeads` (lifecycle: start, heal, health's lead rows) is only the departments this
+machine's `.office/local.json` names. A desk of another department is `deskOn(...).outside`,
+which is not "off": off desks may still be running and holding work. No `departments` block
+means exactly the old behaviour, pinned in `tests/departments.test.mjs`.
 
 ⛔ **Ports are declared, never derived from position in a list.** Deriving them means adding
 a desk called `billing` silently moves every desk alphabetically after it to a different

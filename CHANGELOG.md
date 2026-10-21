@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.12.0
+
+> ## ⛔ BEFORE YOU ADD A `departments` BLOCK TO office.json
+> ## run this on the owner's Mac FIRST:
+> ## `node lib/desks.mjs departments set local-ops customer-service`
+> A machine with a block and no setting starts and heals **no department lead**
+> (health says so in red). The office's own buyer machinery is meant to check
+> `node lib/desks.mjs department customer-service` before it starts (ops' side),
+> so it too needs the setting. Set every machine, then add the block.
+
+- DEPARTMENTS, A LEAD PER DEPARTMENT (the owner 2026-10-21; spec
+  docs/superpowers/specs/2026-10-21-departments-design.md in the office repo).
+  office.json `departments.<id>` gives `lead`, `aliases`, `desks` (ids),
+  `instructions`, `wake`, `start`, `open`, `bash`, `sweepsLease` and `services`.
+  Each machine names its own in `.office/local.json` `"departments"`.
+  **No block: nothing changes.**
+- Two resolvers. Identity (who is a lead) asks every lead the office declares.
+  Lifecycle (start, heal, health's lead rows) asks only the departments this
+  machine runs, so AICS is never started on a Local Ops machine, even by name.
+- A desk of a department this machine does not run is OUTSIDE, not off: not
+  started, watched, swept, alerted on, listed on the board or messaged here.
+  `desks.mjs on|off` refuses it. A desk in no department is everyone's.
+- The wall: a desk reaches its own department's lead (any lead, in none), and
+  leads reach each other. Desks on one machine still talk across departments.
+  `wall.lead.open` lifts only a department with `"open": true`. ERP stays walled.
+- Heal restarts each lead on its own key and budget (`lead:<name>`), by its own
+  name. A department lead never inherits `lead.start` (it starts the session "lead").
+- The lead bell keeps one state file per lead with departments, so ERP and AICS
+  on one machine do not consume each other's lines. Both still hear every alert:
+  routing alerts by department is not in 0.12.0.
+- A half-written block does not weaken the wall: a department with a bad id is
+  still read, and the old `lead.session` stays a (walled) lead by name.
+- The board's lead row is the `open` department's lead (the owner's own) on a
+  machine that runs one, else this machine's first lead.
+- Boot tells a department lead who it is, its desks and its instructions file,
+  and lists to a desk only the desks this machine runs.
+- Health: red for a machine naming no department, a broken setting, a
+  department's `services` running where it is not named, and a sweeps lease held
+  elsewhere. UNKNOWN when the lease command cannot answer.
+- CLI: `desks.mjs departments [set <id> … | sweeps on|off]`, and
+  `desks.mjs department <id>`, which exits 0 only on an explicit setting.
+- New check `departments`: a desk in two departments, a lead name in two, a
+  missing desk, a missing instructions file or a pattern that does not compile.
+
 ## 0.11.0
 
 - A DESK'S ID IS ITS FOLDER, ITS NAME IS ONE FIELD (the owner 2026-10-21: config in
