@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 444 tests
+node --test "tests/**/*.test.mjs"    # 456 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -33,6 +33,13 @@ audit a repo you did not write; the hook exists because the audit is too late.
 ```
 
 One file per desk. The roster, the port map, the docs table and the tests all read it.
+
+⛔ **The folder is the id; `"name"` is the session name (0.11.0).** In code, `d.name` is the
+id (every key site reads it), `d.title` is desk.json `"name"` and `d.session` is
+`desk-<title>`. Build a session name from `d.session`, never `'desk-' + d.name`; turn one
+back into a desk with `deskOfSession`. A rename is one edit to `"name"`. Every real desk
+had id == name, so a site reading the wrong one passes everything else:
+`tests/desk-id.test.mjs` drives each path through a desk whose folder is not its name.
 
 ⛔ **Ports are declared, never derived from position in a list.** Deriving them means adding
 a desk called `billing` silently moves every desk alphabetically after it to a different
@@ -110,7 +117,8 @@ and every one is now pinned by a test in `tests/robustness.test.mjs`.
    ever existed, so `fire` now suffixes rather than overwriting.
 3. **`desk.json` and its folder could disagree about the name.** Two statements of one fact,
    and downstream readers picked different ones: the port map keyed by the file, the paths
-   keyed by the folder.
+   keyed by the folder. (0.11.0: kept as one statement of the ID. The folder is the id; the
+   name may differ, because a rename edits only it.)
 4. **One malformed desk.json blinded every check.** All three returned UNKNOWN and six
    healthy desks went unexamined because of a typo in a seventh. `rosterSafe` reports the
    broken ones and keeps going.

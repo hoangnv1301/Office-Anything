@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-444%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-456%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -240,6 +240,26 @@ the `office.json` sections, install the plugin version that carries them and
 restart the desks (hooks arm only on a restart). With both running, the two
 walls agree and the desks hear the boot text twice; then remove your copies
 from each desk's `.claude/settings.json` and retire the scripts.
+
+## Rename a desk: edit one field
+
+A desk has an **id** and a **name**. The id is its folder, `desks/<id>/`, and never changes:
+everything the plugin keeps about a desk is keyed by it (`office.json` `closeWhenIdle`, this
+machine's `.office/local.json` switch, case claims, idle and heal state), and so is the desk's own
+conversation. The name is `"name"` in its `desk.json`: the session is `desk-<name>`, and that is
+what other desks message.
+
+**To rename a desk, edit `"name"` in `desks/<id>/desk.json`. Nothing else.**
+
+- The running desk keeps its old session name until it restarts. Health reads it as alive and
+  renamed, never dead, so no second desk is opened beside it. Heal closes it once it is idle (never
+  mid-work) and starts it again under the new name, resuming its own conversation.
+- A message to the old `desk-<id>` is refused with the name it has now.
+- Every desk's boot text lists the other desks under their names now, so nobody's instructions
+  need editing.
+- A name that is another desk's name or id makes both desks unreadable until it is fixed:
+  `desk-<x>` must name one folder. `node checks/run.mjs` says so.
+- Commands take either: `/desk-start <id or name>`, `node lib/desks.mjs off <id or name>`.
 
 ## Run only some desks on this machine
 

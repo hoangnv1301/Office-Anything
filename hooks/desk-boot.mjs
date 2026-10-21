@@ -22,7 +22,8 @@
 //   work     {dirs, files, flags}  regexes: work folders, and memory files inside them (case-blind unless flags say)
 //   max      number    how many to list (newest first)
 //   lead     [line]    what the lead is told instead
-//   text     {intro, wake, wakeNote, cwd, more, outro}   the desk's lines
+//   text     {intro, roster, wake, wakeNote, cwd, more, outro}   the desk's lines
+//            ({desk} is the desk's name now, {id} its folder; roster "" says none)
 import { readdirSync, statSync, existsSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname, basename } from 'node:path'
 import { readOfficeConfig, findOffice, whoIs, childOf, sessionName } from '../lib/office.mjs'
@@ -31,6 +32,7 @@ import { writeAlert } from '../lib/alerts.mjs'
 import { isMain } from '../lib/is-main.mjs'
 import { wakeCommand } from '../lib/wall.mjs'
 import { readSwitch, deskOn } from '../lib/desks.mjs'
+import { rosterSafe } from '../lib/desk.mjs'
 
 const DEFAULT = {
   memory: ['^facts\\.md$', '^(REPORT|RULE|BRIEF|REPLY)-.*\\.md$'],
@@ -45,6 +47,7 @@ const DEFAULT = {
     wakeNote: '  Each line it prints is one wake-up. When its expiry notice arrives, start it again at once. If one is already running, do not start another, and do not poll on your own.',
     cwd: '- ⚠ Your directory is {cwd}, not {deskRel}: your own {deskRel}/CLAUDE.md is not loaded. Read it first. The wall still treats you as desk-{desk}.',
     more: '- …and {n} older ones under {deskRel}/',
+    roster: '- The other desks, by the names to message them under now: {roster}.',
     outro: 'Then carry on. If you are unsure where you left off, ask the lead.',
   },
 }
@@ -78,7 +81,13 @@ export function bootLines(root, who, cfg, cwd) {
     if (workDirs.test(f) && statSync(full).isDirectory()) for (const g of readdirSync(full)) if (workFiles.test(g)) files.push(join(full, g))
   }
   files.sort((a, c) => statSync(c).mtimeMs - statSync(a).mtimeMs)
-  const v = { desk: who.desk, deskRel: rel(deskDir), cwd, where: basename(dirname(deskDir)) + '/' + basename(deskDir), n: Math.max(0, files.length - max) }
+  // ⛔ THE ROSTER IS PRINTED, NEVER COPIED (0.11.0). A desk learns who it can
+  // message from here, under each desk's name NOW, so a rename reaches every
+  // desk at its next start without anybody editing their instructions.
+  const roster = rosterSafe(join(root, 'desks')).desks
+  const me = roster.find((d) => d.name === who.desk)
+  const others = roster.filter((d) => d.name !== who.desk && d.kind !== 'lead').map((d) => `${d.session} (${d.kind}${d.description ? ': ' + String(d.description).split(/[.;:]/)[0].slice(0, 80) : ''})`)
+  const v = { desk: me?.title ?? who.desk, id: who.desk, roster: others.join('; '), deskRel: rel(deskDir), cwd, where: basename(dirname(deskDir)) + '/' + basename(deskDir), n: Math.max(0, files.length - max) }
   const out = [fill(T.intro, v)]
   // a case session (desk-<desk>--<key>): its case and its brief come first
   if (who.caseKey) out.push(fill(T.caseLine ?? DEFAULT_CASE, { ...v, key: who.caseKey, brief: rel(join(root, '.office', 'cases', `${who.desk}--${who.caseKey}.md`)) }))
@@ -95,6 +104,7 @@ export function bootLines(root, who, cfg, cwd) {
   if (cwd !== deskDir) out.push(fill(T.cwd, v))
   for (const f of files.slice(0, max)) out.push('- ' + rel(f))
   if (files.length > max) out.push(fill(T.more, v))
+  if (T.roster && others.length) out.push(fill(T.roster, v))
   if (T.outro) out.push(fill(T.outro, v))
   return out
 }

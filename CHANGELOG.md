@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.11.0
+
+- A DESK'S ID IS ITS FOLDER, ITS NAME IS ONE FIELD (the owner 2026-10-21: config in
+  one place, nothing hard-codes a name). Renaming a desk is one edit to `"name"` in
+  `desks/<id>/desk.json`. Before, it took ten minutes and "a ton of testing" and
+  still did not work, because the name had been copied into every place below.
+- Keyed by the id, so a rename touches none of them: `office.json`
+  `closeWhenIdle`, `.office/local.json`, case claims and briefs, idle, heal and
+  alert state, and the desk's own conversation (keyed by its folder).
+- The session is `desk-<name>`. start, the case sweep (`desk-<name>--<key>`),
+  health, heal, desk-watch, the board and the wall all read the name from
+  desk.json when they run. `/desk-start`, `desks.mjs on|off` and `cases.mjs`
+  take either the id or the name.
+- RENAMED WHILE RUNNING: a session still under the old name (the id) is alive and
+  "renamed", never dead, so no second desk opens beside it. Heal closes it once it
+  is idle, never mid-work, and starts it under the new name, resuming its own
+  conversation. A message to the old name is refused with the new one.
+- Boot prints the other desks under their names now (`boot.text.roster`; `""`
+  turns it off), so a desk learns who to message from boot, not from copied text.
+- desk.json may carry `"id"`: if it does, it must equal the folder. A name equal to
+  another desk's name or id makes both unreadable (`desk-readable` names them):
+  `desk-<x>` must name one folder. hire refuses such a name.
+- RETIRED: "desk.json and its folder must agree on the name". It is now "agree on
+  the id" (tests/robustness.test.mjs). tests/desk-id.test.mjs drives every path
+  through a desk whose folder is not its name.
+
 ## 0.10.11
 
 - The lead audit log also redacts QUOTED credential values (`--password "a b"`,

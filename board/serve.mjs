@@ -56,7 +56,7 @@ export function chatRosterCheap(root) {
   try { lead = leadDesk(root) } catch { lead = null }
   return [
     { key: slugFor(root), label: lead?.name ?? 'team-lead', desk: lead?.name ?? 'team-lead', port: lead?.port },
-    ...desks.map((d) => ({ key: slugFor(join(root, 'desks', d.name)), label: d.name, desk: d.name, port: d.port })),
+    ...desks.map((d) => ({ key: slugFor(join(root, 'desks', d.name)), label: d.title ?? d.name, desk: d.name, port: d.port })),
   ]
 }
 
@@ -181,7 +181,7 @@ function expectedNames(root) {
   const m = new Map()
   const lead = leadSessionName(root)
   if (lead) m.set(root, lead)
-  for (const d of rosterSafe(join(root, 'desks')).desks) m.set(join(root, 'desks', d.name), 'desk-' + d.name)
+  for (const d of rosterSafe(join(root, 'desks')).desks) m.set(join(root, 'desks', d.name), d.session)
   return m
 }
 export const officeSessions = (root, home = homedir()) => {
@@ -278,7 +278,7 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
   const leadName = leadSessionName(root)
   const rows = [
     { key: slugFor(root), label: 'team-lead', sub: 'the repo root · ' + (leadName ? 'session ' + leadName : 'this machine\'s lead session'), desk: 'team-lead' },
-    ...desks.map((d) => ({ key: slugFor(join(root, 'desks', d.name)), label: d.name, sub: d.kind + (d.live ? ' · LIVE' : ''), desk: d.name, port: d.port, kind: d.kind })),
+    ...desks.map((d) => ({ key: slugFor(join(root, 'desks', d.name)), label: d.title ?? d.name, sub: d.kind + (d.live ? ' · LIVE' : ''), desk: d.name, port: d.port, kind: d.kind })),
   ]
   for (const r of rows) {
     const dir = join(home, '.claude', 'projects', r.key)

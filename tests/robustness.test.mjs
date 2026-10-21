@@ -40,12 +40,21 @@ test('⛔ firing the same name twice in a day NEVER overwrites the first archive
   clean(root)
 })
 
-test('⛔ desk.json and its folder must agree on the name', () => {
+// ⛔ RETIRED 0.11.0: "desk.json and its folder must agree on the name". The
+// fault it pinned (two statements of one fact, each reader picking a different
+// one) is kept, as one statement of the ID: the folder is the id, and a
+// desk.json "id" must say the same. The name is free to differ from the folder,
+// because that is what a rename edits (tests/desk-id.test.mjs).
+test('⛔ desk.json and its folder must agree on the id', () => {
   const root = fresh()
-  badDesk(root, 'renamed', { name: 'OLDNAME', kind: 'knowledge', port: 9227 })
-  const { broken } = rosterSafe(join(root, 'desks'))
-  assert.equal(broken.length, 1, 'two statements of one fact that disagree')
-  assert.match(broken[0].why, /says "OLDNAME" but sits in a folder called "renamed"/)
+  badDesk(root, 'renamed', { id: 'oldname', name: 'renamed', kind: 'knowledge', port: 9227 })
+  badDesk(root, 'moved', { name: 'OLDNAME', kind: 'knowledge', port: 9228 })
+  badDesk(root, 'fine', { name: 'a-new-name', kind: 'knowledge', port: 9229 })
+  const { broken, desks } = rosterSafe(join(root, 'desks'))
+  assert.equal(broken.length, 2, 'two statements of one id that disagree, and a name that is no desk name')
+  assert.match(broken.find((b) => b.desk === 'renamed').why, /"id" says "oldname" but sits in a folder called "renamed"/)
+  assert.match(broken.find((b) => b.desk === 'moved').why, /name "OLDNAME" is not a desk name/)
+  assert.deepEqual(desks.map((d) => [d.name, d.title]), [['fine', 'a-new-name']])
   clean(root)
 })
 
