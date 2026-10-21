@@ -137,3 +137,55 @@ test('the README says idle compact is off unless office.json says "compact"', ()
   const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8')
   assert.match(readme, /\*\*Off unless `office\.json` says `"compact"`\.\*\*/)
 })
+
+// ── 0.14.0: what compaction keeps ───────────────────────────────────────────
+import { instructionsBlock, hasInstructions, afterLines, KEEP } from '../lib/compact.mjs'
+import { report as compactInstructionsCheck } from '../checks/compact-instructions.mjs'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+
+test('instructions: a CLAUDE.md "Compact Instructions" section, defaults or office.json keep/drop, plus the desk\'s or the lead\'s own lines', () => {
+  const b = instructionsBlock({}, { desk: { name: 'inventory', compactKeep: ['stock counts promised today'] } })
+  assert.ok(hasInstructions(b))
+  for (const k of KEEP) assert.ok(b.includes(`- ${k}`))
+  assert.match(b, /- stock counts promised today/)
+  assert.match(b, /Drop:\n- tool output/)
+  const lead = instructionsBlock({ compact: { keep: ['A'], drop: ['B'], leadKeep: ['the owner\'s owed list'] } }, { isLead: true })
+  assert.match(lead, /keep:\n- A\n- the owner's owed list\n\nDrop:\n- B\n/)
+  assert.doesNotMatch(lead, /open buyers/, 'office.json keep replaces the defaults')
+})
+
+test('check: an office that compacts and a desk or the lead without the section is a finding; pasting it clears it', () => {
+  const o = office()
+  writeFileSync(join(o.desk, 'CLAUDE.md'), '# inventory\n')
+  const r = compactInstructionsCheck(o.root)
+  assert.equal(r.code, 4)
+  assert.deepEqual(r.findings.map((f) => f.desk).sort(), ['inventory', 'lead'])
+  writeFileSync(join(o.desk, 'CLAUDE.md'), '# inventory\n\n' + instructionsBlock({}, { desk: { name: 'inventory' } }))
+  writeFileSync(join(o.root, 'CLAUDE.md'), instructionsBlock({}, { isLead: true }))
+  assert.equal(compactInstructionsCheck(o.root).code, 0)
+  assert.equal(compactInstructionsCheck(office({ cfg: {} }).root).applicable, false)
+})
+
+test('after compaction: the office\'s read-only command, {desk} filled with the id, at most 40 lines; a failure says UNKNOWN', () => {
+  const o = office()
+  const cfg = { compact: { after: { lead: 'printf "owed: Q1\\ndecided: D7\\n"', desk: 'echo open for {desk}' } } }
+  assert.deepEqual(afterLines(o.root, cfg, { isLead: true, run: spawnSync }), ['After compaction, what is open right now:', 'owed: Q1', 'decided: D7'])
+  assert.deepEqual(afterLines(o.root, cfg, { desk: 'inventory', run: spawnSync }), ['After compaction, what is open right now:', 'open for inventory'])
+  assert.equal(afterLines(o.root, cfg, { desk: 'x; rm -rf /', run: spawnSync }).length, 0, 'a desk id is never shell text')
+  assert.match(afterLines(o.root, { compact: { after: { lead: 'exit 3' } } }, { isLead: true, run: spawnSync })[0], /did not answer: exit 3; what is open is UNKNOWN/)
+  const many = afterLines(o.root, { compact: { after: { lead: 'seq 1 60' } } }, { isLead: true, run: spawnSync })
+  assert.equal(many.length, 42)
+  assert.match(many.at(-1), /and 20 more lines/)
+})
+
+test('⛔ the boot hook prints it on a SessionStart from compaction only, and leaves every other boot exactly as it was', () => {
+  const o = office()
+  writeFileSync(join(o.root, 'office.json'), JSON.stringify({ roleEnv: 'OFFICE_ROLE', lead: { session: 'Office Lead' }, compact: { after: { lead: 'echo owed Q1', desk: 'echo open {desk}' } } }))
+  const hook = fileURLToPath(new URL('../hooks/desk-boot.mjs', import.meta.url))
+  const run = (source, role, cwd) => spawnSync(process.execPath, [hook], { input: JSON.stringify({ source, cwd }), env: { ...process.env, OFFICE_ROLE: role }, encoding: 'utf8' }).stdout
+  assert.match(run('compact', 'Office Lead', o.root), /After compaction, what is open right now:\nowed Q1/)
+  assert.match(run('compact', 'desk-inventory', o.desk), /open inventory/)
+  assert.equal(run('startup', 'Office Lead', o.root), '', 'no boot block, no wake: a fresh start prints nothing, as before')
+  assert.equal(run('resume', 'desk-inventory', o.desk), '')
+})

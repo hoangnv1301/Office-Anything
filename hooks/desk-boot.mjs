@@ -34,6 +34,8 @@ import { wakeCommand } from '../lib/wall.mjs'
 import { readSwitch, deskOn } from '../lib/desks.mjs'
 import { rosterSafe } from '../lib/desk.mjs'
 import { allLeads, deskScope } from '../lib/departments.mjs'
+import { afterLines } from '../lib/compact.mjs'
+import { spawnSync } from 'node:child_process'
 
 const DEFAULT = {
   memory: ['^facts\\.md$', '^(REPORT|RULE|BRIEF|REPLY)-.*\\.md$'],
@@ -137,13 +139,21 @@ if (isMain(import.meta.url)) {
         console.log(`⚠ This session loaded office-anything ${v.loaded ?? '(unknown)'}, which this office has not approved (approved: ${v.approved.join(', ') || 'none'}). ${v.enforce ? 'Desk sessions are refused until it is.' : 'The lead has been told.'}`)
         try { writeAlert(root, cfg, { type: 'VERSION', subject: 'office-anything', text: `loaded ${v.loaded}, approved ${v.approved.join(',')}${v.enforce ? ' (enforce: desks refused)' : ''}`, quietKey: 'version:' + v.loaded }) } catch {}
       }
-      if ((!cfg.boot || typeof cfg.boot !== 'object') && !(typeof cfg.lead?.wake === 'string' && cfg.lead.wake.trim())) process.exit(0)
+      const afterCompact = p?.source === 'compact' && !!cfg.compact?.after
+      if ((!cfg.boot || typeof cfg.boot !== 'object') && !(typeof cfg.lead?.wake === 'string' && cfg.lead.wake.trim()) && !afterCompact) process.exit(0)
       const who = whoIs(root, cfg, { cwd })
       // a case session runs under its parent's role, so its own name says which case it is
       const child = childOf(root, sessionName())
       if (child && who?.kind === 'desk' && who.desk === child.parent) who.caseKey = child.key
       if (!who || (who.kind === 'desk' && !existsSync(join(who.dir, 'desk.json')))) process.exit(0)
-      const lines = bootLines(root, who, cfg, cwd)
+      // exactly the old boot when it would have run; only the after-compact lines when that alone let it in
+      const booted = (cfg.boot && typeof cfg.boot === 'object') || (typeof cfg.lead?.wake === 'string' && cfg.lead.wake.trim())
+      const lines = booted ? bootLines(root, who, cfg, cwd) : []
+      // ⛔ AFTER A COMPACTION (SessionStart source "compact", documented to add
+      // its output to the compacted context): what is open right now, from the
+      // office's own read-only command (office.json compact.after). A case
+      // session is its parent desk's: it gets the desk's lines.
+      if (p?.source === 'compact' && (who.kind === 'lead' || who.kind === 'desk')) lines.push(...afterLines(root, cfg, { isLead: who.kind === 'lead', desk: who.desk, run: spawnSync }))
       if (lines.length) console.log(lines.join('\n'))
     } catch {}
     process.exit(0)

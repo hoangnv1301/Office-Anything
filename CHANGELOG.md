@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.14.0
+
+- WHAT COMPACTION KEEPS, manual or automatic, on the two documented paths (the
+  owner: use the custom compact well). The docs were checked first:
+  - A CLAUDE.md "Compact Instructions" section steers compaction. Its scope
+    (manual, auto, both) is not stated.
+  - A PreCompact hook can only block compaction, never add to it.
+  - SessionStart "compact" output is added to the compacted context.
+- `node lib/compact.mjs instructions <desk-id|lead>` prints the `## Compact
+  Instructions` section to paste into CLAUDE.md. It is built from `compact.keep` /
+  `compact.drop` (defaults: keep open buyers and promises, owner decisions, the
+  current job and pointers; drop tool output, dumps and old diffs), plus the
+  desk's `compactKeep` and the lead's `compact.leadKeep`.
+- `compact.after: { lead, desk }`: a read-only command whose output (at most 40
+  lines, 20 s) the boot hook prints only when a session restarts from a
+  compaction. For the lead: the owed list, today's decisions, merged-but-not-
+  deployed PRs and running workers. A failure prints a line saying "UNKNOWN".
+  A desk id is never shell text. Every other boot is exactly as before.
+- New check `compact-instructions`: a session the office compacts whose
+  CLAUDE.md has no such section.
+
 ## 0.13.0
 
 - IDLE COMPACT (the owner 2026-10-22: the 20x plan used up in days). With
