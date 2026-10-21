@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.13.0
+
+- IDLE COMPACT (the owner 2026-10-22: the 20x plan used up in days). With
+  `"compact"` in office.json, heal types `/compact <focus>` into a desk or lead
+  that is idle at its prompt for `idleMin` (30) with a context above `aboveK`
+  (150K), at most once per `everyMin` (120). Per desk: `compactIdleMin`,
+  `compactAboveK`, `compactFocus`, `"compact": false`. `compact.lead: false`
+  leaves the lead out. **Off unless office.json says "compact".**
+- Never mid-turn and never into a dialog. The registry must say idle, and no
+  tool call can be waiting for an answer. Heal looks again just before it types:
+  same pid, same status stamp, exactly one tab with that title.
+- The focus is at most 300 characters and holds pointers: the office's line, the
+  desk's line and the open task ids. orca types at human speed.
+- Health: `fat contexts: <session> <K>, …` names every live office session at or
+  above `aboveK`, fattest first, including case sessions and buyer teammates
+  (shown only; only desks and leads are compacted).
+- Not done, on purpose: compacting "before a new request" from a hook. A hook
+  cannot run /compact; it could only refuse the message.
+- The compact window itself is office.json `context.capTokens` / `lead`
+  (unchanged). It applies when a session restarts.
+
 ## 0.12.1
 
 - `desks.mjs departments set <id> …` WORKS BEFORE office.json HAS A BLOCK. The

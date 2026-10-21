@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-475%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-483%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -562,6 +562,28 @@ when there is work:
 ```bash
 until out=$(node lib/sweep.mjs once); [ -n "$out" ]; do sleep 1800; done; echo "$out"
 ```
+
+## Idle compact: a fat session is compacted before its next request
+
+Every turn re-reads the whole context, so a session that sat idle at 500K pays for 500K on the
+next message. With `"compact"` in `office.json`, heal types `/compact <focus>` into a desk or lead
+session that is **idle at its prompt for `idleMin` with a context above `aboveK`**:
+
+```json
+"compact": { "idleMin": 30, "aboveK": 150, "everyMin": 120, "lead": true,
+             "focus": "Keep: open buyers and promises, owner decisions of the last 7 days, the current job." }
+```
+
+A desk may set `compactIdleMin`, `compactAboveK`, `compactFocus`, or `"compact": false` in its
+`desk.json`; `"lead": false` leaves the lead out. **Off unless `office.json` says `"compact"`.**
+
+- Never mid-turn and never into a dialog: idle in the registry, no tool call waiting for an answer,
+  and heal looks again right before it types (same pid, same status stamp). One tab of that name,
+  or nothing is typed. At most once per `everyMin`.
+- The focus is short (300 characters) and is pointers, not content: the office's line, the desk's
+  line, the open task ids. Anything durable belongs in the book or memory already.
+- Health shows every office session at or above `aboveK`, fattest first:
+  `fat contexts: lead 845K, cs-… 686K, desk-customer 296K`.
 
 ## The context cap: compact before a session gets expensive
 
