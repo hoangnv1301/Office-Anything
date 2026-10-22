@@ -12,10 +12,10 @@
 // Exit 0 clean, 4 finding, 7 UNKNOWN.
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { rosterSafe, portCollisions } from '../lib/desk.mjs'
+import { rosterSafe, portCollisions, officeRoster, hasDesks } from '../lib/desk.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
-export const applies = (root) => existsSync(join(root, 'desks'))
+export const applies = (root) => hasDesks(root)
 
 // Paths in a finding are for a human reading a terminal, so they are relative to the
 // project. An absolute path on a nested temp directory wraps three lines and hides the point.
@@ -23,7 +23,7 @@ const rel = (root, msg) => msg.split(`${root}/`).join('')
 
 export function report(root = process.cwd()) {
   if (!applies(root)) return { code: 0, applicable: false, why: 'no desks/ directory' }
-  const { desks, broken } = rosterSafe(join(root, 'desks'))
+  const { desks, broken } = officeRoster(root)
 
   if (broken.length) {
     return {

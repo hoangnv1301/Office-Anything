@@ -10,22 +10,22 @@
 // Exit 0 clean, 4 finding.
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { rosterSafe } from '../lib/desk.mjs'
+import { rosterSafe, officeRoster, hasDesks } from '../lib/desk.mjs'
 import { readOfficeConfig } from '../lib/office.mjs'
 import { hasInstructions, compactConfig } from '../lib/compact.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 const cfgOf = (root) => { try { return readOfficeConfig(root) } catch { return {} } }
-export const applies = (root) => existsSync(join(root, 'desks')) && !!cfgOf(root).compact && typeof cfgOf(root).compact === 'object'
+export const applies = (root) => hasDesks(root) && !!cfgOf(root).compact && typeof cfgOf(root).compact === 'object'
 
 export function report(root = process.cwd()) {
   if (!applies(root)) return { code: 0, applicable: false, why: 'office.json does not compact its sessions ("compact")' }
   const cfg = cfgOf(root)
   const read = (f) => { try { return readFileSync(f, 'utf8') } catch { return '' } }
   const findings = []
-  for (const d of rosterSafe(join(root, 'desks')).desks) {
+  for (const d of officeRoster(root).desks) {
     if (d.kind === 'lead' || !compactConfig(cfg, { desk: d })) continue
-    if (!hasInstructions(read(join(root, 'desks', d.name, 'CLAUDE.md')))) findings.push({ desk: d.name, say: `CLAUDE.md has no "## Compact Instructions" section: paste node lib/compact.mjs instructions ${d.name}` })
+    if (!hasInstructions(read(join(d.dir, 'CLAUDE.md')))) findings.push({ desk: d.name, say: `CLAUDE.md has no "## Compact Instructions" section: paste node lib/compact.mjs instructions ${d.name}` })
   }
   if (compactConfig(cfg, { isLead: true }) && !hasInstructions(read(join(root, 'CLAUDE.md')))) findings.push({ desk: 'lead', say: 'the root CLAUDE.md has no "## Compact Instructions" section: paste node lib/compact.mjs instructions lead' })
   return findings.length

@@ -21,10 +21,10 @@
 // Exit 0 clean, 4 finding, 7 UNKNOWN.
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { rosterSafe } from '../lib/desk.mjs'
+import { rosterSafe, officeRoster, hasDesks } from '../lib/desk.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
-export const applies = (root) => existsSync(join(root, 'desks'))
+export const applies = (root) => hasDesks(root)
 
 // the hook events that fire without any tool asking for anything
 export const EAGER_EVENTS = ['SessionStart', 'Setup', 'UserPromptSubmit']
@@ -82,7 +82,7 @@ export function eagerLaunches(settingsFile, projectDir) {
 
 export function report(root = process.cwd()) {
   if (!applies(root)) return { code: 0, applicable: false, why: 'no desks/ directory' }
-  const { desks } = rosterSafe(join(root, 'desks'))
+  const { desks } = officeRoster(root)
   if (!desks.length) return { code: 0, applicable: false, why: 'no desks yet' }
   const places = [{ who: 'the office', dir: root }, ...desks.map((d) => ({ who: d.name, dir: d.dir }))]
   const findings = []

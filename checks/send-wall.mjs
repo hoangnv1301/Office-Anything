@@ -14,7 +14,7 @@
 // Exit 0 clean, 4 finding, 7 UNKNOWN.
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { rosterSafe, mayHold } from '../lib/desk.mjs'
+import { rosterSafe, mayHold, officeRoster, hasDesks } from '../lib/desk.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 const SENDER = /\.(mjs|js|ts|py)$/
@@ -22,7 +22,7 @@ const SENDER = /\.(mjs|js|ts|py)$/
 // ⛔ `applies` IS WHY INSTALLING THIS IS SAFE. With no desks/ directory there is nothing
 // to have an opinion about, and this reports NOT APPLICABLE rather than passing. A check
 // that "passes" when it looked at nothing is how a green board comes to mean nothing.
-export const applies = (root) => existsSync(join(root, 'desks'))
+export const applies = (root) => hasDesks(root)
 
 const hasSender = (dir) => {
   for (const sub of ['send', 'relay']) {
@@ -36,7 +36,7 @@ export function report(root = process.cwd()) {
   if (!applies(root)) {
     return { code: 0, applicable: false, why: 'no desks/ directory, so there is no wall to check' }
   }
-  const { desks, broken } = rosterSafe(join(root, 'desks'))
+  const { desks, broken } = officeRoster(root)
   // A desk this cannot read is skipped in silence. desk-readable owns that finding, and
   // one fault reported by four checks is how a board stops being read.
   // ⛔ NOT APPLICABLE, not UNKNOWN. There are no desks, so there is nothing here to

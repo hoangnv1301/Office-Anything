@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 502 tests
+node --test "tests/**/*.test.mjs"    # 515 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -53,6 +53,11 @@ means exactly the old behaviour, pinned in `tests/departments.test.mjs`.
 the reset OR another session answering after it; the banner's reset alone would have kept
 alibaba-98 waiting five days. The registry's `tmux` field is not an address either: Orca writes
 the same pane for every session.
+
+⛔ **A desk's folder is `d.dir`, never `join(root, 'desks', id)` (0.16.0).** Desks may live in
+`departments/<dept>/<id>/`; `lib/desk.mjs` (`officeRoster`, `deskDir`, `deskAt`, `deskRoots`) is the
+one owner. Every real desk sat in `desks/`, so a hand-built path passes everything else:
+`tests/department-folders.test.mjs` drives an office with no `desks/` and walks the code for them.
 
 ⛔ **Ports are declared, never derived from position in a list.** Deriving them means adding
 a desk called `billing` silently moves every desk alphabetically after it to a different

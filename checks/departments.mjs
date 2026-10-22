@@ -12,7 +12,7 @@
 // Exit 0 clean, 4 finding.
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { rosterSafe } from '../lib/desk.mjs'
+import { rosterSafe, officeRoster } from '../lib/desk.mjs'
 import { readOfficeConfig } from '../lib/office.mjs'
 import { departmentsOf } from '../lib/departments.mjs'
 import { isMain } from '../lib/is-main.mjs'
@@ -24,9 +24,16 @@ export function report(root = process.cwd()) {
   if (!applies(root)) return { code: 0, applicable: false, why: 'office.json declares no departments' }
   const D = departmentsOf(cfgOf(root))
   if (D.ignored) return { code: 0, applicable: false, why: D.ignored }
-  const desks = rosterSafe(join(root, 'desks')).desks
+  const desks = officeRoster(root).desks
   const ids = new Set(desks.map((d) => d.name))
   const findings = D.problems.map((say) => ({ desk: 'office.json', say }))
+  // ⛔ A DESK'S FOLDER AND ITS LISTING SAY ONE THING (0.16.0): a desk sitting in
+  // one department's folder while office.json lists it under another
+  for (const d of desks) {
+    if (d.department == null) continue
+    const listed = D.byDesk.get(d.name)
+    if (listed !== d.department) findings.push({ desk: d.name, say: listed ? `sits in ${d.department}'s folder but office.json lists it under ${listed}: one desk, one department` : `sits in ${d.department}'s folder but office.json lists it under no department: add it to ${d.department}'s "desks"` })
+  }
   for (const d of D.list) {
     for (const k of d.desks) if (!ids.has(k)) findings.push({ desk: d.id, say: `names desk "${k}", which is no desk here (desks are named by id, the folder)` })
     if (d.instructions && !existsSync(join(root, d.instructions))) findings.push({ desk: d.id, say: `its lead's instructions ${d.instructions} do not exist` })

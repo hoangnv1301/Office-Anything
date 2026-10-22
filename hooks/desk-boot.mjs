@@ -32,7 +32,7 @@ import { writeAlert } from '../lib/alerts.mjs'
 import { isMain } from '../lib/is-main.mjs'
 import { wakeCommand } from '../lib/wall.mjs'
 import { readSwitch, deskOn } from '../lib/desks.mjs'
-import { rosterSafe } from '../lib/desk.mjs'
+import { rosterSafe, officeRoster } from '../lib/desk.mjs'
 import { allLeads, deskScope } from '../lib/departments.mjs'
 import { afterLines } from '../lib/compact.mjs'
 import { spawnSync } from 'node:child_process'
@@ -68,7 +68,7 @@ export function bootLines(root, who, cfg, cwd) {
     // own desks, under their names now; its own doorbell, else lead.wake
     const L = allLeads(cfg).find((l) => l.names.includes(who.role)) ?? null
     if (L?.department) {
-      const ds = rosterSafe(join(root, 'desks')).desks.filter((d) => (L.desks ?? []).includes(d.name)).map((d) => d.session)
+      const ds = officeRoster(root).desks.filter((d) => (L.desks ?? []).includes(d.name)).map((d) => d.session)
       out.push(`You are ${L.session}, the lead of department ${L.department}.${ds.length ? ` Your desks: ${ds.join(', ')}.` : ''} Other departments' work reaches you through the book, not by message.`)
       if (L.instructions) out.push(`Read ${L.instructions} before anything else.`)
     }
@@ -95,7 +95,7 @@ export function bootLines(root, who, cfg, cwd) {
   // ⛔ THE ROSTER IS PRINTED, NEVER COPIED (0.11.0). A desk learns who it can
   // message from here, under each desk's name NOW, so a rename reaches every
   // desk at its next start without anybody editing their instructions.
-  const all = rosterSafe(join(root, 'desks')).desks
+  const all = officeRoster(root).desks
   const scope = deskScope(root, cfg, all)
   const roster = scope ? all.filter((d) => scope.has(d.name)) : all
   const me = all.find((d) => d.name === who.desk)

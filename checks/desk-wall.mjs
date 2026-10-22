@@ -15,13 +15,13 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { homedir } from 'node:os'
-import { rosterSafe } from '../lib/desk.mjs'
+import { rosterSafe, officeRoster, hasDesks } from '../lib/desk.mjs'
 import { readOfficeConfig } from '../lib/office.mjs'
 import { compileWall, leadBashProblems } from '../lib/wall.mjs'
 import { isMain } from '../lib/is-main.mjs'
 import { slugFor } from '../board/read.mjs'
 
-export const applies = (root) => existsSync(join(root, 'desks')) && !!readOfficeConfig(root).wall
+export const applies = (root) => hasDesks(root) && !!readOfficeConfig(root).wall
 
 // the same slug the board uses to find a desk's sessions (one owner)
 const projectDirOf = (dir, home) => join(home, '.claude', 'projects', slugFor(dir))
@@ -36,7 +36,7 @@ export function report(root = process.cwd(), { home = homedir() } = {}) {
   for (const [i, p] of (Array.isArray(w.audit) ? w.audit : []).entries()) {
     try { new RegExp(p) } catch (e) { findings.push({ desk: 'office.json', say: `wall.audit[${i}] does not compile: ${e.message}` }) }
   }
-  const { desks } = rosterSafe(join(root, 'desks'))
+  const { desks } = officeRoster(root)
   if (!desks.length) return findings.length ? { code: 4, applicable: true, why: `${findings.length} wall rule(s) broken`, findings } : { code: 0, applicable: false, why: 'no desks yet' }
   const audit = (Array.isArray(w.audit) ? w.audit : []).flatMap((p) => { try { return [new RegExp(`"command":"[^"]*(?:${p})[^"]*"`, 'g')] } catch { return [] } })
   let read = 0
