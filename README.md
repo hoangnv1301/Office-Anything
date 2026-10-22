@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-549%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-553%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -518,7 +518,10 @@ node lib/tasks.mjs list [--all] [--json]
   `"^node {plugin}/lib/tasks\\.mjs (add|update|verify|drop|list)( ARG)*$"` (ARG as in the lead.bash
   example above). `{plugin}` is the one placeholder the wall knows: it expands to the running
   plugin's own folder, so the entry survives an update. It must appear once, right after `node`, and
-  name one real file in that folder; any other use is dropped like an unanchored entry.
+  name one real file in that folder; any other use is dropped like an unanchored entry. A session
+  keeps the wall it started with, so `{plugin}` (and a session's own `wake`) also matches any NEWER
+  version installed beside it in the plugin cache that really is this plugin: an update does not
+  strand a running lead. Never an older version, another plugin, or a link to somewhere else.
 - **Every session works from it.** `list --assigned <name>` (`desk-x` matches `x`), `--overdue` and
   `--owner` filter the list. At start, resume, clear and compact a desk or a dev session (any session
   with a registry name: `ops-construction`, `alibaba-98`…) is shown only the open tasks assigned to
@@ -810,7 +813,9 @@ Each run of the watchdog:
   `"watchdog": { "restartLead": false }` turns it off;
 - starts every lead or desk that has a doorbell (`wake`) with a one-line first message telling it to
   arm the doorbell, so a session it restarts is never left deaf; and types that same line into a lead
-  found with its doorbell unarmed (idle at an empty prompt only, at most every 30 minutes);
+  found with its doorbell unarmed (idle at an empty prompt only, at most every 30 minutes). The line
+  goes after `--`, because a flag with an optional value (`--remote-control [name]`) takes the word
+  after it, and start says "given its first message" only once it saw the session work on it;
 - runs the `heal` of every failing `health` check;
 - writes every act to `.office/heal.log` and what needs a person to `.office/alerts.log`, where the lead reads it.
 
