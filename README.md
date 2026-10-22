@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-515%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-529%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -364,6 +364,42 @@ its lead works from. Say where with `dir` (default `departments/<id>`):
   `<name>-N` workers) in `usage.order`, then by folder, then `usage.default`.
 - `construction` lists the builders, one per codebase. A builder is **not a lead**: the lead's wall
   writes no file, and a builder writes code.
+
+## Roles: open a session as who you mean to be
+
+A session's `CLAUDE.md`, its settings deny list, `claudeMdExcludes` and its name are fixed when it
+starts. So a role is never switched in place: it is a **new** session, started with that role's
+folder, `--name` and `--settings`. The roles are `office.json` `"profiles"`:
+
+```json
+"profiles": {
+  "construction": { "cwd": ".", "deny": ["Read(./departments/**/*)"], "note": "Do not search departments/." },
+  "full":         { "cwd": "." },
+  "aics":         { "department": "customer-service", "claudeMdExcludes": ["**/local-cabinets-ops/CLAUDE.md"] },
+  "erp":          { "department": "local-ops" }
+}
+```
+
+```
+office              # this machine's default role (.office/local.json "role"), else a menu
+office aics         # that role, in this terminal
+/role               # inside any session: pick one, and it opens in a NEW tab
+node lib/role.mjs install   # put `office` on this machine's PATH
+```
+
+- A department's role takes the department's folder and its lead's name (`aics` is `AICS` in
+  `departments/aics`), and shows only on a machine whose `.office/local.json` names it.
+- A builder's role (named like an `office.json` `"construction"` entry, or `"builder": "<name>"`)
+  takes the builder's name, model and root, which may be another codebase's root.
+- **The settings file is generated, never in the repo**: `~/.office/profiles/<office>/<role>.json`,
+  rewritten from `office.json` on every launch. **Globs, not machine paths**: a rule's `/x` is
+  relative to that generated file, so `/x`, `//x` and `~/x` are refused; write `./x` or `**/x`.
+- **Never two sessions under one name.** A role already running (the CLI's registry: its name and
+  folder) is brought forward ("AICS is already open: Orca tab …") instead of opened again.
+- New sessions open as Orca tabs titled with the session name, else a tmux window, else a
+  Terminal window. A desk may not open a role.
+- A session at the root with no role is told so at start: `dev/construction session; /role to
+  switch`. One opened as a role is told which, and its `note`.
 
 ## The checks
 

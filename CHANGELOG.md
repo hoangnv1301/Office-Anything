@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.17.0
+
+- ROLES (the owner, 10-22: "open a session at root, then choose who to become").
+  A role is a NEW session with its own folder, `--name` and `--settings`. It is
+  never a switch in place: CLAUDE.md, the deny list, claudeMdExcludes and the
+  name are fixed at start.
+- Roles come from office.json `"profiles"`:
+  - a department's role is its lead in its folder (aics is AICS in
+    departments/aics), shown only where .office/local.json names that department;
+  - a builder's role takes its `construction` entry's name, model and root;
+  - `.office/local.json` `"role"` is this machine's default.
+- The settings file is generated at `~/.office/profiles/<office>/<role>.json`,
+  never in the repo, and is rewritten from office.json on every launch. Rules use
+  globs, not machine paths: `/x`, `//x` and `~/x` are refused, because a rule's
+  `/x` is relative to that generated file.
+- `office [role]` in a shell (`node lib/role.mjs install` puts it on PATH) starts
+  the role in this terminal; with no role, the default, else a menu. `/role`
+  inside a session asks which and opens it in a new Orca tab titled with the
+  session name, else a tmux window, else a Terminal window.
+- Never two sessions under one name: a running role (registry name and folder)
+  is brought forward, and one running elsewhere is refused. A desk may not open
+  a role.
+- ⛔ No real window under a test: under node --test (or OFFICE_NO_LAUNCH=1) the
+  real openers (an Orca tab, tmux, Terminal, `office` starting claude) refuse.
+  The role tests also put recording stubs first on PATH. Found the hard way: a
+  mutation run of an unreleased build opened Terminal windows on the owner's
+  desktop.
+- Orca first: when Orca is running but cannot open the tab there, /role says so
+  and refuses. Terminal or tmux are used only when Orca is not running.
+- The boot hook tells a root session with no role "dev/construction session;
+  /role to switch", and a role session which role it is, plus its note. Only with
+  "profiles"; every other boot is unchanged.
+
 ## 0.16.0
 
 - DEPARTMENT FOLDERS (the owner, 10-22: "push the department restructure"). A
