@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.18.1
+
+- RELEASE NOTES ARE POSTED BY THE RELEASE STEP (the owner, 2026-10-23: none had
+  been posted since 0.9.0). The "Discord text" in each release report only ever
+  went to the lead. Now:
+  - `docs/releases.json` holds one note per version;
+  - `scripts/release-post.mjs <version>` checks it against the forum verb's
+    rules, makes sure the GitHub release exists, and posts it with ops verb
+    发版本日志 (product office-anything) through ops.mjs as the lead;
+  - a refusal exits non-zero; `--missing` posts the backlog and stops at the
+    forum's daily cap.
+  A test fails when the version being shipped has no note.
+- Health: office.json `releases.posted` (a read-only command that prints posted
+  versions) puts `⚠ no release note posted for office-anything <version>` in
+  health's line while the loaded version has none. It is a warning, not red;
+  the answer is cached 30 minutes.
+
 ## 0.18.0
 
 - EACH LEAD HEARS ITS OWN. An alert belongs to its subject's department: a
