@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-500%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-501%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -628,7 +628,8 @@ run; `skip` leaves some out (a trailing `*` matches a prefix).
   else the only agent tab in its folder. A registry `tmux` pane is used only when tmux answers
   and that pane holds the session's own claude (Orca writes the same pane for every session).
 - **Not into a question**: the limit's own menu is answered only when its cursor is on "Stop and
-  wait for limit to reset"; any other open menu is refused and rung.
+  wait for limit to reset"; any other open menu is refused and rung. Nothing is typed unless the
+  screen reads and shows an empty input prompt: an unreadable screen is not "no menu".
 - **A model's own limit** ("You've hit your Opus limit") on a desk: the desk switches to
   `fallback` at once, carries on, and goes back to its own model after the reset, at its prompt.
   A session or weekly limit stops every session on the account, so nothing moves work elsewhere.

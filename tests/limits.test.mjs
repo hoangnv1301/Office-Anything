@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { limitsConfig, resetOf, resetFromText, stuckOn, menuOf, tabFor, tmuxPane, dueAt, limitModel, RESUME_TEXT } from '../lib/limits.mjs'
+import { limitsConfig, resetOf, resetFromText, stuckOn, menuOf, atPrompt, tabFor, tmuxPane, dueAt, limitModel, RESUME_TEXT } from '../lib/limits.mjs'
 import { officeHealth } from '../lib/health.mjs'
 import { heal } from '../lib/heal.mjs'
 
@@ -205,6 +205,20 @@ test('⛔ looked at again before typing: a session that answered since health lo
   const r = heal(o.root, h, { home: o.home, now: t, kill: () => {}, freshProcs: () => o.procsAt(t), cwd: () => null, terminal: { all: () => tabs, titles: () => tabs, send: (hd, text) => o.typed.push({ hd, text }), screen: () => PROMPT } })
   assert.equal(o.typed.length, 0)
   assert.match(r.acts.find((a) => a.act === 'limit-resume').why, /moved since health looked/)
+})
+
+test('⛔ never typed blind: an unreadable screen, or no empty prompt on it, types nothing', () => {
+  assert.equal(atPrompt(PROMPT), true)
+  assert.equal(atPrompt(''), false)
+  assert.equal(atPrompt('❯ half a sentence somebody was typing'), false)
+  for (const [screen, why] of [[() => '', /could not be read/], [() => '⏺ Working… (esc to interrupt)', /input prompt is not on screen/]]) {
+    const o = office()
+    const { tabs } = night(o)
+    o.healIt(at('2026-10-21T23:05:00Z'), tabs, screen)
+    const r = o.healIt(at('2026-10-21T23:10:00Z'), tabs, screen)
+    assert.equal(o.typed.length, 0)
+    assert.match(r.acts.find((a) => a.act === 'limit-resume').why, why)
+  }
 })
 
 test('⛔ a tab is never guessed: by name, by a pinned title, or the only agent tab in its folder', () => {

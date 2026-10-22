@@ -16,7 +16,8 @@
     pane only when it provably holds that claude). One try, one retry, per banner
   - the lead is rung once (USAGE-LIMIT): who, since, until, queued messages, what
     it was on, open tasks; again with "needs a person" after two tries; health red
-  - the limit's own menu is answered only on "Stop and wait"; any other is refused
+  - the limit's own menu is answered only on "Stop and wait"; any other is refused;
+    nothing is typed unless the screen reads and shows an empty prompt
   - a model's own limit on a desk switches it to `fallback` (sonnet) at once and
     back after the reset. Moving work to another session is not built: a session
     or weekly limit stops every session on the account.
