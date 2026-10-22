@@ -6,7 +6,7 @@
 // block, which must behave exactly as before.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlinkSync, renameSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { departmentsOf, machineOf, allLeads, machineLeads, leadsOfDesk, deskScope } from '../lib/departments.mjs'
@@ -361,6 +361,80 @@ test('⛔ each lead\'s bell hears its own department and the office\'s, never an
   const one = office({ depts: null })
   writeAlert(one.root, one.cfg, { type: 'DESK-DEAD', subject: 'desk-customer', text: 'customer is down', now: at })
   assert.match(poll(one.root, one.cfg, { now: at, lead: 'lead', state: { offset: 0, file: alertsFile(one.root, one.cfg), files: {}, rung: {}, sent: [], held: 0 } }).lines.join('\n'), /customer is down/)
+})
+
+// 0.18.7: ERP's bell rang the buyers log and held buyer drafts, and pushed the owner on them
+test('⛔ a bell file or ask is a department\'s too: by the desk folder holding the file, or by what it names', async () => {
+  const { poll, fileRefusal } = await import('../lib/lead-bell.mjs')
+  const { alertsFile } = await import('../lib/alerts.mjs')
+  const bell = { files: [
+    { name: 'buyers', path: 'desks/customer/runtime/lead-alerts.log', match: ' STALL ' },
+    { name: 'stock', path: 'desks/inventory/runtime/lead-alerts.log', match: ' LOW ' },
+    { name: 'office', path: 'desks/shared/runtime/lead-alerts.log', match: ' DOWN ' },
+    { name: 'named', path: 'desks/shared/runtime/named.log', match: '.', department: 'customer-service' },
+  ], asks: [
+    { name: 'held', command: 'printf "HD-1\\tbuyer draft held\\n"', department: 'customer-service' },
+    { name: 'inbox', command: 'printf "LM-1\\toffice message\\n"' },
+    { name: 'typo', command: 'printf "X-1\\tsaid to nobody\\n"', department: 'custmer-service' },
+  ] }
+  const o = office({ machine: BOTH, cfg: { lead: { bell } } })
+  const logs = { customer: 'x STALL BT-1 cs-martin waiting', inventory: 'x LOW oak 2 left', shared: 'x DOWN printer' }
+  for (const [d, l] of Object.entries(logs)) { mkdirSync(join(o.root, 'desks', d, 'runtime'), { recursive: true }); writeFileSync(join(o.root, 'desks', d, 'runtime', 'lead-alerts.log'), '') }
+  writeFileSync(join(o.root, 'desks', 'shared', 'runtime', 'named.log'), '')
+  const at = Date.now()
+  const ring = (lead, st) => poll(o.root, o.cfg, { now: at, lead, state: st })
+  const fresh = () => ({ offset: 0, file: alertsFile(o.root, o.cfg), files: {}, rung: {}, sent: [], held: 0 })
+  // first poll learns the files' ends; then each gets a line
+  const e1 = ring('ERP', fresh()), a1 = ring('AICS', fresh())
+  const erp = e1.state, aics = a1.state
+  for (const [d, l] of Object.entries(logs)) writeFileSync(join(o.root, 'desks', d, 'runtime', 'lead-alerts.log'), l + '\n')
+  writeFileSync(join(o.root, 'desks', 'shared', 'runtime', 'named.log'), 'x first-reply due\n')
+  // asks ring on the first poll, file lines on the second
+  const E = [...e1.lines, ...ring('ERP', { ...erp, sent: [] }).lines].join('\n'), A = [...a1.lines, ...ring('AICS', { ...aics, sent: [] }).lines].join('\n')
+  assert.doesNotMatch(E, /cs-martin|first-reply|buyer draft held/, 'ERP hears no buyer line')
+  assert.match(E, /oak 2 left/); assert.match(E, /printer/); assert.match(E, /office message/)
+  assert.match(E, /said to nobody/, 'an undeclared department is the office\'s: heard, never lost')
+  assert.match(A, /cs-martin/); assert.match(A, /first-reply/); assert.match(A, /buyer draft held/); assert.match(A, /printer/); assert.match(A, /office message/)
+  assert.doesNotMatch(A, /oak 2 left/)
+  assert.match(A, /said to nobody/, 'by both leads')
+  // a moved desk: its folder is its department's
+  const m = office({ machine: BOTH, depts: { ...DEPTS, 'local-ops': { ...DEPTS['local-ops'], dir: 'departments/local-ops', desks: ['design', 'inventory', 'moved'] } }, cfg: { lead: { bell: { files: [{ name: 'moved', path: 'departments/local-ops/moved/runtime/x.log', match: '.' }] } } } })
+  mkdirSync(join(m.root, 'departments', 'local-ops', 'moved', 'runtime'), { recursive: true })
+  writeFileSync(join(m.root, 'departments', 'local-ops', 'moved', 'desk.json'), JSON.stringify({ name: 'moved', kind: 'knowledge', port: 9610 }))
+  writeFileSync(join(m.root, 'departments', 'local-ops', 'moved', 'runtime', 'x.log'), '')
+  const f2 = () => ({ offset: 0, file: alertsFile(m.root, m.cfg), files: {}, rung: {}, sent: [], held: 0 })
+  const me = poll(m.root, m.cfg, { now: at, lead: 'ERP', state: f2() }).state, ma = poll(m.root, m.cfg, { now: at, lead: 'AICS', state: f2() }).state
+  writeFileSync(join(m.root, 'departments', 'local-ops', 'moved', 'runtime', 'x.log'), 'moved desk line\n')
+  assert.match(poll(m.root, m.cfg, { now: at, lead: 'ERP', state: me }).lines.join('\n'), /moved desk line/)
+  assert.doesNotMatch(poll(m.root, m.cfg, { now: at, lead: 'AICS', state: ma }).lines.join('\n'), /moved desk line/)
+  // ⛔ a link into another desk is judged where it really is, and refused
+  const L = office({ machine: BOTH, cfg: { lead: { bell: { files: [{ name: 'buyers', path: 'desks/customer/runtime/lead-alerts.log', match: '.' }] } } } })
+  mkdirSync(join(L.root, 'desks', 'customer', 'runtime'), { recursive: true }); mkdirSync(join(L.root, 'desks', 'inventory', 'runtime'), { recursive: true })
+  writeFileSync(join(L.root, 'desks', 'inventory', 'runtime', 'lead-alerts.log'), '')
+  symlinkSync(join(L.root, 'desks', 'inventory', 'runtime', 'lead-alerts.log'), join(L.root, 'desks', 'customer', 'runtime', 'lead-alerts.log'))
+  const fl = () => ({ offset: 0, file: alertsFile(L.root, L.cfg), files: {}, rung: {}, sent: [], held: 0 })
+  const ls = poll(L.root, L.cfg, { now: at, lead: 'AICS', state: fl() }).state
+  writeFileSync(join(L.root, 'desks', 'inventory', 'runtime', 'lead-alerts.log'), 'erp stock line\n')
+  const lA = poll(L.root, L.cfg, { now: at, lead: 'AICS', state: ls }).lines.join('\n')
+  assert.doesNotMatch(lA, /erp stock line/, 'AICS does not hear ERP through a link')
+  assert.match(fileRefusal(L.root, 'desks/customer/runtime/lead-alerts.log'), /a link into the desk inventory, not the desk customer/)
+  // a moved desk's old link lands in the same desk: allowed, and its department's
+  const V = office({ machine: BOTH, depts: { ...DEPTS, 'customer-service': { ...DEPTS['customer-service'], dir: 'departments/aics' } } })
+  mkdirSync(join(V.root, 'departments', 'aics'), { recursive: true })
+  renameSync(join(V.root, 'desks', 'customer'), join(V.root, 'departments', 'aics', 'customer'))
+  symlinkSync(join(V.root, 'departments', 'aics', 'customer'), join(V.root, 'desks', 'customer'))
+  mkdirSync(join(V.root, 'departments', 'aics', 'customer', 'runtime'))
+  writeFileSync(join(V.root, 'departments', 'aics', 'customer', 'runtime', 'lead-alerts.log'), '')
+  assert.equal(fileRefusal(V.root, 'desks/customer/runtime/lead-alerts.log'), null)
+  const vc = { ...V.cfg, lead: { bell: { files: [{ name: 'buyers', path: 'desks/customer/runtime/lead-alerts.log', match: '.' }] } } }
+  const fv = () => ({ offset: 0, file: alertsFile(V.root, vc), files: {}, rung: {}, sent: [], held: 0 })
+  const ve = poll(V.root, vc, { now: at, lead: 'ERP', state: fv() }).state, va = poll(V.root, vc, { now: at, lead: 'AICS', state: fv() }).state
+  writeFileSync(join(V.root, 'departments', 'aics', 'customer', 'runtime', 'lead-alerts.log'), 'buyer via old link\n')
+  assert.match(poll(V.root, vc, { now: at, lead: 'AICS', state: va }).lines.join('\n'), /buyer via old link/)
+  assert.doesNotMatch(poll(V.root, vc, { now: at, lead: 'ERP', state: ve }).lines.join('\n'), /buyer via old link/)
+  // no departments: one bell hears every file and ask
+  const one = office({ depts: null, cfg: { lead: { session: 'lead', bell: { asks: bell.asks } } } })
+  assert.match(poll(one.root, one.cfg, { now: at, lead: 'lead', state: fresh() }).lines.join('\n'), /buyer draft held/)
 })
 
 test('the roll-call per department: health says each department\'s count', () => {
