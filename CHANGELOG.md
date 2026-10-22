@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.18.8
+
+- ⛔ A PLUGIN UPDATE DOES NOT STRAND A RUNNING LEAD. A session keeps the hooks
+  it started with: ERP, started on 0.18.4, was told to run its 0.18.7 doorbell,
+  and its wall refused the new folder, so it ran the old bell until restarted.
+  `{plugin}` (in wall.lead.bash, wall.lead.monitor and a session's own wake) now
+  also matches a newer version that Claude Code RECORDED installing
+  (installed_plugins.json, under this plugin's name), beside this one in the
+  plugin cache: a version name, the same plugin.json name, a real folder there
+  and not a link. A folder that merely appeared in the cache is not an install
+  (commit security review). Never an older one. Where {plugin} is now comes only
+  from the gate, never from office.json's wall block, which could set
+  `pluginRoot` before. Helps sessions started on 0.18.8 or later; one already
+  running on an older wall still needs a restart.
+- ⛔ THE KICKOFF GOES AFTER `--`. `--remote-control` takes an optional [name],
+  so a lead launched with it got its kickoff as its Remote Control name, sat
+  deaf, and start still said "given its first message". The first message now
+  follows `--`, and start says it was given only once it saw the session work
+  on it (15 seconds' grace), else it warns. Pinned by a stub that parses the
+  command as the CLI does.
+
 ## 0.18.7
 
 - ⛔ BUYER LINES ARE CUSTOMER SERVICE'S. ERP's doorbell rang the buyers log

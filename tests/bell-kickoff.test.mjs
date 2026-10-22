@@ -38,6 +38,43 @@ test('⛔ start gives a lead or desk with a doorbell its kickoff as the first me
   assert.equal(kickoffFor(w.root, { lead: { session: 'X' } }, { isLead: true, tag: 'X' }), null)
 })
 
+// ⛔ the CLI as it really parses (0.18.8): --remote-control takes an optional
+// [name], so a kickoff written right after it became the Remote Control name
+// and ERP sat deaf while start said "given its first message"
+const words = (cmd) => { const out = []; let cur = null; for (let i = 0; i < cmd.length; i++) { const c = cmd[i]; if (c === "'") { const j = cmd.indexOf("'", i + 1); cur = (cur ?? '') + cmd.slice(i + 1, j); i = j } else if (c === '\\') { cur = (cur ?? '') + cmd[++i] } else if (c === ' ') { if (cur != null) out.push(cur); cur = null } else cur = (cur ?? '') + c } if (cur != null) out.push(cur); return out }
+const VALUE = new Set(['--name', '--model', '--settings', '--resume']), OPTIONAL = new Set(['--remote-control'])
+function firstMessage(cmd) {
+  const w = words(cmd.slice(cmd.indexOf(' claude ') + 1)).slice(1)
+  for (let i = 0; i < w.length; i++) {
+    if (w[i] === '--') return w[i + 1] ?? null
+    if (VALUE.has(w[i])) { i++; continue }
+    if (OPTIONAL.has(w[i])) { if (w[i + 1] != null && !w[i + 1].startsWith('-')) i++; continue }
+    if (!w[i].startsWith('-')) return w[i]
+  }
+  return null
+}
+test('⛔ the kickoff reaches the CLI as its first message after any flag, even one with an optional value', async () => {
+  const w = world({ desks: {} })
+  writeFileSync(join(w.root, 'office.json'), JSON.stringify({ roleEnv: 'OFFICE_ROLE', lead: { session: 'ERP', wake: 'node bell.mjs' }, launch: { flags: ['--dangerously-skip-permissions'], lead: { flags: ['--remote-control'] } } }))
+  const live = [], made = []
+  const term = { titles: () => [], screen: () => '', answerImports: () => {}, create: ({ title, command }) => { made.push(command); live.push({ pid: 6100, name: title, status: firstMessage(command)?.startsWith('Start your doorbell') ? 'busy' : 'idle', sessionId: '00000000-0000-4000-8000-000000006100', cwd: w.root }); return 'h' } }
+  const rows = await start(w.root, 'lead', { live: () => live, terminal: term, sleep: async () => {}, dir: w.dir })
+  assert.equal(firstMessage(made[0]), KICKOFF('node bell.mjs'), made[0])
+  assert.match(rows[0].why, /given its first message/)
+  assert.equal(firstMessage("x && claude --name 'ERP' --remote-control 'Start your doorbell now'"), null, 'the stub is the CLI: written bare, the flag takes it')
+})
+
+test('⛔ start says "given its first message" only when it saw the session work on it', async () => {
+  const w = world({ desks: {} })
+  const live = []
+  let t = 0
+  const term = { titles: () => [], screen: () => '', answerImports: () => {}, create: ({ title }) => { live.push({ pid: 6200, name: title, status: 'idle', sessionId: '00000000-0000-4000-8000-000000006200', cwd: w.root }); return 'h' } }
+  const rows = await start(w.root, 'lead', { live: () => live, terminal: term, sleep: async () => { t += 1000 }, now: () => t, dir: w.dir })
+  assert.equal(rows[0].state, 'up')
+  assert.doesNotMatch(rows[0].why, /given its first message/)
+  assert.match(rows[0].why, /first message was not seen running/)
+})
+
 // heal: a lead found unarmed, idle at its prompt
 function office({ status = 'idle', screen = PROMPT, tabs } = {}) {
   const w = world()
