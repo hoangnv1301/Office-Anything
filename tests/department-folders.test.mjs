@@ -167,3 +167,58 @@ test('⛔ moved: start resumes the desk\'s own conversation from under its old f
   // not moved: nothing is looked up twice
   assert.equal(planStart({ tag: 'desk-x', cwd: o.dir('inventory'), dir: mkdtempSync(join(tmpdir(), 'oa-dfold-c2-')) }).resume, null)
 })
+
+test('⛔ a move\'s symlink desks/x -> departments/<dept>/x is one desk, the department\'s; two real folders stay broken', async () => {
+  const { symlinkSync, rmSync } = await import('node:fs')
+  const o = office()
+  mkdirSync(join(o.root, 'desks'), { recursive: true })
+  symlinkSync(o.dir('inventory'), join(o.root, 'desks', 'inventory'))
+  const r = officeRoster(o.root)
+  assert.deepEqual(r.broken, [])
+  assert.deepEqual(r.desks.map((d) => [d.name, d.department]), [['customer', 'customer-service'], ['inventory', 'local-ops']])
+  assert.equal(deskDir(o.root, 'inventory'), o.dir('inventory'), 'the real folder, not the link')
+  // a session still standing in the old path is that desk
+  assert.equal(whoIs(o.root, readOfficeConfig(o.root), { cwd: join(o.root, 'desks', 'inventory'), env: {}, name: '' }).desk, 'inventory')
+  rmSync(join(o.root, 'desks', 'inventory'))
+})
+
+test('⛔ through the old symlink path, another desk\'s runtime/ is still not read', async () => {
+  const { symlinkSync } = await import('node:fs')
+  const o = office()
+  mkdirSync(join(o.root, 'desks'), { recursive: true })
+  symlinkSync(o.dir('inventory'), join(o.root, 'desks', 'inventory'))
+  const me = o.dir('customer')
+  assert.equal(run(o, me, 'Read', { file_path: join(o.root, 'desks', 'inventory', 'runtime', 'token.json') }), 2)
+  assert.equal(run(o, me, 'Bash', { command: `cat ${join(o.root, 'desks', 'inventory', 'runtime', 'token.json')}` }), 2)
+})
+
+test('⛔ the lead\'s Bash list is matched by what a command runs, from any depth; a desk\'s refusals hold one level deeper', () => {
+  const o = office({ extra: { wall: { failClosed: true, lead: { bash: ['^node scripts/desk/ops\\.mjs ask '] }, deny: [{ pattern: '^node scripts/desk/ops\\.mjs\\s+approve', why: 'approving is the lead\'s' }] } } })
+  mkdirSync(join(o.root, 'scripts', 'desk'), { recursive: true })
+  writeFileSync(join(o.root, 'scripts', 'desk', 'ops.mjs'), '')
+  const as = (at, role, command) => {
+    const env = { ...process.env, CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'oa-dfold-cfg-')), OFFICE_ROLE: role }
+    delete env.CLAUDE_PROJECT_DIR
+    return spawnSync(process.execPath, [WALL], { input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: at }), encoding: 'utf8', env, cwd: at }).status
+  }
+  const aics = join(o.root, 'departments', 'aics')
+  assert.equal(as(aics, 'AICS', 'node ../../scripts/desk/ops.mjs ask items'), 0, 'from the department: the root script')
+  assert.equal(as(o.root, 'AICS', 'node scripts/desk/ops.mjs ask items'), 0, 'from the root, as before')
+  assert.equal(as(aics, 'AICS', 'node scripts/desk/ops.mjs ask items'), 2, '⛔ typed bare in the department it is departments/aics/scripts/…, not the listed one')
+  assert.equal(as(aics, 'AICS', 'node ../../scripts/desk/ops.mjs approve 1'), 2, 'unlisted stays refused')
+  // a desk one level deeper than desks/<x> still meets the office's refusals
+  assert.equal(as(o.dir('customer'), 'desk-customer', 'node ../../../scripts/desk/ops.mjs approve 1'), 2)
+  assert.equal(as(o.dir('customer'), 'desk-customer', 'node ../../../scripts/desk/ops.mjs ask items'), 0)
+})
+
+test('boot text: {up} is the way to the office root from where the session stands, {lead} its own lead', async () => {
+  const { bootLines } = await import('../hooks/desk-boot.mjs')
+  const o = office({ extra: { boot: { text: { outro: 'Run node {up}scripts/desk/ops.mjs; ask {lead}.' }, lead: ['You are {lead}; the scripts are at {up}scripts/.'] } } })
+  const cfg = readOfficeConfig(o.root)
+  const desk = bootLines(o.root, { kind: 'desk', desk: 'customer', dir: o.dir('customer'), role: 'desk-customer' }, cfg, o.dir('customer'))
+  assert.equal(desk.at(-1), 'Run node ../../../scripts/desk/ops.mjs; ask AICS.')
+  const lead = bootLines(o.root, { kind: 'lead', role: 'ERP' }, cfg, join(o.root, 'departments', 'local-ops'))
+  assert.equal(lead[0], 'You are ERP; the scripts are at ../../scripts/.')
+  const atRoot = office({ moved: false, extra: { boot: { text: { outro: 'node {up}scripts/x' } } } })
+  assert.equal(bootLines(atRoot.root, { kind: 'desk', desk: 'inventory', dir: atRoot.dir('inventory'), role: 'desk-inventory' }, readOfficeConfig(atRoot.root), atRoot.dir('inventory')).at(-1), 'node ../../scripts/x')
+})

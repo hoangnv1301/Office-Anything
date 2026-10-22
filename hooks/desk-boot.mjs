@@ -25,7 +25,7 @@
 //   text     {intro, roster, wake, wakeNote, cwd, more, outro}   the desk's lines
 //            ({desk} is the desk's name now, {id} its folder; roster "" says none)
 import { readdirSync, statSync, existsSync, readFileSync } from 'node:fs'
-import { join, resolve, dirname, basename } from 'node:path'
+import { join, resolve, dirname, basename, relative } from 'node:path'
 import { readOfficeConfig, findOffice, whoIs, childOf, sessionName } from '../lib/office.mjs'
 import { versionVerdict } from '../lib/version.mjs'
 import { writeAlert } from '../lib/alerts.mjs'
@@ -33,7 +33,7 @@ import { isMain } from '../lib/is-main.mjs'
 import { wakeCommand } from '../lib/wall.mjs'
 import { readSwitch, deskOn } from '../lib/desks.mjs'
 import { rosterSafe, officeRoster } from '../lib/desk.mjs'
-import { allLeads, deskScope } from '../lib/departments.mjs'
+import { allLeads, deskScope, leadsOfDesk } from '../lib/departments.mjs'
 import { afterLines } from '../lib/compact.mjs'
 import { profilesOf, rolesHere } from '../lib/role.mjs'
 import { spawnSync } from 'node:child_process'
@@ -59,15 +59,19 @@ const DEFAULT = {
 const DEFAULT_SANDBOX = '- Your Bash runs in a sandbox: it writes only in your own folder and temp, reads no other desk\'s runtime/, and reaches only the hosts this office lists. "Operation not permitted" or EPERM means the office forbids it: do not retry, and do not try another way; tell the lead if the work needs it.'
 const DEFAULT_OFF = '- ⚠ desk-{desk} is OFF on this machine (.office/local.json). Do not start your doorbell and take no new cases. Finish or hand over what you already hold, tell the lead, and stop.'
 const DEFAULT_CASE = '- You are the case session for {key}. Your brief: {brief} (read it first). Work only on this case; anything else, and any other case, goes to desk-{desk} by SendMessage.'
+// the relative path from a folder up to the office root, ending in / ('' at the root)
+const upTo = (root, from) => { const r = relative(resolve(from), resolve(root)); return r ? r + '/' : '' }
 const fill = (s, v) => String(s ?? '').replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m))
 
 export function bootLines(root, who, cfg, cwd) {
   const b = cfg.boot ?? {}
   if (who.kind === 'lead') {
-    const out = Array.isArray(b.lead) ? b.lead.map(String) : []
     // a department's lead (lib/departments.mjs): its own instructions and its
     // own desks, under their names now; its own doorbell, else lead.wake
     const L = allLeads(cfg).find((l) => l.names.includes(who.role)) ?? null
+    // boot.lead lines may say {lead} (this lead's own name) and {up} (the path
+    // from where it stands to the office root): a department lead is not at the root
+    const out = Array.isArray(b.lead) ? b.lead.map((x) => fill(String(x), { lead: L?.session ?? who.role, up: upTo(root, cwd) })) : []
     if (L?.department) {
       const ds = officeRoster(root).desks.filter((d) => (L.desks ?? []).includes(d.name)).map((d) => d.session)
       out.push(`You are ${L.session}, the lead of department ${L.department}.${ds.length ? ` Your desks: ${ds.join(', ')}.` : ''} Other departments' work reaches you through the book, not by message.`)
@@ -101,7 +105,9 @@ export function bootLines(root, who, cfg, cwd) {
   const roster = scope ? all.filter((d) => scope.has(d.name)) : all
   const me = all.find((d) => d.name === who.desk)
   const others = roster.filter((d) => d.name !== who.desk && d.kind !== 'lead').map((d) => `${d.session} (${d.kind}${d.description ? ': ' + String(d.description).split(/[.;:]/)[0].slice(0, 80) : ''})`)
-  const v = { desk: me?.title ?? who.desk, id: who.desk, roster: others.join('; '), deskRel: rel(deskDir), cwd, where: basename(dirname(deskDir)) + '/' + basename(deskDir), n: Math.max(0, files.length - max) }
+  // {up}: the path from the desk to the office root (../../ in desks/, ../../../ in a
+  // department's folder); {lead}: the lead this desk reports to
+  const v = { up: upTo(root, deskDir), lead: leadsOfDesk(cfg, who.desk)[0]?.session ?? cfg.lead?.session ?? 'lead', desk: me?.title ?? who.desk, id: who.desk, roster: others.join('; '), deskRel: rel(deskDir), cwd, where: basename(dirname(deskDir)) + '/' + basename(deskDir), n: Math.max(0, files.length - max) }
   const out = [fill(T.intro, v)]
   // a case session (desk-<desk>--<key>): its case and its brief come first
   if (who.caseKey) out.push(fill(T.caseLine ?? DEFAULT_CASE, { ...v, key: who.caseKey, brief: rel(join(root, '.office', 'cases', `${who.desk}--${who.caseKey}.md`)) }))

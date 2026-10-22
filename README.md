@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-537%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-542%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -361,6 +361,10 @@ its lead works from. Say where with `dir` (default `departments/<id>`):
   `runtime/`, wherever it lives; the send-wall gate judges a sender by the folder holding
   `runtime/send`, not by a `desks/` prefix. With `office.json` unreadable, a session standing in a
   department's desk is still refused.
+- **A move's symlink is not a second desk**: `desks/x -> departments/aics/x` is the department's
+  desk. The lead's Bash list is matched by what a command runs from wherever the lead stands
+  (`node ../../scripts/x` in `departments/aics` is `scripts/x`). Boot text may say `{up}` (the path
+  to the office root) and `{lead}` (the session's own lead) instead of a fixed `../../` or name.
 - **Its conversation comes with it.** A transcript lives under its folder's path, so `start` looks
   under the old `desks/<id>` too, copies that transcript beside the new folder's (never moving or
   overwriting one) and resumes it.
@@ -406,6 +410,10 @@ node lib/role.mjs install   # put `office` on this machine's PATH (never sudo: ~
   Terminal window. A desk may not open a role.
 - A session at the root with no role is told so at start: `dev/construction session; /role to
   switch`. One opened as a role is told which, and its `note`.
+- **A role below the root keeps the root's walls.** A session in `departments/aics` does not load
+  the root `.claude/settings.json`, so its generated settings carry the root's hooks (with
+  `CLAUDE_PROJECT_DIR` set to the root), its permissions and `enabledPlugins`
+  (`"rootSettings": false` leaves them out).
 
 ## The checks
 

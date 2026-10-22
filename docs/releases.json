@@ -102,5 +102,12 @@
   ] },
   "0.18.1": { "date": "2026-10-23", "new": [
     "Every release now posts its own note to the Office-Anything release forum, and health warns while the version you run has none."
+  ] },
+  "0.18.2": { "date": "2026-10-23", "new": [
+    "A role opened below the office root, such as a department lead, keeps every root hook and permission, pinned to the root.",
+    "Boot text can say {up} for the path to the office root and {lead} for the session's own lead, so it stays right after a move."
+  ], "fixed": [
+    "A desk left behind as a link after a move counts once, as the desk in its department's folder.",
+    "A lead in a department folder can run its listed commands by their relative path, judged by what they really run."
   ] }
 }

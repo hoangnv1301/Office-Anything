@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.18.2
+
+- READY FOR THE DESK MOVE (the lead, 10-23: local-cabinets-ops moves its desks
+  into department folders today).
+- A move's 7-day symlink `desks/x -> departments/<dept>/x` is one desk: the
+  department's. `deskDir` prefers the real folder. Through the old link path,
+  another desk's runtime/ is still not read.
+- The lead's Bash list is matched by what a command RUNS, from any depth: a lead
+  in departments/aics may run `node ../../scripts/x` against `^node scripts/x`,
+  while a bare `node scripts/x` typed there is departments/aics/scripts/x and
+  matches nothing. `wall.deny` is also tested root-relative, so a desk one level
+  deeper meets the same anchored refusals.
+- Boot text placeholders: `{up}` is the path from the session to the office root
+  (`../../` in desks/, `../../../` in a department), and `{lead}` is its own lead's
+  name (a desk's department lead; a lead's own name in `boot.lead`).
+- ⛔ A ROLE BELOW THE ROOT KEEPS THE ROOT'S WALLS. A session in departments/aics
+  does not load the root .claude/settings.json, so its profile's generated
+  --settings now carries:
+  - the root's hooks, run with CLAUDE_PROJECT_DIR set to the office root;
+  - its permissions, with `/x` rules written absolute;
+  - its enabledPlugins.
+
+  `"rootSettings": false` opts out.
+
 ## 0.18.1
 
 - RELEASE NOTES ARE POSTED BY THE RELEASE STEP (the owner, 2026-10-23: none had
