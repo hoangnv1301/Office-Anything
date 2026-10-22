@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.16.0
+
+- DEPARTMENT FOLDERS (the owner, 10-22: "push the department restructure"). A
+  department's desks may live in `departments/<dept>/<desk>/`, declared by
+  office.json `departments.<id>.dir` (default `departments/<id>`).
+- ONE OWNER FOR WHERE A DESK IS. lib/desk.mjs `deskRoots`, `officeRoster`,
+  `deskDir`, `deskAt`, `hasDesks`. 87 sites built `desks/<id>` by hand; every one
+  now goes through these, and a test fails on a new one.
+- No desk moved = the roster is exactly `desks/` alone, pinned. An office with no
+  `desks/` at all is still found, checked and healed.
+- One id, one folder: a desk in two folders breaks both. A desk in the wrong
+  department's folder is red in the `departments` check.
+- The walls follow the desk:
+  - the desk wall's runtime/ rules ask every desk root;
+  - the send-wall gate judges the folder holding `runtime/send`;
+  - an unreadable office.json still refuses a session standing in a department desk;
+  - doorbell orphan proof and sandbox paths read the desk's real folder.
+- A moved desk keeps its conversation: start finds it under the old
+  `desks/<id>` project dir, copies it (never moves it) and resumes it.
+- One schema, approved by the lead: `departments.<id>` gains `label`, `dir` and
+  `sessions`, plus `construction: [{name, root, model, label, sessions}]` and
+  `usage: {order, default}`. `usageGroupOf(cfg, {name, cwd})` is for the token
+  page. A builder is not a lead.
+
 ## 0.15.1
 
 - ⛔ A "departments" BLOCK THAT NAMES NO LEAD IS NO DEPARTMENTS. local-cabinets-ops

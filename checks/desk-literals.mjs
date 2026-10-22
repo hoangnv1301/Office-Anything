@@ -23,7 +23,7 @@
 // Exit 0 clean, 4 finding, 7 UNKNOWN.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { rosterSafe } from '../lib/desk.mjs'
+import { rosterSafe, officeRoster, hasDesks } from '../lib/desk.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 export const RATCHET = 'tests/desk-literals.json'
@@ -53,11 +53,11 @@ export function measure(root, names) {
   return out
 }
 
-export const applies = (root) => existsSync(join(root, 'desks')) && existsSync(join(root, 'tests'))
+export const applies = (root) => hasDesks(root) && existsSync(join(root, 'tests'))
 
 export function report(root = process.cwd()) {
   if (!applies(root)) return { code: 0, applicable: false, why: 'no desks/ or no root tests/' }
-  const { desks, broken } = rosterSafe(join(root, 'desks'))
+  const { desks, broken } = officeRoster(root)
   if (broken.length) return { code: 0, applicable: false, why: 'desk-readable owns unreadable desks; nothing to measure against' }
   if (!desks.length) return { code: 0, applicable: false, why: 'no desks yet' }
 

@@ -12,15 +12,15 @@
 // Exit 0 clean, 4 finding, 7 UNKNOWN.
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { rosterSafe } from '../lib/desk.mjs'
+import { rosterSafe, officeRoster, hasDesks } from '../lib/desk.mjs'
 import { readOfficeConfig } from '../lib/office.mjs'
 import { officeHealth } from '../lib/health.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
 export function applies(root) {
-  if (!existsSync(join(root, 'desks'))) return false
+  if (!hasDesks(root)) return false
   if (Array.isArray(readOfficeConfig(root).health)) return true
-  return rosterSafe(join(root, 'desks')).desks.some((d) => typeof d.wake === 'string' && d.wake.trim())
+  return officeRoster(root).desks.some((d) => typeof d.wake === 'string' && d.wake.trim())
 }
 
 export function report(root = process.cwd(), opts = {}) {

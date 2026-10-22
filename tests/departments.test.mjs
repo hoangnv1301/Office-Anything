@@ -291,3 +291,37 @@ test('⛔ a "departments" block that names no lead is no departments: the lead k
   assert.deepEqual(departmentsOf(o2.cfg).list.map((d) => d.id), ['local-ops', 'customer-service'])
   assert.deepEqual(departmentsOf(o2.cfg).problems, [])
 })
+
+// 0.16.0: one schema for departments, the builders and the token page's groups
+// (the lead, 2026-10-22: it replaces #1472's own "departments" shape)
+const SCHEMA = {
+  departments: {
+    'customer-service': { label: 'AICS', dir: 'departments/aics', lead: 'AICS', aliases: ['lead', '工厂ERP'], desks: ['customer', 'selene'], open: true, sessions: ['^cs-', '^lead \\(\\d+\\)$'] },
+    'local-ops': { label: 'ERP', dir: 'departments/local-ops', lead: 'ERP', desks: ['inventory'] },
+  },
+  construction: [{ name: 'construction', root: '.', model: 'opus', label: 'CODING' }],
+  usage: { order: ['customer-service', 'local-ops', 'construction'], default: 'construction' },
+}
+
+test('the one schema: label, dir and sessions per department; builders are not leads', async () => {
+  const { constructionOf } = await import('../lib/departments.mjs')
+  const D = departmentsOf(SCHEMA)
+  assert.deepEqual(D.list.map((d) => [d.id, d.label, d.dir, d.sessions.length]), [['customer-service', 'AICS', 'departments/aics', 2], ['local-ops', 'ERP', 'departments/local-ops', 0]])
+  assert.deepEqual(D.problems, [])
+  assert.deepEqual(constructionOf(SCHEMA), [{ name: 'construction', root: '.', model: 'opus', label: 'CODING', sessions: [] }])
+  assert.deepEqual(allLeads(SCHEMA).map((l) => l.session), ['AICS', 'ERP'], '⛔ a builder gets no lead wall: the lead writes no file')
+  assert.match(departmentsOf({ departments: { x: { lead: 'X', sessions: ['('] } } }).problems[0], /sessions pattern \( does not compile/)
+})
+
+test('usageGroupOf: by name in usage.order, then by folder, then the default', async () => {
+  const { usageGroupOf } = await import('../lib/departments.mjs')
+  const g = (name, cwd = null) => usageGroupOf(SCHEMA, { name, cwd }, { root: '/office' })?.label ?? null
+  assert.deepEqual(['lead', 'lead (2)', '工厂ERP', 'AICS', 'cs-Eric-B', 'desk-selene', 'desk-selene--BT-261019-1'].map((n) => g(n)), Array(7).fill('AICS'))
+  assert.deepEqual(['ERP', 'desk-inventory', 'desk-inventory--SC-1'].map((n) => g(n)), ['ERP', 'ERP', 'ERP'])
+  assert.deepEqual(['construction', 'construction-2', 'alibaba-98'].map((n) => g(n)), ['CODING', 'CODING', 'CODING'])
+  assert.equal(g('', '/office/departments/local-ops/inventory'), 'ERP', 'no name: its folder')
+  assert.equal(g('desk-inventoryx'), 'CODING', 'a desk name is matched whole')
+  assert.equal(g(''), null, 'no name and no folder: unknown')
+  // a renamed desk: its session is its name now, and its id still counts
+  assert.equal(usageGroupOf(SCHEMA, { name: 'desk-stock' }, { desks: [{ name: 'inventory', title: 'stock' }] }).label, 'ERP')
+})

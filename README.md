@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-502%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-515%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -329,6 +329,41 @@ node lib/desks.mjs departments sweeps on                     # this machine runs
   One running on a machine that does not name the department is red in health, by pid.
 - `sweepsLease`: a read-only command on a machine with `"sweeps": true`. Exit 0 this machine holds
   the lease, 3 another does (its first line names it), anything else UNKNOWN.
+- A block where no entry names a `"lead"` (another tool's data under the same key) is read as
+  no block, and health says so. Keys starting with `_` are notes.
+
+### A department's own folder
+
+A department's desks may live in its own folder, `departments/<dept>/<desk>/`, beside the files
+its lead works from. Say where with `dir` (default `departments/<id>`):
+
+```json
+"departments": {
+  "customer-service": { "label": "AICS", "dir": "departments/aics", "lead": "AICS", "aliases": ["lead"],
+                        "desks": ["customer", "selene"], "open": true, "sessions": ["^cs-"] },
+  "local-ops":        { "label": "ERP", "dir": "departments/local-ops", "lead": "ERP", "desks": ["inventory"] }
+},
+"construction": [{ "name": "construction", "root": ".", "model": "opus", "label": "CODING" }],
+"usage": { "order": ["customer-service", "local-ops", "construction"], "default": "construction" }
+```
+
+- **Nothing moved, nothing changes**: the roster is exactly what `desks/` alone gave. Desks may move
+  one at a time. Inside a department's folder only a folder with a `desk.json` is a desk.
+- **One id, one folder.** A desk in both `desks/x` and `departments/aics/x` (half a move) breaks
+  both until one is gone. A desk in one department's folder that `office.json` lists under
+  another is red in the `departments` check.
+- **The walls follow it.** A desk in one department reads, searches and walks no other desk's
+  `runtime/`, wherever it lives; the send-wall gate judges a sender by the folder holding
+  `runtime/send`, not by a `desks/` prefix. With `office.json` unreadable, a session standing in a
+  department's desk is still refused.
+- **Its conversation comes with it.** A transcript lives under its folder's path, so `start` looks
+  under the old `desks/<id>` too, copies that transcript beside the new folder's (never moving or
+  overwriting one) and resumes it.
+- `label` and `sessions` group sessions for a token page: `usageGroupOf(cfg, { name, cwd })` in
+  `lib/departments.mjs` answers by name (lead, alias, a desk's session, `sessions`, a builder or its
+  `<name>-N` workers) in `usage.order`, then by folder, then `usage.default`.
+- `construction` lists the builders, one per codebase. A builder is **not a lead**: the lead's wall
+  writes no file, and a builder writes code.
 
 ## The checks
 

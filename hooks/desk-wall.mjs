@@ -32,8 +32,8 @@ import { openModule, MODULE_DEADLINE_MS } from '../lib/wall-module.mjs'
 import { isMain } from '../lib/is-main.mjs'
 import { versionVerdict } from '../lib/version.mjs'
 import { allLeads, leadsOfDesk, departmentsOf, deskScope } from '../lib/departments.mjs'
-import { rosterSafe } from '../lib/desk.mjs'
-import { resolve, join, sep } from 'node:path'
+import { rosterSafe, officeRoster, deskAt } from '../lib/desk.mjs'
+import { resolve, join, sep, relative } from 'node:path'
 import { existsSync, realpathSync, mkdirSync, appendFileSync } from 'node:fs'
 
 // The office's own rules, in its own file: office.json "wall.module" names an
@@ -93,6 +93,15 @@ export function auditLead(root, p) {
   } catch {}
 }
 
+// standing in a desk's folder: desks/<x>, or a department's desk (lib/desk.mjs
+// deskAt). ⛔ ALSO WITH office.json UNREADABLE, when the departments' folders
+// cannot be read from it: any departments/<dept>/<x> holding a desk.json.
+export function standsInDesk(root, c) {
+  if (deskAt(root, c)) return true
+  const rel = relative(resolve(root), resolve(c)).split(sep)
+  return rel[0] === 'departments' && rel.length >= 3 && !rel[0].startsWith('..') && existsSync(join(root, rel[0], rel[1], rel[2], 'desk.json'))
+}
+
 export async function decide(raw, env = process.env, here = process.cwd()) {
   let p = null, unreadable = false
   try { p = JSON.parse(raw || '{}'); if (!p || typeof p !== 'object') { p = null; unreadable = true } } catch { unreadable = true }
@@ -103,8 +112,7 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     // no config to say who is who: a session that claims a desk by its name,
     // or stands in a desk's folder, is refused until somebody fixes the file
     const name = sessionName()
-    const desks = join(root, 'desks') + sep
-    const claims = /^desk-/.test(name) || places.some((c) => (resolve(c) + sep).startsWith(desks))
+    const claims = /^desk-/.test(name) || places.some((c) => standsInDesk(root, c))
     return claims ? { code: 2, why: `⛔ desk wall: ${error}. A desk session is refused until it is fixed; a developer session at the repo root can fix it.` } : { code: 0 }
   }
   if (!cfg.wall || typeof cfg.wall !== 'object') return { code: 0 }
@@ -129,8 +137,7 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
   // office that declares none) any name that is not already desk-<x>
   const aliasable = (n) => !!n && !/^desk-/.test(n) && (declared ? aliasPats.some((re) => re.test(n)) : true)
   const deskShaped = (n) => /^desk-/.test(n) || aliasPats.some((re) => re.test(n))
-  const desks = join(root, 'desks') + sep
-  const inDesk = places.some((c) => (resolve(c) + sep).startsWith(desks))
+  const inDesk = places.some((c) => standsInDesk(root, c))
   // ⛔ A BROKEN MODULE STOPS DESKS, NOT THE PEOPLE WHO REPAIR IT. A desk-shaped
   // session, or one standing in a desk's folder, is refused; the lead and a
   // developer go on under the plugin's own rules.
@@ -192,7 +199,7 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     const reach = who.kind === 'desk' ? leadsOfDesk(cfg, who.desk) : allLeads(cfg)
     const names = reach.flatMap((l) => l.names)
     const wallCfg = myLead?.bash ? { ...cfg.wall, lead: { ...(cfg.wall?.lead ?? {}), bash: myLead.bash } } : cfg.wall
-    try { W = compileWall({ ...wallCfg, ...(aliasBroken ? { aliasNames: [] } : {}), root, scope: deskScope(root, cfg, rosterSafe(join(root, 'desks')).desks), roleEnv: cfg.roleEnv, leadSession: names[0] ?? cfg.lead?.session, leadAliases: names.slice(1), leadWake: myLead?.wake ?? cfg.lead?.wake }) }
+    try { W = compileWall({ ...wallCfg, ...(aliasBroken ? { aliasNames: [] } : {}), root, scope: deskScope(root, cfg, officeRoster(root).desks), roleEnv: cfg.roleEnv, leadSession: names[0] ?? cfg.lead?.session, leadAliases: names.slice(1), leadWake: myLead?.wake ?? cfg.lead?.wake }) }
     catch (e) { return failClosed ? say('the wall broke while judging (' + e.message + '), and this office\'s wall fails closed') : { code: 0 } }
     if (cfg.wall.module) module()
     if (modErr && who.kind === 'desk') return failClosed ? refuseDesk(modErr) : { code: 0 }

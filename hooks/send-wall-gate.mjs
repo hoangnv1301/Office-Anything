@@ -13,7 +13,7 @@
 // Reads a PreToolUse payload on stdin. Exit 2 blocks the tool call and returns stderr to
 // the model as the reason.
 import { readFileSync, existsSync } from 'node:fs'
-import { join, sep } from 'node:path'
+import { join, sep, basename } from 'node:path'
 import { KINDS, mayHold } from '../lib/desk.mjs'
 
 const chunks = []
@@ -28,12 +28,14 @@ process.stdin.on('end', () => {
   if (!path) process.exit(0)
 
   // Only care about a file being written INTO a desk's send path.
-  const m = path.match(new RegExp(`desks\\${sep}([^\\${sep}]+)\\${sep}runtime\\${sep}(send|relay)\\${sep}`))
+  // ⛔ WHEREVER THE DESK LIVES (0.16.0). The gate matched desks/<x>/runtime/send
+  // only, so a desk moved to departments/<dept>/<x> could be handed a sender
+  // unjudged. The desk is the folder holding runtime/, by its desk.json.
+  const m = path.match(new RegExp(`^(.*)\\${sep}([^\\${sep}]+)\\${sep}runtime\\${sep}(send|relay)\\${sep}`))
   if (!m) process.exit(0)
-  const [, deskName] = m
+  const [, parent, deskName] = m
 
-  const root = path.slice(0, path.indexOf(`${sep}desks${sep}`))
-  const manifest = join(root, 'desks', deskName, 'desk.json')
+  const manifest = join(parent, deskName, 'desk.json')
   if (!existsSync(manifest)) process.exit(0)      // not a desk we know; not ours to judge
 
   let desk
@@ -52,7 +54,7 @@ process.stdin.on('end', () => {
       `The wall is that a ${desk.kind} desk has no\n` +
       `route out, and "no route" means the capability is ABSENT, not disabled.\n\n` +
       `If this desk genuinely needs to talk to people, it is the wrong kind. Change its\n` +
-      `kind in desks/${deskName}/desk.json deliberately, where somebody reviews it.`
+      `kind in ${basename(parent)}/${deskName}/desk.json deliberately, where somebody reviews it.`
     )
     process.exit(2)
   }

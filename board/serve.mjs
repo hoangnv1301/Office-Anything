@@ -39,7 +39,7 @@ function liveTitles() {
 }
 import { screenshotOf } from '../lib/cdp.mjs'
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, watch } from 'node:fs'
-import { rosterSafe, leadDesk } from '../lib/desk.mjs'
+import { rosterSafe, leadDesk, officeRoster, deskDir as deskFolder, deskAt } from '../lib/desk.mjs'
 import { hire } from '../lib/hire.mjs'
 import { costOf, AS_OF as RATES_AS_OF } from '../lib/rates.mjs'
 import { officeTimeline } from './timeline.mjs'
@@ -53,12 +53,12 @@ import { desksHere, machineLeads } from '../lib/departments.mjs'
 // transcript and the scratchpad.
 export function chatRosterCheap(root) {
   // another department's desks are not on this machine's board (lib/departments.mjs)
-  const desks = desksHere(root, readOfficeConfig(root), rosterSafe(join(root, 'desks')).desks)
+  const desks = desksHere(root, readOfficeConfig(root), officeRoster(root).desks)
   let lead = null
   try { lead = leadDesk(root) } catch { lead = null }
   return [
     { key: slugFor(root), label: lead?.name ?? 'team-lead', desk: lead?.name ?? 'team-lead', port: lead?.port },
-    ...desks.map((d) => ({ key: slugFor(join(root, 'desks', d.name)), label: d.title ?? d.name, desk: d.name, port: d.port })),
+    ...desks.map((d) => ({ key: slugFor(deskFolder(root, d.name)), label: d.title ?? d.name, desk: d.name, port: d.port })),
   ]
 }
 
@@ -155,7 +155,7 @@ export const askId = (pending) => pending ? createHash('sha256').update(JSON.str
 export function reach(root, key) {
   const row = chatRosterCheap(root).find((r) => r.key === key)
   if (!row) return null
-  const deskDir = row.key === slugFor(root) ? root : join(root, 'desks', row.desk)
+  const deskDir = row.key === slugFor(root) ? root : deskFolder(root, row.desk)
   const ls = officeSessions(root).get(deskDir) ?? null
   const named = row.desk === 'team-lead' && !!leadSessionName(root)
   const dir = join(homedir(), '.claude', 'projects', key)
@@ -189,7 +189,7 @@ function expectedNames(root) {
   const m = new Map()
   const lead = leadSessionName(root)
   if (lead) m.set(root, lead)
-  for (const d of rosterSafe(join(root, 'desks')).desks) m.set(join(root, 'desks', d.name), d.session)
+  for (const d of officeRoster(root).desks) m.set(deskFolder(root, d.name), d.session)
   return m
 }
 export const officeSessions = (root, home = homedir()) => {
@@ -216,7 +216,7 @@ export function recordedName(path) {
 export function transcriptFor(root, key, home = homedir(), live = officeSessions(root, home)) {
   const dir = join(home, '.claude', 'projects', key)
   const row = chatRosterCheap(root).find((r) => r.key === key)
-  const cwd = row ? (row.desk === 'team-lead' ? root : join(root, 'desks', row.desk)) : null
+  const cwd = row ? (row.desk === 'team-lead' ? root : deskFolder(root, row.desk)) : null
   const ls = cwd ? live.get(cwd) : null
   if (ls?.sessionId && /^[A-Za-z0-9-]+$/.test(ls.sessionId) && existsSync(join(dir, ls.sessionId + '.jsonl'))) return join(dir, ls.sessionId + '.jsonl')
   // the named lead, not running: its own newest record, never another root session's
@@ -244,8 +244,8 @@ function friendlyFromName(root, home = homedir()) {
     if (!j.name) continue
     if (/^desk-/i.test(j.name)) { map.set(j.name, j.name.slice(5)); continue }
     if (cwd === root) { map.set(j.name, 'team-lead'); continue }
-    const desksDir = join(root, 'desks') + '/'
-    if (cwd.startsWith(desksDir)) map.set(j.name, cwd.slice(desksDir.length).split('/')[0])
+    const at = deskAt(root, cwd)
+    if (at) map.set(j.name, at.id)
   }
   return map
 }
@@ -282,11 +282,11 @@ export function panelBody(err, stdout, stderr) {
 
 export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
   const live = officeSessions(root, home)
-  const desks = desksHere(root, readOfficeConfig(root), rosterSafe(join(root, 'desks')).desks)
+  const desks = desksHere(root, readOfficeConfig(root), officeRoster(root).desks)
   const leadName = leadSessionName(root)
   const rows = [
     { key: slugFor(root), label: 'team-lead', sub: 'the repo root · ' + (leadName ? 'session ' + leadName : 'this machine\'s lead session'), desk: 'team-lead' },
-    ...desks.map((d) => ({ key: slugFor(join(root, 'desks', d.name)), label: d.title ?? d.name, sub: d.kind + (d.live ? ' · LIVE' : ''), desk: d.name, port: d.port, kind: d.kind })),
+    ...desks.map((d) => ({ key: slugFor(deskFolder(root, d.name)), label: d.title ?? d.name, sub: d.kind + (d.live ? ' · LIVE' : ''), desk: d.name, port: d.port, kind: d.kind })),
   ]
   for (const r of rows) {
     const dir = join(home, '.claude', 'projects', r.key)
@@ -310,7 +310,7 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
         }
       }
     }
-    const deskCwd = r.desk === 'team-lead' ? root : join(root, 'desks', r.desk)
+    const deskCwd = r.desk === 'team-lead' ? root : deskFolder(root, r.desk)
     const ls = live.get(deskCwd)
     const titles = liveTitles()
     // a live session file IS a live session; orca titles are the fallback
@@ -510,7 +510,7 @@ export function makeServer(root) {
         const key = url.searchParams.get('key') ?? ''
         const row = chatRosterCheap(root).find((r) => r.key === key)
         if (!row) return json(res, 404, { items: [] })
-        const deskDir = row.key === slugFor(root) ? root : join(root, 'desks', row.desk)
+        const deskDir = row.key === slugFor(root) ? root : deskFolder(root, row.desk)
         const fm = (file) => {
           try {
             const t = readFileSync(file, 'utf8').slice(0, 4000)
@@ -567,7 +567,7 @@ export function makeServer(root) {
         const key = url.searchParams.get('key') ?? ''
         const row = chatRosterCheap(root).find((r) => r.key === key)
         if (!row) return json(res, 404, { hooks: [] })
-        const deskDir = row.key === slugFor(root) ? root : join(root, 'desks', row.desk)
+        const deskDir = row.key === slugFor(root) ? root : deskFolder(root, row.desk)
         const out = []
         const collect = (file, source) => {
           try {
@@ -649,7 +649,7 @@ export function makeServer(root) {
         const rel = url.searchParams.get('path') ?? ''
         const row = chatRoster(root).find((r) => r.key === key)
         if (!row || rel.includes('..')) { res.writeHead(403); return res.end() }
-        const base = row.desk === 'team-lead' ? root : join(root, 'desks', row.desk)
+        const base = row.desk === 'team-lead' ? root : deskFolder(root, row.desk)
         const p = join(base, rel)
         if (!p.startsWith(base)) { res.writeHead(403); return res.end() }
         try {
@@ -814,7 +814,7 @@ export function makeServer(root) {
         const label = row?.label ?? key
         // the session's WORKING folder: the desk's own tree, or the repo root
         // for the lead, whose desk IS the root
-        const deskDir = row ? (row.desk === 'team-lead' ? root : join(root, 'desks', row.desk)) : null
+        const deskDir = row ? (row.desk === 'team-lead' ? root : deskFolder(root, row.desk)) : null
         const workspace = deskDir ? treeOf(deskDir) : null
         const now = Date.now()
         // ⛔ THE FOLDER OF *THAT* SESSION, tied by session id to the transcript

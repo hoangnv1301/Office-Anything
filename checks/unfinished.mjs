@@ -12,10 +12,10 @@
 // Exit 0 clean, 4 finding, 7 UNKNOWN.
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { rosterSafe } from '../lib/desk.mjs'
+import { rosterSafe, officeRoster, hasDesks } from '../lib/desk.mjs'
 import { isMain } from '../lib/is-main.mjs'
 
-export const applies = (root) => existsSync(join(root, 'desks'))
+export const applies = (root) => hasDesks(root)
 
 // The marker `hire` writes into a fresh facts.md. Its presence means nobody has been back.
 const UNTOUCHED = /⛔ Empty\. Nothing here is true until somebody writes it\./
@@ -36,7 +36,7 @@ export function emptySections(md) {
 
 export function report(root = process.cwd()) {
   if (!applies(root)) return { code: 0, applicable: false, why: 'no desks/ directory' }
-  const { desks, broken } = rosterSafe(join(root, 'desks'))
+  const { desks, broken } = officeRoster(root)
   // A desk this cannot read is skipped in silence. desk-readable owns that finding, and
   // one fault reported by four checks is how a board stops being read.
   // ⛔ NOT APPLICABLE, not UNKNOWN. There are no desks, so there is nothing here to
