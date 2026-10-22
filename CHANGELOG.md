@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.18.3
+
+- The lead's Bash list rewrite resolves the cwd through the disk first (security
+  review of 0.18.2). A session standing in a moved desk's link (`desks/x`) climbs
+  `../` from where the link points, as the kernel does.
+- scripts/release-post.mjs (release tooling): an ops.mjs answer of "rejected"
+  (exit 0) is a refused post, not a posted one, and no idempotency key is used,
+  so a rejection is never handed back after the forum is configured.
+
 ## 0.18.2
 
 - READY FOR THE DESK MOVE (the lead, 10-23: local-cabinets-ops moves its desks
