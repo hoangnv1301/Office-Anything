@@ -23,6 +23,7 @@ export const applies = (root) => existsSync(join(root, 'office.json')) && cfgOf(
 export function report(root = process.cwd()) {
   if (!applies(root)) return { code: 0, applicable: false, why: 'office.json declares no departments' }
   const D = departmentsOf(cfgOf(root))
+  if (D.ignored) return { code: 0, applicable: false, why: D.ignored }
   const desks = rosterSafe(join(root, 'desks')).desks
   const ids = new Set(desks.map((d) => d.name))
   const findings = D.problems.map((say) => ({ desk: 'office.json', say }))

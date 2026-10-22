@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.15.1
+
+- ⛔ A "departments" BLOCK THAT NAMES NO LEAD IS NO DEPARTMENTS. local-cabinets-ops
+  #1472 put the token benchmark's `{order, default, groups}` under office.json
+  "departments". 0.12–0.15 read that as departments on with none declared. This
+  machine then ran no lead, the watchdog would not restart it, its doorbell went
+  unwatched, and `wall.lead.open` stopped applying to it. Now a block where no
+  entry names a "lead" reads as no block; health's tail and the departments check
+  say why. Keys starting with "_" are notes and are skipped.
+
 ## 0.15.0
 
 - USAGE-LIMIT RESUME (the owner, 10-22: "can you even push that to avoid this
