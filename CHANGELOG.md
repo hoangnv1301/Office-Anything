@@ -11,7 +11,9 @@
   in departments/aics may run `node ../../scripts/x` against `^node scripts/x`,
   while a bare `node scripts/x` typed there is departments/aics/scripts/x and
   matches nothing. `wall.deny` is also tested root-relative, so a desk one level
-  deeper meets the same anchored refusals.
+  deeper meets the same anchored refusals. A word with `..` after a real folder
+  name is never rewritten, because the shell follows a link before it walks `..`
+  (security review).
 - Boot text placeholders: `{up}` is the path from the session to the office root
   (`../../` in desks/, `../../../` in a department), and `{lead}` is its own lead's
   name (a desk's department lead; a lead's own name in `boot.lead`).

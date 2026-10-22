@@ -222,3 +222,21 @@ test('boot text: {up} is the way to the office root from where the session stand
   const atRoot = office({ moved: false, extra: { boot: { text: { outro: 'node {up}scripts/x' } } } })
   assert.equal(bootLines(atRoot.root, { kind: 'desk', desk: 'inventory', dir: atRoot.dir('inventory'), role: 'desk-inventory' }, readOfficeConfig(atRoot.root), atRoot.dir('inventory')).at(-1), 'node ../../scripts/x')
 })
+
+test('⛔ a path that climbs back out through a folder is never rewritten: the shell follows links, path.resolve does not', async () => {
+  const { symlinkSync } = await import('node:fs')
+  const o = office({ extra: { wall: { failClosed: true, lead: { bash: ['^node scripts/desk/ops\\.mjs ask '] } } } })
+  mkdirSync(join(o.root, 'scripts', 'desk'), { recursive: true })
+  writeFileSync(join(o.root, 'scripts', 'desk', 'ops.mjs'), '')
+  mkdirSync(join(o.root, 'desks'), { recursive: true })
+  symlinkSync(o.dir('inventory'), join(o.root, 'desks', 'inventory'))
+  const as = (at, command) => {
+    const env = { ...process.env, CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'oa-dfold-cfg-')), OFFICE_ROLE: 'AICS' }
+    delete env.CLAUDE_PROJECT_DIR
+    return spawnSync(process.execPath, [WALL], { input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: at }), encoding: 'utf8', env, cwd: at }).status
+  }
+  const aics = join(o.root, 'departments', 'aics')
+  // lexically scripts/desk/ops.mjs; the shell reads departments/scripts/desk/ops.mjs
+  assert.equal(as(aics, 'node ../../desks/inventory/../../scripts/desk/ops.mjs ask items'), 2)
+  assert.equal(as(aics, 'node ../../scripts/desk/ops.mjs ask items'), 0, 'a plain climb to the root still matches')
+})
