@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.18.4
+
+- ⛔ A ROLE IS RUNNING UNDER ANY OF ITS NAMES. `office aics` / `/role aics` looked
+  for a session named AICS only; the live lead runs as "lead", an alias of AICS,
+  so a second lead would have opened beside it. A department lead running under
+  any of its names, in any folder, is that role running: it is brought forward.
+
 ## 0.18.3
 
 - The lead's Bash list rewrite resolves the cwd through the disk first (security
