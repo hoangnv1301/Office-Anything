@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-529%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-533%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -329,6 +329,11 @@ node lib/desks.mjs departments sweeps on                     # this machine runs
   One running on a machine that does not name the department is red in health, by pid.
 - `sweepsLease`: a read-only command on a machine with `"sweeps": true`. Exit 0 this machine holds
   the lease, 3 another does (its first line names it), anything else UNKNOWN.
+- **Each lead hears its own.** An alert belongs to the department of its subject (a desk, a
+  desk's case session, a lead's name, a department's `sessions`, or `<subject>@<department>` said
+  outright); each department lead's bell rings for its own department's alerts and the office's,
+  never another department's. Health's roll-call counts per department
+  (`5/7 desks up (AICS 3/3, ERP 2/4)`), and the board labels each desk with its department.
 - A block where no entry names a `"lead"` (another tool's data under the same key) is read as
   no block, and health says so. Keys starting with `_` are notes.
 
@@ -384,7 +389,8 @@ folder, `--name` and `--settings`. The roles are `office.json` `"profiles"`:
 office              # this machine's default role (.office/local.json "role"), else a menu
 office aics         # that role, in this terminal
 /role               # inside any session: pick one, and it opens in a NEW tab
-node lib/role.mjs install   # put `office` on this machine's PATH
+node lib/role.mjs install   # put `office` on this machine's PATH (never sudo: ~/.local/bin when
+                            # the system bin folder is not yours to write, plus the PATH line)
 ```
 
 - A department's role takes the department's folder and its lead's name (`aics` is `AICS` in

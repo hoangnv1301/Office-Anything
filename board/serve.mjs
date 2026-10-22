@@ -46,7 +46,7 @@ import { officeTimeline } from './timeline.mjs'
 import { collect } from '../checks/run.mjs'
 import { isMain } from '../lib/is-main.mjs'
 import { readOfficeConfig } from '../lib/office.mjs'
-import { desksHere, machineLeads } from '../lib/departments.mjs'
+import { desksHere, machineLeads, departmentsOf } from '../lib/departments.mjs'
 
 // The chat's session list: every desk plus the LEAD, whose desk is the repo
 // root. key = the cwd slug, which is how Claude Code files both the
@@ -284,9 +284,12 @@ export function chatRoster(root, { home = homedir(), now = Date.now() } = {}) {
   const live = officeSessions(root, home)
   const desks = desksHere(root, readOfficeConfig(root), officeRoster(root).desks)
   const leadName = leadSessionName(root)
+  const D = departmentsOf(readOfficeConfig(root))
+  const deptOf = new Map(D.list.flatMap((d) => d.desks.map((k) => [k, d])))
   const rows = [
     { key: slugFor(root), label: 'team-lead', sub: 'the repo root · ' + (leadName ? 'session ' + leadName : 'this machine\'s lead session'), desk: 'team-lead' },
-    ...desks.map((d) => ({ key: slugFor(deskFolder(root, d.name)), label: d.title ?? d.name, sub: d.kind + (d.live ? ' · LIVE' : ''), desk: d.name, port: d.port, kind: d.kind })),
+    // its department (0.18.0): the board shows whose desk it is
+    ...desks.map((d) => { const dept = deptOf.get(d.name) ?? null; return { key: slugFor(deskFolder(root, d.name)), label: d.title ?? d.name, sub: (dept ? dept.label + ' · ' : '') + d.kind + (d.live ? ' · LIVE' : ''), desk: d.name, port: d.port, kind: d.kind, ...(dept ? { department: dept.id } : {}) } }),
   ]
   for (const r of rows) {
     const dir = join(home, '.claude', 'projects', r.key)

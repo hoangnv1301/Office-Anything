@@ -214,3 +214,14 @@ test('⛔ Orca running but unable to open it here: refused and said, never a pla
   const term = { all: () => [], create: () => { throw new Error('no Orca workspace contains it') }, switch: () => {} }
   assert.match(openRole(o.root, 'full', { cfg: o.cfg, sessions: [], term, caller: null, run, env: {}, home: o.home }).why, /Orca is running but could not open a tab/)
 })
+
+test('⛔ install never needs sudo: an unwritable /usr/local/bin falls back to ~/.local/bin, with the PATH line', async () => {
+  const { installShim } = await import('../lib/role.mjs')
+  const home = mkdtempSync(join(tmpdir(), 'oa-role-inst-'))
+  const r = installShim({ home, path: '/usr/local/bin:/usr/bin', writable: () => false })
+  assert.equal(r.file, join(home, '.local', 'bin', 'office'))
+  assert.equal(r.onPath, false)
+  assert.equal(r.pathLine, `export PATH="${join(home, '.local', 'bin')}:$PATH"`)
+  const on = installShim({ home, path: `${join(home, '.local', 'bin')}:/usr/bin`, writable: () => false })
+  assert.equal(on.pathLine, null, 'already on PATH: nothing to add')
+})
