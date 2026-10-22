@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.18.5
+
+- ⛔ A SESSION WITH A DOORBELL ARMS IT WITHOUT ANYBODY TYPING. The watchdog
+  started ERP (2026-10-23) with no first message; it sat idle with its bell
+  unarmed, deaf to 71 open messages, until the lead messaged it.
+  - start gives a lead or desk with a `wake` its kickoff as the first message:
+    "Start your doorbell now: Monitor (timeout_ms 1800000) running `<wake>` …".
+    Busy on it counts as up.
+  - heal types the same line into a LEAD found unarmed, by the limit resume's
+    rules: a fresh look (same pid, idle, no question open), its own tab, an
+    empty prompt on screen. At most once per 30 minutes per lead.
+  - health stays red ("doorbell unarmed") until the bell runs, pinned for a
+    lead that has been up 10 minutes.
+
 ## 0.18.4
 
 - ⛔ A ROLE IS RUNNING UNDER ANY OF ITS NAMES. `office aics` / `/role aics` looked

@@ -96,7 +96,7 @@ test('a case session that registered and is busy working its brief is up: the cl
   const o = run(root, live, { adapter: a.fn, terminal: fakeTerm(live, { status: 'busy' }), now: () => (clock += 1000), procs: () => new Map() })
   const r = await openCase(root, 'design', 'SC-261009-137', o)
   assert.equal(r.state, 'up')
-  assert.match(r.why, /not idle after 2s \(status busy\): working its brief/)
+  assert.match(r.why, /not idle after 2s \(status busy\): working its brief|given its first message/)
   assert.equal(a.held['SC-261009-137'], 'desk-design--SC-261009-137', 'the claim is not given back')
   const c = readCases(root)['design--SC-261009-137']
   assert.ok(c.openedAt && !c.closedAt, 'recorded as opened, not closed')
