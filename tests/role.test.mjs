@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { profilesOf, rolesHere, settingsOf, writeProfile, profilesDir, roleCommand, openRole, hereRole, launchRefused } from '../lib/role.mjs'
 import { roleLines } from '../hooks/desk-boot.mjs'
+import { readOfficeConfig } from '../lib/office.mjs'
 
 // ⛔ NOTHING HERE MAY OPEN A REAL WINDOW (2026-10-23: a mutation run of this file
 // opened Terminal windows on the owner's desktop). Every opener the code could
@@ -114,7 +115,10 @@ test('⛔ never two sessions under one name: a running role is brought forward, 
   assert.match(here.why, /AICS is already open: Orca tab term_A, brought forward; not opening a second/)
   assert.deepEqual(switched, ['term_A'])
   assert.equal(created.length, 0)
-  const away = openRole(o.root, 'aics', { cfg: o.cfg, sessions: [live('AICS', '/somewhere/else')], term, caller: null, home: o.home })
+  // a lead elsewhere is still that lead: brought forward, never a second
+  assert.equal(openRole(o.root, 'aics', { cfg: o.cfg, sessions: [live('AICS', '/somewhere/else')], term, caller: null, home: o.home }).state, 'already')
+  // any other role's name held elsewhere: refused
+  const away = openRole(o.root, 'full', { cfg: o.cfg, sessions: [live('full', '/somewhere/else')], term, caller: null, home: o.home })
   assert.equal(away.state, 'refused')
   assert.match(away.why, /already runs at \/somewhere\/else .*one name, one session/)
   assert.equal(created.length, 0)
@@ -254,4 +258,14 @@ test('⛔ a role below the root carries the root\'s hooks (pinned to the root) a
   assert.deepEqual(cons.permissions, { deny: ['Read(./departments/**/*)'] })
   // opting out
   assert.equal(settingsOf({ ...P.find((p) => p.name === 'aics'), rootSettings: false }, { root: o.root }).hooks, undefined)
+})
+
+test('⛔ a lead running under an alias is that role running: no second lead', () => {
+  const o = office({ extra: { departments: { 'customer-service': { dir: 'departments/aics', lead: 'AICS', aliases: ['lead', '工厂ERP'], desks: [] }, 'local-ops': { lead: 'ERP', desks: [] } } } })
+  const term = { all: () => [{ handle: 'term_L', title: '✳ lead', agent: true, path: o.root }], create: () => { throw new Error('must not open') }, switch: () => {} }
+  // the live lead today: named "lead", at the office root (not departments/aics)
+  const r = openRole(o.root, 'aics', { cfg: readOfficeConfig(o.root), sessions: [live('lead', o.root)], term, run: () => ({ status: 1 }), caller: null, home: o.home })
+  assert.equal(r.state, 'already')
+  assert.match(r.why, /AICS is already open as "lead": Orca tab term_L, brought forward/)
+  assert.equal(hereRole(o.root, 'aics', { cfg: readOfficeConfig(o.root), sessions: [live('工厂ERP', o.root)], term, home: o.home }).state, 'already')
 })

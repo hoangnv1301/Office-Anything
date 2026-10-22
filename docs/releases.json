@@ -112,5 +112,8 @@
   ] },
   "0.18.3": { "date": "2026-10-23", "fixed": [
     "The lead's listed commands are judged from the real folder a session stands in, so a path through a moved desk's link cannot pass as another."
+  ] },
+  "0.18.4": { "date": "2026-10-23", "fixed": [
+    "Opening a department lead's role finds that lead running under any of its names, such as lead, and brings it forward instead of opening a second."
   ] }
 }
