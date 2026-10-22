@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.18.0
+
+- EACH LEAD HEARS ITS OWN. An alert belongs to its subject's department: a
+  desk, a desk's case session, a lead's name or alias, a department's
+  `sessions`, or `<subject>@<department>` said outright (`writeAlert({ department })`).
+  Each department lead's bell rings for its own department's alerts and the
+  office's, never another department's. With no departments, one bell hears all.
+- Health's roll-call counts per department: `5/7 desks up (AICS 3/3, ERP 2/4)`.
+  Each health row carries its department.
+- The board labels each desk with its department.
+- Usage-limit alerts carry the stuck session's department.
+- Fix (0.17.0): `node lib/role.mjs install` threw EACCES on a /usr/local/bin it
+  could not write. It now falls back to ~/.local/bin, prints the PATH line to
+  add, and never needs sudo.
+
 ## 0.17.0
 
 - ROLES (the owner, 10-22: "open a session at root, then choose who to become").

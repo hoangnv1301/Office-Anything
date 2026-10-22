@@ -325,3 +325,48 @@ test('usageGroupOf: by name in usage.order, then by folder, then the default', a
   // a renamed desk: its session is its name now, and its id still counts
   assert.equal(usageGroupOf(SCHEMA, { name: 'desk-stock' }, { desks: [{ name: 'inventory', title: 'stock' }] }).label, 'ERP')
 })
+
+// 0.18.0: an alert is its department's, and each lead's bell hears its own
+test('whose is an alert: said outright, else its desk, lead or sessions; anything else the office\'s', async () => {
+  const { departmentOfSubject } = await import('../lib/departments.mjs')
+  const c = { departments: { ...DEPTS, 'customer-service': { ...DEPTS['customer-service'], sessions: ['^cs-'] } } }
+  assert.equal(departmentOfSubject(c, 'desk-customer'), 'customer-service')
+  assert.equal(departmentOfSubject(c, 'selene'), 'customer-service', 'a desk id')
+  assert.equal(departmentOfSubject(c, 'desk-design--SC-261019-1'), 'local-ops', 'a case session is its desk\'s')
+  assert.equal(departmentOfSubject(c, 'ERP'), 'local-ops')
+  assert.equal(departmentOfSubject(c, '工厂ERP'), 'customer-service', 'an alias')
+  assert.equal(departmentOfSubject(c, 'cs-Eric-B'), 'customer-service')
+  assert.equal(departmentOfSubject(c, 'alibaba-98@local-ops'), 'local-ops', 'said outright')
+  assert.equal(departmentOfSubject(c, 'office-anything'), null)
+  assert.equal(departmentOfSubject(c, 'x@nowhere'), null, 'an undeclared department is not one')
+  assert.equal(departmentOfSubject({}, 'desk-customer'), null, 'no departments: everyone\'s')
+})
+
+test('⛔ each lead\'s bell hears its own department and the office\'s, never another department\'s', async () => {
+  const { poll } = await import('../lib/lead-bell.mjs')
+  const { writeAlert, alertsFile } = await import('../lib/alerts.mjs')
+  const o = office({ machine: BOTH })
+  const at = Date.now()
+  writeAlert(o.root, o.cfg, { type: 'DESK-DEAD', subject: 'desk-customer', text: 'customer is down', now: at })
+  writeAlert(o.root, o.cfg, { type: 'DESK-DEAD', subject: 'desk-inventory', text: 'inventory is down', now: at })
+  writeAlert(o.root, o.cfg, { type: 'VERSION', subject: 'office-anything', text: 'unapproved plugin', now: at })
+  writeAlert(o.root, o.cfg, { type: 'USAGE-LIMIT', subject: 'alibaba-98', department: 'local-ops', text: 'stuck on its limit', now: at })
+  const ring = (lead) => poll(o.root, o.cfg, { now: at, lead, state: { offset: 0, file: alertsFile(o.root, o.cfg), files: {}, rung: {}, sent: [], held: 0 } }).lines.join('\n')
+  const erp = ring('ERP'), aics = ring('AICS')
+  assert.match(erp, /inventory is down/); assert.match(erp, /unapproved plugin/); assert.match(erp, /alibaba-98@local-ops/)
+  assert.doesNotMatch(erp, /customer is down/)
+  assert.match(aics, /customer is down/); assert.match(aics, /unapproved plugin/)
+  assert.doesNotMatch(aics, /inventory is down|alibaba-98/)
+  // an office with no departments: one bell, everything
+  const one = office({ depts: null })
+  writeAlert(one.root, one.cfg, { type: 'DESK-DEAD', subject: 'desk-customer', text: 'customer is down', now: at })
+  assert.match(poll(one.root, one.cfg, { now: at, lead: 'lead', state: { offset: 0, file: alertsFile(one.root, one.cfg), files: {}, rung: {}, sent: [], held: 0 } }).lines.join('\n'), /customer is down/)
+})
+
+test('the roll-call per department: health says each department\'s count', () => {
+  const o = office({ machine: BOTH, depts: { 'local-ops': { ...DEPTS['local-ops'], label: 'ERP' }, 'customer-service': { ...DEPTS['customer-service'], label: 'AICS' } } })
+  o.live('desk-customer', join(o.root, 'desks', 'customer'), 801)
+  const h = o.health()
+  assert.match(h.summary ?? h.line, /desks up \(ERP 0\/2, AICS 1\/2\)/)
+  assert.equal(h.desks.find((d) => d.name === 'customer').department, 'customer-service')
+})
