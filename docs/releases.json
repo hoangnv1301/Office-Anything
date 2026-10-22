@@ -122,5 +122,8 @@
   ] },
   "0.18.6": { "date": "2026-10-23", "fixed": [
     "A desk can no longer build the shape of an office inside its own folder, so no office hook can be pointed at a file the desk wrote."
+  ] },
+  "0.18.7": { "date": "2026-10-23", "fixed": [
+    "A lead's doorbell rings only its own department's log files and asks: buyer alerts reach customer service, never another department's lead."
   ] }
 }

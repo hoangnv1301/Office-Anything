@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-548%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-549%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -888,6 +888,10 @@ The same holds for every other name the office owns: a desk (`desk-<name>`), a c
   At most `maxPerMinute` (6) lines; the rest are counted in one "+N more" line. Its state is
   `.office/lead-bell-state.json`, so a restart resumes and never replays. Files and asks are the
   office's, in `office.json`: a lead that writes no file cannot add one.
+
+  With departments, each lead hears only its own department's lines and the office's. A file is
+  the department of the desk whose folder holds it; a file or ask may also say `"department": "<id>"`.
+  A department that is not declared is no department: the line is the office's, heard by every lead.
 - **Monitor is walled.** The Monitor tool runs a shell command, and it was outside the wall: a desk
   or the lead could run anything through it. A session's own doorbell (desk.json `wake`,
   `lead.wake`) always runs. Any other Monitor command is judged as the Bash it is, and for the lead

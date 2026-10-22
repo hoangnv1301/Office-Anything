@@ -363,6 +363,55 @@ test('⛔ each lead\'s bell hears its own department and the office\'s, never an
   assert.match(poll(one.root, one.cfg, { now: at, lead: 'lead', state: { offset: 0, file: alertsFile(one.root, one.cfg), files: {}, rung: {}, sent: [], held: 0 } }).lines.join('\n'), /customer is down/)
 })
 
+// 0.18.7: ERP's bell rang the buyers log and held buyer drafts, and pushed the owner on them
+test('⛔ a bell file or ask is a department\'s too: by the desk folder holding the file, or by what it names', async () => {
+  const { poll } = await import('../lib/lead-bell.mjs')
+  const { alertsFile } = await import('../lib/alerts.mjs')
+  const bell = { files: [
+    { name: 'buyers', path: 'desks/customer/runtime/lead-alerts.log', match: ' STALL ' },
+    { name: 'stock', path: 'desks/inventory/runtime/lead-alerts.log', match: ' LOW ' },
+    { name: 'office', path: 'desks/shared/runtime/lead-alerts.log', match: ' DOWN ' },
+    { name: 'named', path: 'desks/shared/runtime/named.log', match: '.', department: 'customer-service' },
+  ], asks: [
+    { name: 'held', command: 'printf "HD-1\\tbuyer draft held\\n"', department: 'customer-service' },
+    { name: 'inbox', command: 'printf "LM-1\\toffice message\\n"' },
+    { name: 'typo', command: 'printf "X-1\\tsaid to nobody\\n"', department: 'custmer-service' },
+  ] }
+  const o = office({ machine: BOTH, cfg: { lead: { bell } } })
+  const logs = { customer: 'x STALL BT-1 cs-martin waiting', inventory: 'x LOW oak 2 left', shared: 'x DOWN printer' }
+  for (const [d, l] of Object.entries(logs)) { mkdirSync(join(o.root, 'desks', d, 'runtime'), { recursive: true }); writeFileSync(join(o.root, 'desks', d, 'runtime', 'lead-alerts.log'), '') }
+  writeFileSync(join(o.root, 'desks', 'shared', 'runtime', 'named.log'), '')
+  const at = Date.now()
+  const ring = (lead, st) => poll(o.root, o.cfg, { now: at, lead, state: st })
+  const fresh = () => ({ offset: 0, file: alertsFile(o.root, o.cfg), files: {}, rung: {}, sent: [], held: 0 })
+  // first poll learns the files' ends; then each gets a line
+  const e1 = ring('ERP', fresh()), a1 = ring('AICS', fresh())
+  const erp = e1.state, aics = a1.state
+  for (const [d, l] of Object.entries(logs)) writeFileSync(join(o.root, 'desks', d, 'runtime', 'lead-alerts.log'), l + '\n')
+  writeFileSync(join(o.root, 'desks', 'shared', 'runtime', 'named.log'), 'x first-reply due\n')
+  // asks ring on the first poll, file lines on the second
+  const E = [...e1.lines, ...ring('ERP', { ...erp, sent: [] }).lines].join('\n'), A = [...a1.lines, ...ring('AICS', { ...aics, sent: [] }).lines].join('\n')
+  assert.doesNotMatch(E, /cs-martin|first-reply|buyer draft held/, 'ERP hears no buyer line')
+  assert.match(E, /oak 2 left/); assert.match(E, /printer/); assert.match(E, /office message/)
+  assert.match(E, /said to nobody/, 'an undeclared department is the office\'s: heard, never lost')
+  assert.match(A, /cs-martin/); assert.match(A, /first-reply/); assert.match(A, /buyer draft held/); assert.match(A, /printer/); assert.match(A, /office message/)
+  assert.doesNotMatch(A, /oak 2 left/)
+  assert.match(A, /said to nobody/, 'by both leads')
+  // a moved desk: its folder is its department's
+  const m = office({ machine: BOTH, depts: { ...DEPTS, 'local-ops': { ...DEPTS['local-ops'], dir: 'departments/local-ops', desks: ['design', 'inventory', 'moved'] } }, cfg: { lead: { bell: { files: [{ name: 'moved', path: 'departments/local-ops/moved/runtime/x.log', match: '.' }] } } } })
+  mkdirSync(join(m.root, 'departments', 'local-ops', 'moved', 'runtime'), { recursive: true })
+  writeFileSync(join(m.root, 'departments', 'local-ops', 'moved', 'desk.json'), JSON.stringify({ name: 'moved', kind: 'knowledge', port: 9610 }))
+  writeFileSync(join(m.root, 'departments', 'local-ops', 'moved', 'runtime', 'x.log'), '')
+  const f2 = () => ({ offset: 0, file: alertsFile(m.root, m.cfg), files: {}, rung: {}, sent: [], held: 0 })
+  const me = poll(m.root, m.cfg, { now: at, lead: 'ERP', state: f2() }).state, ma = poll(m.root, m.cfg, { now: at, lead: 'AICS', state: f2() }).state
+  writeFileSync(join(m.root, 'departments', 'local-ops', 'moved', 'runtime', 'x.log'), 'moved desk line\n')
+  assert.match(poll(m.root, m.cfg, { now: at, lead: 'ERP', state: me }).lines.join('\n'), /moved desk line/)
+  assert.doesNotMatch(poll(m.root, m.cfg, { now: at, lead: 'AICS', state: ma }).lines.join('\n'), /moved desk line/)
+  // no departments: one bell hears every file and ask
+  const one = office({ depts: null, cfg: { lead: { session: 'lead', bell: { asks: bell.asks } } } })
+  assert.match(poll(one.root, one.cfg, { now: at, lead: 'lead', state: fresh() }).lines.join('\n'), /buyer draft held/)
+})
+
 test('the roll-call per department: health says each department\'s count', () => {
   const o = office({ machine: BOTH, depts: { 'local-ops': { ...DEPTS['local-ops'], label: 'ERP' }, 'customer-service': { ...DEPTS['customer-service'], label: 'AICS' } } })
   o.live('desk-customer', join(o.root, 'desks', 'customer'), 801)

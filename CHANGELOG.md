@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.18.7
+
+- ⛔ BUYER LINES ARE CUSTOMER SERVICE'S. ERP's doorbell rang the buyers log
+  (STALL, HELD, first-reply, cs-* USAGE-LIMIT: a customer-service desk's
+  lead-alerts.log) and held buyer drafts, and it pushed the owner on them.
+  0.18.0 routed alert-log lines by subject but left the bell's files and asks
+  office-wide. Now a `lead.bell.files` entry is the department of the desk whose
+  folder holds it (in `desks/` or a department's folder), and a file or ask may
+  name one with `"department"`. Only that department's lead hears it; an
+  undeclared department is the office's, heard by all, never lost. No
+  departments: one bell hears everything, as before.
+
 ## 0.18.6
 
 - ⛔ NO OFFICE INSIDE A DESK (security review of local-cabinets-ops' desk
