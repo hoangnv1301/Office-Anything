@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-544%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-547%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -808,6 +808,9 @@ Each run of the watchdog:
   registry entry is unreadable, or two leads are alive: those are `LEAD-UNREACHABLE` /
   `LEAD-DUPLICATE` for a person, because starting another would make a second lead.
   `"watchdog": { "restartLead": false }` turns it off;
+- starts every lead or desk that has a doorbell (`wake`) with a one-line first message telling it to
+  arm the doorbell, so a session it restarts is never left deaf; and types that same line into a lead
+  found with its doorbell unarmed (idle at an empty prompt only, at most every 30 minutes);
 - runs the `heal` of every failing `health` check;
 - writes every act to `.office/heal.log` and what needs a person to `.office/alerts.log`, where the lead reads it.
 

@@ -115,5 +115,9 @@
   ] },
   "0.18.4": { "date": "2026-10-23", "fixed": [
     "Opening a department lead's role finds that lead running under any of its names, such as lead, and brings it forward instead of opening a second."
+  ] },
+  "0.18.5": { "date": "2026-10-23", "fixed": [
+    "A lead or desk with a doorbell is started with a first message that arms it, so a session the watchdog restarts is never left deaf.",
+    "A lead found with its doorbell off has the same line typed into its own tab, at most every half hour and only at an empty prompt."
   ] }
 }
