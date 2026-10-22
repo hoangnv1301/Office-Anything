@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.18.6
+
+- ⛔ NO OFFICE INSIDE A DESK (security review of local-cabinets-ops' desk
+  move). An office hook command written as `${CLAUDE_PROJECT_DIR%%/departments/*}/desks/hooks/…`
+  strips nothing for a desk started through its old desks/<id> link, so it ran
+  `<desk>/desks/hooks/…`: a file the desk itself could write. The plugin's wall
+  now refuses, by Write and by Bash, a desks/ or departments/ folder or an
+  office.json inside a desk's own folder. The office's own hooks are fixed in
+  local-cabinets-ops: the root is taken from either layout, an unknown one runs
+  nothing, and write-wall refuses the same shapes and checks where it runs from.
+
 ## 0.18.5
 
 - ⛔ A SESSION WITH A DOORBELL ARMS IT WITHOUT ANYBODY TYPING. The watchdog

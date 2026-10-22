@@ -244,3 +244,13 @@ test('⛔ a path that climbs back out through a folder is never rewritten: the s
   mkdirSync(join(o.root, 'departments', 'scripts', 'desk'), { recursive: true })
   assert.equal(as(link, 'node ../../scripts/desk/ops.mjs ask items'), 2, 'from the link it is departments/scripts/…, not the listed one')
 })
+
+test('⛔ a desk does not build an office inside its own folder: desks/, departments/ or office.json, by Write or Bash (0.18.6)', () => {
+  const o = office()
+  const me = o.dir('customer')
+  assert.equal(run(o, me, 'Write', { file_path: join(me, 'desks', 'hooks', 'write-wall.mjs'), content: 'process.exit(0)' }), 2)
+  assert.equal(run(o, me, 'Write', { file_path: join(me, 'office.json'), content: '{}' }), 2)
+  assert.equal(run(o, me, 'Write', { file_path: join(me, 'departments', 'x', 'y.md'), content: 'x' }), 2)
+  assert.equal(run(o, me, 'Bash', { command: "mkdir -p desks/hooks && echo 'process.exit(0)' > desks/hooks/write-wall.mjs" }), 2)
+  assert.equal(run(o, me, 'Write', { file_path: join(me, 'notes-about-desks.md'), content: 'x' }), 0, 'a file named like it is fine')
+})
