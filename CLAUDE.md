@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 487 tests
+node --test "tests/**/*.test.mjs"    # 500 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -47,6 +47,12 @@ machine.** `allLeads` (identity: who IS a lead, the wall, duplicates) is office-
 machine's `.office/local.json` names. A desk of another department is `deskOn(...).outside`,
 which is not "off": off desks may still be running and holding work. No `departments` block
 means exactly the old behaviour, pinned in `tests/departments.test.mjs`.
+
+⛔ **A usage-limited session reads "busy" in the registry (0.15.0).** `lib/limits.mjs` takes
+"stuck" from the transcript (the last entry is the CLI's rate-limit banner) and "lifted" from
+the reset OR another session answering after it; the banner's reset alone would have kept
+alibaba-98 waiting five days. The registry's `tmux` field is not an address either: Orca writes
+the same pane for every session.
 
 ⛔ **Ports are declared, never derived from position in a list.** Deriving them means adding
 a desk called `billing` silently moves every desk alphabetically after it to a different

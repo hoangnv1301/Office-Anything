@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-487%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-500%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -597,6 +597,43 @@ A desk may set `compactIdleMin`, `compactAboveK`, `compactFocus`, or `"compact":
   under `compact`. Its output (at most 40 lines, 20 s) is printed into the session only when it
   restarts from a compaction (SessionStart `compact`, documented to add its output to the
   compacted context). A command that fails says so; nothing is invented.
+
+## Usage limit: a stuck session is resumed when the limit lifts
+
+When the Claude usage limit stops a session, it sits at "You've hit your weekly limit · resets
+…" and its queue waits: messages arrive and are never delivered. With `"limits"` in `office.json`,
+heal resumes it once the limit has lifted:
+
+```json
+"limits": { "office": true, "sessions": ["alibaba-98", { "name": "peer", "tab": "Orca tab title" }],
+            "skip": ["cs-*"], "jitterSec": [60, 240], "retryMin": 10, "fallback": "sonnet" }
+```
+
+**Off unless `office.json` says `"limits"`.** `office` watches every session working inside the
+office folder (lead, desks, `cs-*`, case sessions); `sessions` adds others by name, wherever they
+run; `skip` leaves some out (a trailing `*` matches a prefix).
+
+- **Stuck is read from the transcript**: its last entry is the CLI's own rate-limit banner. The
+  registry still says "busy" then, so it is not asked. A later answer, or the CLI's own "usage
+  limit has reset, continue" line, means it is moving and nothing is typed.
+- **Lifted = the reset passed, or another session of the account answered for real after the
+  banner.** That second rule is the one that matters: on 2026-10-21 a weekly limit said "resets
+  Oct 27" and the account worked again two hours later. Resume is that moment plus a stable
+  per-session jitter, so a fleet does not spend fresh quota at once.
+- **One try and one retry per limit** (`retryMin` apart), keyed by the banner, not the session.
+  The lead is rung once (`USAGE-LIMIT` in the alert log): who, since when, until when, how many
+  messages are queued, what it was on, its open tasks. After two tries that did not take, it is
+  rung again ("needs a person") and health is red.
+- **Its own tab, never a guess**: a tab titled with its name, else the title `sessions` pins,
+  else the only agent tab in its folder. A registry `tmux` pane is used only when tmux answers
+  and that pane holds the session's own claude (Orca writes the same pane for every session).
+- **Not into a question**: the limit's own menu is answered only when its cursor is on "Stop and
+  wait for limit to reset"; any other open menu is refused and rung.
+- **A model's own limit** ("You've hit your Opus limit") on a desk: the desk switches to
+  `fallback` at once, carries on, and goes back to its own model after the reset, at its prompt.
+  A session or weekly limit stops every session on the account, so nothing moves work elsewhere.
+- Health says it: `usage-limited: alibaba-98 (seven_day since …, resets …, lifted: lead answered …,
+  resume due …, 17 queued)`.
 
 ## The context cap: compact before a session gets expensive
 

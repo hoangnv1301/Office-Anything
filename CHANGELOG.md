@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.15.0
+
+- USAGE-LIMIT RESUME (the owner, 10-22: "can you even push that to avoid this
+  stuck again"). alibaba-98 hit its weekly limit at 2026-10-21 20:41Z ("resets
+  Oct 27 at 1pm"); the account worked again at 22:57Z after a /login, and the
+  session sat with 17 messages queued until it was clicked by hand at 13:57Z
+  the next day. With `"limits"` in office.json, heal resumes a stuck session:
+  - stuck = its transcript's last entry is the CLI's rate-limit banner (the
+    registry says "busy"); the CLI's own "limit has reset, continue" is left alone
+  - lifted = the reset passed (the CLI's epoch, else the banner text in its zone),
+    or another session of the account answered for real after the banner
+  - resumed at that moment plus a per-session jitter, by typing one line into its
+    own tab (by name, a pinned title, or the only agent tab in its folder; a tmux
+    pane only when it provably holds that claude). One try, one retry, per banner
+  - the lead is rung once (USAGE-LIMIT): who, since, until, queued messages, what
+    it was on, open tasks; again with "needs a person" after two tries; health red
+  - the limit's own menu is answered only on "Stop and wait"; any other is refused
+  - a model's own limit on a desk switches it to `fallback` (sonnet) at once and
+    back after the reset. Moving work to another session is not built: a session
+    or weekly limit stops every session on the account.
+- Health: `usage-limited: …` on the tail; `h.limits` for the board.
+- `lib/start.mjs` orcaTerminal gains `all()` (every tab, any workspace) and `enter()`.
+
 ## 0.14.0
 
 - WHAT COMPACTION KEEPS, manual or automatic, on the two documented paths (the
