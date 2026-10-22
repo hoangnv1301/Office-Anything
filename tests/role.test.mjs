@@ -225,3 +225,33 @@ test('⛔ install never needs sudo: an unwritable /usr/local/bin falls back to ~
   const on = installShim({ home, path: `${join(home, '.local', 'bin')}:/usr/bin`, writable: () => false })
   assert.equal(on.pathLine, null, 'already on PATH: nothing to add')
 })
+
+test('⛔ a role below the root carries the root\'s hooks (pinned to the root) and permissions; a root role needs none', async () => {
+  const { spawnSync } = await import('node:child_process')
+  const o = office()
+  mkdirSync(join(o.root, '.claude'), { recursive: true })
+  // the shape of local-cabinets-ops' root settings, 2026-10-23
+  writeFileSync(join(o.root, '.claude', 'settings.json'), JSON.stringify({ enabledPlugins: { 'x@x': true }, hooks: {
+    PreToolUse: [{ matcher: 'Bash|Read|Write', hooks: [{ type: 'command', command: 'echo "$CLAUDE_PROJECT_DIR/desks/hooks/write-wall.mjs" || exit 2' }] }],
+    SessionStart: [{ hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/desks/hooks/desk-boot.mjs" || true' }] }],
+  } }))
+  writeFileSync(join(o.root, '.claude', 'settings.local.json'), JSON.stringify({ permissions: { allow: ['Bash(cd *)'], deny: ['Read(/desks/**/runtime/**)'] } }))
+  const P = profilesOf(o.root, o.cfg).list
+  const aics = settingsOf(P.find((p) => p.name === 'aics'), { root: o.root })
+  assert.deepEqual(Object.keys(aics.hooks), ['PreToolUse', 'SessionStart'])
+  assert.equal(aics.hooks.PreToolUse[0].matcher, 'Bash|Read|Write')
+  assert.deepEqual(aics.permissions.allow, ['Bash(cd *)'])
+  assert.deepEqual(aics.permissions.deny, [`Read(/${o.root}/desks/**/runtime/**)`], 'a root-relative rule made absolute: its settings file moved')
+  assert.deepEqual(aics.enabledPlugins, { 'x@x': true })
+  assert.deepEqual(aics.claudeMdExcludes, ['**/local-cabinets-ops/CLAUDE.md'])
+  // the hook, run as Claude Code would from the department's folder, sees the office root
+  const cmd = aics.hooks.PreToolUse[0].hooks[0].command
+  const out = spawnSync('/bin/sh', ['-c', cmd], { cwd: join(o.root, 'departments', 'aics'), env: { ...process.env, CLAUDE_PROJECT_DIR: join(o.root, 'departments', 'aics') }, encoding: 'utf8' }).stdout.trim()
+  assert.equal(out, join(o.root, 'desks', 'hooks', 'write-wall.mjs'))
+  // a role at the root loads the root's settings itself: nothing copied
+  const cons = settingsOf(P.find((p) => p.name === 'construction'), { root: o.root })
+  assert.equal(cons.hooks, undefined)
+  assert.deepEqual(cons.permissions, { deny: ['Read(./departments/**/*)'] })
+  // opting out
+  assert.equal(settingsOf({ ...P.find((p) => p.name === 'aics'), rootSettings: false }, { root: o.root }).hooks, undefined)
+})
