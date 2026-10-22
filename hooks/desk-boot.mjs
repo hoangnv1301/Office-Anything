@@ -35,6 +35,7 @@ import { readSwitch, deskOn } from '../lib/desks.mjs'
 import { rosterSafe, officeRoster } from '../lib/desk.mjs'
 import { allLeads, deskScope } from '../lib/departments.mjs'
 import { afterLines } from '../lib/compact.mjs'
+import { profilesOf, rolesHere } from '../lib/role.mjs'
 import { spawnSync } from 'node:child_process'
 
 const DEFAULT = {
@@ -122,6 +123,22 @@ export function bootLines(root, who, cfg, cwd) {
   return out
 }
 
+// ROLES (0.17.0, lib/role.mjs): only with office.json "profiles". A session
+// opened as a role is told which, and its note; one at the root with no role is
+// told how to become one (a role is a new session, never a switch in place).
+export function roleLines(root, cfg, cwd, env, who) {
+  if (!cfg?.profiles || typeof cfg.profiles !== 'object') return []
+  const name = env.OFFICE_PROFILE
+  if (name) {
+    const p = profilesOf(root, cfg).list.find((x) => x.name === name)
+    if (!p) return [`⚠ This session was opened as role "${name}", which office.json "profiles" does not declare now.`]
+    return [`You are ${p.session}, opened as the ${p.name} role.`, ...(p.note ? [p.note] : [])]
+  }
+  if (who || resolve(cwd) !== resolve(root)) return []
+  const R = rolesHere(root, cfg)
+  return [`dev/construction session; /role to switch${R.list.length ? ` (${R.list.map((p) => p.name).join(', ')})` : ''}.`]
+}
+
 if (isMain(import.meta.url)) {
   const chunks = []
   process.stdin.on('data', (c) => chunks.push(c))
@@ -140,12 +157,13 @@ if (isMain(import.meta.url)) {
         try { writeAlert(root, cfg, { type: 'VERSION', subject: 'office-anything', text: `loaded ${v.loaded}, approved ${v.approved.join(',')}${v.enforce ? ' (enforce: desks refused)' : ''}`, quietKey: 'version:' + v.loaded }) } catch {}
       }
       const afterCompact = p?.source === 'compact' && !!cfg.compact?.after
-      if ((!cfg.boot || typeof cfg.boot !== 'object') && !(typeof cfg.lead?.wake === 'string' && cfg.lead.wake.trim()) && !afterCompact) process.exit(0)
+      const roles = roleLines(root, cfg, cwd, process.env, whoIs(root, cfg, { cwd }))
+      if ((!cfg.boot || typeof cfg.boot !== 'object') && !(typeof cfg.lead?.wake === 'string' && cfg.lead.wake.trim()) && !afterCompact) { if (roles.length) console.log(roles.join('\n')); process.exit(0) }
       const who = whoIs(root, cfg, { cwd })
       // a case session runs under its parent's role, so its own name says which case it is
       const child = childOf(root, sessionName())
       if (child && who?.kind === 'desk' && who.desk === child.parent) who.caseKey = child.key
-      if (!who || (who.kind === 'desk' && !existsSync(join(who.dir, 'desk.json')))) process.exit(0)
+      if (!who || (who.kind === 'desk' && !existsSync(join(who.dir, 'desk.json')))) { if (roles.length) console.log(roles.join('\n')); process.exit(0) }
       // exactly the old boot when it would have run; only the after-compact lines when that alone let it in
       const booted = (cfg.boot && typeof cfg.boot === 'object') || (typeof cfg.lead?.wake === 'string' && cfg.lead.wake.trim())
       const lines = booted ? bootLines(root, who, cfg, cwd) : []
@@ -154,6 +172,7 @@ if (isMain(import.meta.url)) {
       // office's own read-only command (office.json compact.after). A case
       // session is its parent desk's: it gets the desk's lines.
       if (p?.source === 'compact' && (who.kind === 'lead' || who.kind === 'desk')) lines.push(...afterLines(root, cfg, { isLead: who.kind === 'lead', desk: who.desk, run: spawnSync }))
+      lines.unshift(...roles)
       if (lines.length) console.log(lines.join('\n'))
     } catch {}
     process.exit(0)
