@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 533 tests
+node --test "tests/**/*.test.mjs"    # 537 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -253,6 +253,14 @@ requires every command file to be documented and every documented command to exi
   that doctrine is its reason: the board must never know something
   `node checks/run.mjs` does not, so it renders `collect()` plus the native
   sources (desk.json, transcripts, scratchpads), loopback only, stateless.
+
+## ⛔ A RELEASE IS NOT DONE UNTIL ITS NOTE IS POSTED (0.18.1)
+
+From 0.9.0 to 0.18.0 every release carried "Discord text" sent to the lead,
+and none of it was ever posted. Writing the note into docs/releases.json is part
+of the version bump (a test fails without it). After the merge, run
+`node scripts/release-post.mjs` (the current version). It fails loudly on a
+refusal; a refused post is a release that is not finished.
 
 ## Publishing
 
