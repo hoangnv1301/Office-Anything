@@ -20,7 +20,7 @@
 // ⛔ FAILS LOUDLY. A refused post exits non-zero with the refusal as it came.
 // The forum's cap (10 release posts a day, Local Ops' included) stops --missing
 // with exit 5 and what is left: run it again tomorrow. A post already made comes
-// back dup and counts as posted, so a re-run is safe.
+// back dup from the verb and counts as posted, so a re-run is safe.
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -97,13 +97,22 @@ export function postNote(version, { repo = REPO, ops = process.env.OPS_REPO || r
   const sections = Object.fromEntries(RULES.sections.filter((k) => n[k]?.length).map((k) => [k, n[k]]))
   const payload = { product: 'office-anything', release: version, date: n.date, sections }
   if (dry) return { state: 'dry', why: `${gh.why}; would post ${JSON.stringify(payload).slice(0, 200)}…` }
-  const x = r(process.execPath, [join(ops, 'scripts', 'desk', 'ops.mjs'), 'propose', '发版本日志', JSON.stringify(payload), `office-anything ${version} release step`, `key=oa-release-${version}`], { cwd: ops, env: { ...process.env, LCC_ROLE: 'lead', OPS_TOKEN: '' } })
+  // ⛔ NO IDEMPOTENCY KEY: ops.mjs hands a key's first answer back for ever, so
+  // a post rejected before the forum was configured would come back rejected
+  // after. The verb itself allows one post per version (a re-post is its dup).
+  const x = r(process.execPath, [join(ops, 'scripts', 'desk', 'ops.mjs'), 'propose', '发版本日志', JSON.stringify(payload), `office-anything ${version} release step`], { cwd: ops, env: { ...process.env, LCC_ROLE: 'lead', OPS_TOKEN: '' } })
   const out = String(x.stdout ?? '').trim(), err = String(x.stderr ?? '').trim()
-  if (x.error || x.status !== 0) return { state: /24 小时最多|今天发够了/.test(err + out) ? 'cap' : 'refused', why: err || out || x.error?.message || `exit ${x.status}` }
+  const capped = (t) => /24 小时最多|今天发够了/.test(t)
+  if (x.error || x.status !== 0) return { state: capped(err + out) ? 'cap' : 'refused', why: err || out || x.error?.message || `exit ${x.status}` }
   let j = null
   try { j = JSON.parse(out.split('\n').filter(Boolean).at(-1)) } catch {}
-  const dup = !!(j?.dup ?? j?.result?.dup)
-  return { state: dup ? 'dup' : 'posted', why: `${gh.why}; ${dup ? 'already posted' : 'posted'}${j?.id ? ` (${j.id})` : ''}` }
+  // ⛔ EXIT 0 IS NOT "POSTED". ops.mjs exits 0 with {"status":"rejected","error":…}
+  // when the verb refuses (2026-10-23: "release channel not configured"). Only a
+  // proposal that was not rejected, carries no error and names its id counts.
+  const why = j?.error ?? j?.result?.error ?? null
+  if (!j || why || /^(rejected|failed|cancelled|error)$/i.test(String(j.status ?? ''))) return { state: capped(String(why ?? out)) ? 'cap' : 'refused', why: why ? String(why) : `ops.mjs answered ${out.slice(0, 300) || '(nothing)'}` }
+  const dup = !!(j.dup ?? j.result?.dup)
+  return { state: dup ? 'dup' : 'posted', why: `${gh.why}; ${dup ? 'already posted' : 'posted'}${j.id ? ` (${j.id}, ${j.status ?? 'queued'})` : ''}` }
 }
 
 if (isMain(import.meta.url)) {

@@ -109,5 +109,8 @@
   ], "fixed": [
     "A desk left behind as a link after a move counts once, as the desk in its department's folder.",
     "A lead in a department folder can run its listed commands by their relative path, judged by what they really run."
+  ] },
+  "0.18.3": { "date": "2026-10-23", "fixed": [
+    "The lead's listed commands are judged from the real folder a session stands in, so a path through a moved desk's link cannot pass as another."
   ] }
 }

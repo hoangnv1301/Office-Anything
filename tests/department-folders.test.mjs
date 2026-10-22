@@ -239,4 +239,8 @@ test('⛔ a path that climbs back out through a folder is never rewritten: the s
   // lexically scripts/desk/ops.mjs; the shell reads departments/scripts/desk/ops.mjs
   assert.equal(as(aics, 'node ../../desks/inventory/../../scripts/desk/ops.mjs ask items'), 2)
   assert.equal(as(aics, 'node ../../scripts/desk/ops.mjs ask items'), 0, 'a plain climb to the root still matches')
+  // standing IN the link: ../../ climbs from departments/local-ops/inventory (the kernel's view) to departments/
+  const link = join(o.root, 'desks', 'inventory')
+  mkdirSync(join(o.root, 'departments', 'scripts', 'desk'), { recursive: true })
+  assert.equal(as(link, 'node ../../scripts/desk/ops.mjs ask items'), 2, 'from the link it is departments/scripts/…, not the listed one')
 })

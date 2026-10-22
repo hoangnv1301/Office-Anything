@@ -50,12 +50,19 @@ test('⛔ the post goes through ops.mjs as the lead, never with a key of its own
   assert.deepEqual(JSON.parse(op.args[3]), { product: 'office-anything', release: VERSION, date: notes()[VERSION].date, sections: Object.fromEntries(['new', 'fixed', 'improved', 'todo'].filter((k) => notes()[VERSION][k]?.length).map((k) => [k, notes()[VERSION][k]])) })
   assert.equal(op.env.LCC_ROLE, 'lead')
   assert.equal(op.env.OPS_TOKEN, '', 'no key handed in: ops.mjs picks the lead\'s')
-  assert.match(op.args.at(-1), new RegExp(`^key=oa-release-${VERSION.replace(/\./g, '\\.')}$`), 'idempotent: a re-run is the same post')
+  assert.ok(!op.args.some((a) => /^key=/.test(a)), 'no idempotency key: it would hand back a rejection for ever')
   assert.equal(postNote(VERSION, { r: world({ status: 0, stdout: '{"id":"p1","dup":true}\n' }).r, ops: '/ops' }).state, 'dup')
   const refused = postNote(VERSION, { r: world({ status: 1, stderr: 'Office-Anything release channel not configured: its forum channel id is not set' }).r, ops: '/ops' })
   assert.equal(refused.state, 'refused')
   assert.match(refused.why, /channel not configured/)
   assert.equal(postNote(VERSION, { r: world({ status: 1, stderr: '24 小时最多 10 条发布日志：今天发够了' }).r, ops: '/ops' }).state, 'cap')
+  // ⛔ the real answer of 2026-10-23: exit 0, and rejected
+  const real = '{"id":"53773cd5-306a-4bce-a677-4a72a623c9b0","status":"rejected","result":{"error":"Office-Anything release channel not configured: its forum channel id is not set in lib/release-channels.ts yet"},"error":"Office-Anything release channel not configured: its forum channel id is not set in lib/release-channels.ts yet","dup":true}\n'
+  const rej = postNote(VERSION, { r: world({ status: 0, stdout: real }).r, ops: '/ops' })
+  assert.equal(rej.state, 'refused')
+  assert.match(rej.why, /release channel not configured/)
+  assert.equal(postNote(VERSION, { r: world({ status: 0, stdout: '{"status":"rejected","error":"24 小时最多 10 条发布日志：今天发够了"}\n' }).r, ops: '/ops' }).state, 'cap')
+  assert.equal(postNote(VERSION, { r: world({ status: 0, stdout: 'not json' }).r, ops: '/ops' }).state, 'refused', 'an answer it cannot read is not a post')
 })
 
 test('⛔ health warns while the loaded version has no release note, and asks the book at most every 30 minutes', () => {
