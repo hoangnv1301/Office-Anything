@@ -269,3 +269,25 @@ test('⛔ the cutover order works: set the machine BEFORE office.json has a bloc
   writeFileSync(join(o.root, 'office.json'), JSON.stringify({ ...o.cfg, departments: { 'local-ops': DEPTS['local-ops'] } }))
   assert.match(readSwitch(o.root).error, /does not declare: customer-service/)
 })
+
+// local-cabinets-ops office.json on 2026-10-22 (#1472, the token benchmark),
+// the shape that turned departments "on" with none in them
+const BENCHMARK = { _note: 'Token usage benchmark: which group a Claude session\'s tokens count in.', order: ['AICS', 'ERP', 'CODING'], default: 'CODING', groups: { AICS: { sessions: ['^lead$', '^cs-'] }, ERP: { sessions: ['^desk-design-quotation(--|$)'] }, CODING: { sessions: ['^construction'] } } }
+
+test('⛔ a "departments" block that names no lead is no departments: the lead keeps its restart, doorbell and open wall', () => {
+  const o = office({ machine: BOTH, depts: null, cfg: { lead: { session: 'lead', aliases: ['工厂ERP'] }, departments: BENCHMARK } })
+  const D = departmentsOf(o.cfg)
+  assert.equal(D.on, false)
+  assert.match(D.ignored, /names no department with a "lead" \(order, default, groups\)/)
+  assert.deepEqual(machineLeads(o.root, o.cfg).map((l) => l.session), ['lead'], 'this machine runs its lead')
+  assert.equal(allLeads(o.cfg)[0].open, true, 'wall.lead.open applies to it again')
+  const h = o.health()
+  assert.doesNotMatch(h.line, /department setting is broken/)
+  assert.equal(h.leads.length, 1)
+  assert.match(h.line, /read as no departments/)
+  assert.equal(departmentsCheck(o.root).applicable, false)
+  // a real department beside a note: the note is skipped, the department read
+  const o2 = office({ machine: BOTH, depts: { _note: 'who runs what', ...DEPTS } })
+  assert.deepEqual(departmentsOf(o2.cfg).list.map((d) => d.id), ['local-ops', 'customer-service'])
+  assert.deepEqual(departmentsOf(o2.cfg).problems, [])
+})
