@@ -171,7 +171,7 @@ test('wall: {plugin} in a lead.bash entry means this plugin\'s own folder, one r
   mkdirSync(join(pluginRoot, 'lib')); writeFileSync(join(pluginRoot, 'lib', 'tasks.mjs'), '')
   const ARG = `(?:'[^']*'|"[^"$\`\\\\]*"|[A-Za-z0-9_.:/=@#+-]+)`
   const good = `^node {plugin}/lib/tasks\\.mjs (add|update|list|verify|drop)( ${ARG})*$`
-  const W = compileWall({ lead: { bash: [good] }, root, pluginRoot })
+  const W = compileWall({ lead: { bash: [good] }, root }, { pluginRoot })
   assert.deepEqual(W.leadBashProblems, [])
   const run = (c) => judge({ tool_name: 'Bash', tool_input: { command: c }, cwd: root }, { kind: 'lead' }, root, W)
   assert.equal(run(`node ${pluginRoot}/lib/tasks.mjs add --said 'both buyers; answer today' --title Buyers`), null)
@@ -180,7 +180,7 @@ test('wall: {plugin} in a lead.bash entry means this plugin\'s own folder, one r
   assert.match(run(`node ${pluginRoot}/lib/other.mjs list`), /limited/)
   assert.match(run('node /tmp/evil/lib/tasks.mjs list'), /limited/)
   for (const bad of ['^node {plugin}/lib/tasks\\.mjs {plugin}/lib/tasks\\.mjs$', '^echo hi | node {plugin}/lib/tasks\\.mjs list$', '^node {plugin}/lib/tasks\\.mjs$|^rm$', '^node {plugin}/lib/../tasks\\.mjs$', '^node {plugin}/lib/tasks\\.mjs$ {plugin}', '^bash {plugin}/lib/tasks\\.mjs$', '^node {plugin}/lib/missing\\.mjs$', '^node {plugin}/\\.\\./x\\.mjs$', '^cat {plugin}/lib/tasks\\.mjs$', '^node /x/{plugin}/lib/tasks\\.mjs$']) {
-    assert.equal(compileWall({ lead: { bash: [bad] }, root, pluginRoot }).leadBashProblems.length, 1, bad)
+    assert.equal(compileWall({ lead: { bash: [bad] }, root }, { pluginRoot }).leadBashProblems.length, 1, bad)
   }
   // the default is the plugin this wall belongs to
   const own = compileWall({ lead: { bash: ['^node {plugin}/lib/tasks\\.mjs list$'] }, root })

@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-553%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-554%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -519,9 +519,10 @@ node lib/tasks.mjs list [--all] [--json]
   example above). `{plugin}` is the one placeholder the wall knows: it expands to the running
   plugin's own folder, so the entry survives an update. It must appear once, right after `node`, and
   name one real file in that folder; any other use is dropped like an unanchored entry. A session
-  keeps the wall it started with, so `{plugin}` (and a session's own `wake`) also matches any NEWER
-  version installed beside it in the plugin cache that really is this plugin: an update does not
-  strand a running lead. Never an older version, another plugin, or a link to somewhere else.
+  keeps the wall it started with, so `{plugin}` (and a session's own `wake`) also matches a NEWER
+  version that Claude Code recorded installing (`installed_plugins.json`), beside it in the plugin
+  cache and really this plugin: an update does not strand a running lead. Never an older version, a
+  folder that merely appeared in the cache, another plugin, or a link. office.json cannot set it.
 - **Every session works from it.** `list --assigned <name>` (`desk-x` matches `x`), `--overdue` and
   `--owner` filter the list. At start, resume, clear and compact a desk or a dev session (any session
   with a registry name: `ops-construction`, `alibaba-98`…) is shown only the open tasks assigned to
