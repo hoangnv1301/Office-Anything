@@ -6,7 +6,7 @@
 // block, which must behave exactly as before.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlinkSync, renameSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { departmentsOf, machineOf, allLeads, machineLeads, leadsOfDesk, deskScope } from '../lib/departments.mjs'
@@ -365,7 +365,7 @@ test('⛔ each lead\'s bell hears its own department and the office\'s, never an
 
 // 0.18.7: ERP's bell rang the buyers log and held buyer drafts, and pushed the owner on them
 test('⛔ a bell file or ask is a department\'s too: by the desk folder holding the file, or by what it names', async () => {
-  const { poll } = await import('../lib/lead-bell.mjs')
+  const { poll, fileRefusal } = await import('../lib/lead-bell.mjs')
   const { alertsFile } = await import('../lib/alerts.mjs')
   const bell = { files: [
     { name: 'buyers', path: 'desks/customer/runtime/lead-alerts.log', match: ' STALL ' },
@@ -407,6 +407,31 @@ test('⛔ a bell file or ask is a department\'s too: by the desk folder holding 
   writeFileSync(join(m.root, 'departments', 'local-ops', 'moved', 'runtime', 'x.log'), 'moved desk line\n')
   assert.match(poll(m.root, m.cfg, { now: at, lead: 'ERP', state: me }).lines.join('\n'), /moved desk line/)
   assert.doesNotMatch(poll(m.root, m.cfg, { now: at, lead: 'AICS', state: ma }).lines.join('\n'), /moved desk line/)
+  // ⛔ a link into another desk is judged where it really is, and refused
+  const L = office({ machine: BOTH, cfg: { lead: { bell: { files: [{ name: 'buyers', path: 'desks/customer/runtime/lead-alerts.log', match: '.' }] } } } })
+  mkdirSync(join(L.root, 'desks', 'customer', 'runtime'), { recursive: true }); mkdirSync(join(L.root, 'desks', 'inventory', 'runtime'), { recursive: true })
+  writeFileSync(join(L.root, 'desks', 'inventory', 'runtime', 'lead-alerts.log'), '')
+  symlinkSync(join(L.root, 'desks', 'inventory', 'runtime', 'lead-alerts.log'), join(L.root, 'desks', 'customer', 'runtime', 'lead-alerts.log'))
+  const fl = () => ({ offset: 0, file: alertsFile(L.root, L.cfg), files: {}, rung: {}, sent: [], held: 0 })
+  const ls = poll(L.root, L.cfg, { now: at, lead: 'AICS', state: fl() }).state
+  writeFileSync(join(L.root, 'desks', 'inventory', 'runtime', 'lead-alerts.log'), 'erp stock line\n')
+  const lA = poll(L.root, L.cfg, { now: at, lead: 'AICS', state: ls }).lines.join('\n')
+  assert.doesNotMatch(lA, /erp stock line/, 'AICS does not hear ERP through a link')
+  assert.match(fileRefusal(L.root, 'desks/customer/runtime/lead-alerts.log'), /a link into the desk inventory, not the desk customer/)
+  // a moved desk's old link lands in the same desk: allowed, and its department's
+  const V = office({ machine: BOTH, depts: { ...DEPTS, 'customer-service': { ...DEPTS['customer-service'], dir: 'departments/aics' } } })
+  mkdirSync(join(V.root, 'departments', 'aics'), { recursive: true })
+  renameSync(join(V.root, 'desks', 'customer'), join(V.root, 'departments', 'aics', 'customer'))
+  symlinkSync(join(V.root, 'departments', 'aics', 'customer'), join(V.root, 'desks', 'customer'))
+  mkdirSync(join(V.root, 'departments', 'aics', 'customer', 'runtime'))
+  writeFileSync(join(V.root, 'departments', 'aics', 'customer', 'runtime', 'lead-alerts.log'), '')
+  assert.equal(fileRefusal(V.root, 'desks/customer/runtime/lead-alerts.log'), null)
+  const vc = { ...V.cfg, lead: { bell: { files: [{ name: 'buyers', path: 'desks/customer/runtime/lead-alerts.log', match: '.' }] } } }
+  const fv = () => ({ offset: 0, file: alertsFile(V.root, vc), files: {}, rung: {}, sent: [], held: 0 })
+  const ve = poll(V.root, vc, { now: at, lead: 'ERP', state: fv() }).state, va = poll(V.root, vc, { now: at, lead: 'AICS', state: fv() }).state
+  writeFileSync(join(V.root, 'departments', 'aics', 'customer', 'runtime', 'lead-alerts.log'), 'buyer via old link\n')
+  assert.match(poll(V.root, vc, { now: at, lead: 'AICS', state: va }).lines.join('\n'), /buyer via old link/)
+  assert.doesNotMatch(poll(V.root, vc, { now: at, lead: 'ERP', state: ve }).lines.join('\n'), /buyer via old link/)
   // no departments: one bell hears every file and ask
   const one = office({ depts: null, cfg: { lead: { session: 'lead', bell: { asks: bell.asks } } } })
   assert.match(poll(one.root, one.cfg, { now: at, lead: 'lead', state: fresh() }).lines.join('\n'), /buyer draft held/)

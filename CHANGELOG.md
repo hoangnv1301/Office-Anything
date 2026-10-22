@@ -11,6 +11,10 @@
   name one with `"department"`. Only that department's lead hears it; an
   undeclared department is the office's, heard by all, never lost. No
   departments: one bell hears everything, as before.
+  - ⛔ judged where the file REALLY is (commit security review). A log that is
+    a link into another desk is refused, and ownership is read from the real
+    path every poll. A moved desk's old desks/<id> link lands in the same desk
+    and is allowed.
 
 ## 0.18.6
 
