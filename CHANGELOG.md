@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.19.2
+
+- ⛔ NOR AN office/ FOLDER. local-cabinets-ops' desks/ cleanup moved the office's
+  hooks to `office/hooks`, so a desk planting `<desk>/office/hooks/*.mjs` is the
+  same road 0.18.6 closed for `desks/`, `departments/` and `office.json`: a hook
+  command that fell back to the session's folder would run it. The hook's root
+  check already blocks that fallback; this is the second layer. Write, Edit and
+  Bash share one rule now (`lib/wall.mjs` `officeShape`), so the next folder
+  is one word, not two copies. Pinned in `tests/department-folders.test.mjs`.
+
 ## 0.19.1
 
 - ⛔ AN UPDATE DOES NOT MAKE A RUNNING BELL "UNARMED". ERP (2026-10-23) armed
