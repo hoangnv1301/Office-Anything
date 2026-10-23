@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-565%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-568%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -220,6 +220,7 @@ developer.
     "deny": [{ "pattern": "\\bsqlite3\\b", "why": "desks do not touch the database directly" }],
     "lead": { "bash": ["^\\s*node \\S*scripts/ops\\.mjs\\s+\\S"] },
     "audit": ["\\bsqlite3\\b"],
+    "deskHook": "office/hooks/write-wall.mjs",
     "footer": { "desk": "Write only through scripts/ops.mjs propose." }
   },
   "boot": {
@@ -233,7 +234,11 @@ developer.
 plugin's rule for every hook. An office whose wall is its only door can set
 `wall.failClosed`: then a desk session whose payload or rules cannot be read
 is refused. The `desk-wall` check reports a rule that does not compile, and
-any desk record showing a command listed in `wall.audit`.
+any desk record showing a command listed in `wall.audit`. An office that keeps
+a wall hook of its own names it in `wall.deskHook`. Health is then red for each
+desk whose `.claude/settings.json` has no PreToolUse hook that resolves to that
+file (or to this plugin's `hooks/desk-wall.mjs`), covers Bash, Write and Edit,
+and lets its refusal through.
 
 **Moving an existing office onto these**: keep your own hooks in place, add
 the `office.json` sections, install the plugin version that carries them and
