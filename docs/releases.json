@@ -138,5 +138,8 @@
     "After a plugin update, a lead still running the old version's doorbell counts as armed, so the watchdog stops typing it a kickoff its wall refuses."
   ], "improved": [
     "Health says when a lead's doorbell runs an older version's bell, so it can be restarted when idle."
+  ] },
+  "0.19.2": { "date": "2026-10-23", "fixed": [
+    "A desk can no longer create an office/ folder inside its own folder, where an office now keeps its hooks."
   ] }
 }

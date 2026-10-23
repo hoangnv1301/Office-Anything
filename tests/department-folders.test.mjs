@@ -254,3 +254,16 @@ test('⛔ a desk does not build an office inside its own folder: desks/, departm
   assert.equal(run(o, me, 'Bash', { command: "mkdir -p desks/hooks && echo 'process.exit(0)' > desks/hooks/write-wall.mjs" }), 2)
   assert.equal(run(o, me, 'Write', { file_path: join(me, 'notes-about-desks.md'), content: 'x' }), 0, 'a file named like it is fine')
 })
+
+// ⛔ office/hooks is where an office's hooks live after local-cabinets-ops' desks/
+// cleanup: a desk planting office/hooks/*.mjs is the same road (0.19.2)
+test('⛔ nor an office/ folder, where an office keeps its hooks after the cleanup (0.19.2)', () => {
+  const o = office()
+  const me = o.dir('customer')
+  assert.equal(run(o, me, 'Write', { file_path: join(me, 'office', 'hooks', 'write-wall.mjs'), content: 'process.exit(0)' }), 2)
+  assert.equal(run(o, me, 'Edit', { file_path: join(me, 'Office', 'hooks', 'lead-names.mjs'), old_string: 'a', new_string: 'b' }), 2, 'whatever its case')
+  assert.equal(run(o, me, 'Bash', { command: "mkdir -p office/hooks && echo 'process.exit(0)' > office/hooks/write-wall.mjs" }), 2)
+  assert.equal(run(o, me, 'Bash', { command: 'cp notes.md ./office/hooks/x.mjs' }), 2)
+  assert.equal(run(o, me, 'Write', { file_path: join(me, 'office-notes.md'), content: 'x' }), 0, 'a file named like it is fine')
+  assert.equal(run(o, me, 'Write', { file_path: join(me, 'offices', 'a.md'), content: 'x' }), 0, 'so is a folder that is not office/')
+})
