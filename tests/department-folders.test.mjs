@@ -267,3 +267,29 @@ test('⛔ nor an office/ folder, where an office keeps its hooks after the clean
   assert.equal(run(o, me, 'Write', { file_path: join(me, 'office-notes.md'), content: 'x' }), 0, 'a file named like it is fine')
   assert.equal(run(o, me, 'Write', { file_path: join(me, 'offices', 'a.md'), content: 'x' }), 0, 'so is a folder that is not office/')
 })
+
+// ⛔ commit security review (0.19.2): a bare name has no slash, and only paths
+// with one were write targets, so `mkdir office && mv hooks office` passed
+test('⛔ a bare name builds an office too: mkdir office, mv hooks office, ln -s, after a cd; rm takes one away', () => {
+  const o = office()
+  const me = o.dir('customer')
+  for (const c of ['mkdir office', 'mkdir -p office && mv hooks office', 'mv stuff Office', 'cp -r hooks desks', 'ln -s ../../office office', 'touch office.json', 'install -d departments', 'cd notes && mkdir office'])
+    assert.equal(run(o, me, 'Bash', { command: c }), 2, c)
+  for (const c of ['mkdir notes', 'mv a.md b.md', 'rm -rf office', 'touch office-notes.md'])
+    assert.equal(run(o, me, 'Bash', { command: c }), 0, c)
+})
+
+// ⛔ and whatever the wall cannot read (tar, unzip, a script): health looks
+test('⛔ health is red for an office shape sitting in a desk folder, however it got there', () => {
+  const o = office()
+  const h0 = () => officeHealth(o.root, { home: mkdtempSync(join(tmpdir(), 'oa-dfold-h-')), procs: new Map([[1, { pid: 1, ppid: 0, ageSec: 1e6, cmd: 'launchd' }]]), checks: false, cwd: () => null })
+  assert.doesNotMatch(h0().line, /office shape/)
+  mkdirSync(join(o.dir('customer'), 'office', 'hooks'), { recursive: true })
+  writeFileSync(join(o.dir('inventory'), 'office.json'), '{}')
+  mkdirSync(join(o.dir('inventory'), 'notes', 'office'), { recursive: true })
+  const h = h0()
+  assert.equal(h.code, 4)
+  assert.match(h.line, /customer holds an office shape \(office\/\)/)
+  assert.match(h.line, /inventory holds an office shape \(office\.json\)/)
+  assert.equal(h.findings.filter((f) => /office shape/.test(f.short ?? '')).length, 2, 'top level only: notes/office is not where a hook falls back to')
+})
