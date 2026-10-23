@@ -48,14 +48,30 @@ test('⛔ and fails for no settings, a hook elsewhere, a matcher that misses Wri
     planted: entry('node "$CLAUDE_PROJECT_DIR/office/hooks/write-wall.mjs" || exit 2'),
     narrow: entry(WALL, 'Bash|Read'),
     soft: entry(WALL.replace(/\|\| exit 2$/, '|| true')),
+    // only "|| exit 2" after the call is kept: anything else is judged open
+    semi: entry(WALL + '; exit 0'),
+    pipe: entry(WALL.replace(/ \|\| exit 2$/, ' | cat')),
+    notebook: entry(WALL, 'Bash|Read|Write|Edit|MultiEdit'),
     broken: '{ not json',
   })
   assert.match(why(root, 'none'), /no \.claude\/settings\.json/)
   assert.match(why(root, 'other'), /runs no PreToolUse hook resolving to office\/hooks\/write-wall\.mjs/)
   assert.match(why(root, 'planted'), /runs no PreToolUse hook/)
-  assert.match(why(root, 'narrow'), /does not cover Bash, Write and Edit/)
-  assert.match(why(root, 'soft'), /swallows its own refusal/)
+  assert.match(why(root, 'narrow'), /does not cover every tool that writes/)
+  assert.match(why(root, 'notebook'), /does not cover every tool that writes/)
+  for (const id of ['soft', 'semi', 'pipe']) assert.match(why(root, id), /does not keep its refusal/, id)
   assert.match(why(root, 'broken'), /cannot be read/)
+})
+
+test('⛔ and fails when a layer the session loads turns every hook off', () => {
+  const root = office({ off: entry(WALL), local: entry(WALL), junk: entry(WALL) })
+  const dir = (id) => join(root, 'departments', 'aics', id, '.claude')
+  writeFileSync(join(dir('off'), 'settings.json'), JSON.stringify({ disableAllHooks: true, hooks: { PreToolUse: entry(WALL) } }))
+  writeFileSync(join(dir('local'), 'settings.local.json'), JSON.stringify({ disableAllHooks: true }))
+  writeFileSync(join(dir('junk'), 'settings.local.json'), '{')
+  assert.match(why(root, 'off'), /settings\.json sets disableAllHooks/)
+  assert.match(why(root, 'local'), /settings\.local\.json sets disableAllHooks/)
+  assert.match(why(root, 'junk'), /settings\.local\.json cannot be read/)
 })
 
 const look = (root) => officeHealth(root, { home: mkdtempSync(join(tmpdir(), 'oa-dhook-h-')), procs: new Map([[1, { pid: 1, ppid: 0, ageSec: 1e6, cmd: 'launchd' }]]), checks: false, cwd: () => null, pluginRoot: PLUGIN })

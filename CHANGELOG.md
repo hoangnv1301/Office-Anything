@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.19.5
+
+- ⛔ THE WALL-HOOK CHECK WAS EASIER TO PASS THAN THE WALL (commit security
+  review of 0.19.4). `disableAllHooks` in a desk's settings.json or
+  settings.local.json turns every hook off, the wall's included, and the check
+  read only the hooks list: it fails the desk now. The matcher must cover every
+  tool that writes (MultiEdit and NotebookEdit too), and the refusal is judged
+  by an allowlist instead of three swallow patterns: after the node call only
+  `|| exit 2` may follow (`; exit 0` and `| cat` passed before).
+
 ## 0.19.4
 
 - ⛔ EVERY DESK CARRIES THE OFFICE'S OWN WALL HOOK, AND HEALTH SAYS WHEN ONE
