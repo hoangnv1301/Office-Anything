@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.19.7
+
+- SKIPPED, NOT OWED. The release forum's cap is 10 posts a day, and
+  `release-post.mjs --missing` would have spent three days on the 25 notes from
+  before the forum existed (0.10.0 to 0.18.8) before reaching 0.19. The lead,
+  2026-10-23: nobody needs them. `docs/releases.json` `"_skipped": { "through":
+  "0.18.8", why, decided }` retires them; `--missing` owes only what comes after,
+  and one version named on the command line still posts. Pinned in
+  `tests/releases.test.mjs`.
+
 ## 0.19.6
 
 - ⭐ A LEAD COMPACTS AT A TASK BOUNDARY. The owner, 2026-10-23: the lead should

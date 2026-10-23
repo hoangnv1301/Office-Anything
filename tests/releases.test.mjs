@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, mkdtempSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { notes, noteProblem, postNote, semverSort } from '../scripts/release-post.mjs'
+import { notes, noteProblem, postNote, semverSort, owed } from '../scripts/release-post.mjs'
 import { releaseNoteMissing } from '../lib/health.mjs'
 
 const VERSION = JSON.parse(readFileSync(new URL('../.claude-plugin/plugin.json', import.meta.url), 'utf8')).version
@@ -79,4 +79,20 @@ test('⛔ health warns while the loaded version has no release note, and asks th
   assert.equal(asked, 0)
   assert.match(releaseNoteMissing(root, cfg, { loaded: '0.18.0', run: () => ({ status: 3, stdout: '' }), now: Date.now() + 31 * 60_000 }), /UNKNOWN/, 'a failing ask is not "posted"')
   assert.equal(releaseNoteMissing(root, {}, { loaded: '0.18.0' }), null, 'not asked: nothing said')
+})
+
+// ⛔ SKIPPED, NOT OWED (0.19.7). The lead, 2026-10-23: the 25 notes before 0.19
+// were never posted and nobody needs them; --missing must not spend days of the
+// forum's cap on them, and must not forget anything after them.
+test('⛔ --missing owes every note after "_skipped".through, none at or before it', () => {
+  const n = { _note: 'x', _skipped: { through: '0.18.8', why: 'old' }, '0.18.1': {}, '0.18.8': {}, '0.18.10': {}, '0.19.0': {}, '0.19.6': {} }
+  assert.deepEqual(owed(n), ['0.18.10', '0.19.0', '0.19.6'])
+  assert.deepEqual(owed(n, '0.19.0'), ['0.19.0', '0.19.6'])
+  assert.deepEqual(owed({ ...n, _skipped: undefined }), ['0.18.1', '0.18.8', '0.18.10', '0.19.0', '0.19.6'], 'no record: everything is owed')
+  assert.deepEqual(owed({ ...n, _skipped: { through: 'all' } }), ['0.18.1', '0.18.8', '0.18.10', '0.19.0', '0.19.6'], 'a record that names no version skips nothing')
+  // this repo: 0.19.0 onwards is owed, the version being shipped among them
+  const real = owed()
+  assert.equal(real[0], '0.19.0')
+  assert.ok(real.includes(VERSION))
+  assert.equal(typeof notes()._skipped.why, 'string')
 })
