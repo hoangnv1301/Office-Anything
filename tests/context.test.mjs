@@ -7,7 +7,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { contextCap } from '../lib/context.mjs'
-import { launchCommand } from '../lib/start.mjs'
+import { launchCommand, targetsOf } from '../lib/start.mjs'
+import { profilesOf, roleCommand } from '../lib/role.mjs'
 import { watch } from '../lib/desk-watch.mjs'
 
 const cfg = { context: { capTokens: 700000, lead: 800000, teammates: 400000, perDesk: { billing: 500000 } } }
@@ -43,4 +44,23 @@ test('desk-watch DESK-CONTEXT follows the cap: 75% of it unless maxContextPerCal
   assert.deepEqual(run({ context: { capTokens: 700000 } }), [], '400K is under 75% of 700K (525K)')
   assert.match(run({ context: { capTokens: 500000 } })[0].line, /limit 375K, 75% of its 500K cap/)
   assert.equal(run({ context: { capTokens: 700000 }, deskWatch: { maxContextPerCall: 350000 } }).length, 1, 'an explicit limit wins')
+})
+
+// ⛔ A LEAD COMPACTS BY ITSELF (the owner, 2026-10-23: "the lead should compact
+// itself when needed"). Every road that starts a department lead (start and the
+// watchdog's restart, which runs start; /role) carries context.lead from office.json
+test('⛔ a department lead started by start or by /role carries context.lead as its compact window', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'oa-ctx-lead-')))
+  mkdirSync(join(root, 'departments', 'local-ops', 'inventory'), { recursive: true })
+  writeFileSync(join(root, 'departments', 'local-ops', 'inventory', 'desk.json'), JSON.stringify({ name: 'inventory', kind: 'knowledge', port: 9102 }))
+  const office = { roleEnv: 'OFFICE_ROLE', context: { capTokens: 300000, lead: 500000 }, departments: { 'local-ops': { lead: 'ERP', desks: ['inventory'] } }, profiles: { erp: { department: 'local-ops' } } }
+  writeFileSync(join(root, 'office.json'), JSON.stringify(office))
+  mkdirSync(join(root, '.office')); writeFileSync(join(root, '.office', 'local.json'), JSON.stringify({ departments: ['local-ops'] }))
+  const t = targetsOf(root, office, 'ERP')
+  assert.equal(t.length, 1)
+  assert.match(launchCommand({ cfg: office, target: t[0] }), /CLAUDE_CODE_AUTO_COMPACT_WINDOW=500000 claude --name 'ERP'/)
+  const p = profilesOf(root, office).list.find((x) => x.name === 'erp')
+  assert.match(roleCommand(root, office, p, { home: mkdtempSync(join(tmpdir(), 'oa-ctx-lead-h-')) }), /CLAUDE_CODE_AUTO_COMPACT_WINDOW=500000 claude --name 'ERP'/)
+  // the desk keeps its own
+  assert.match(launchCommand({ cfg: office, target: targetsOf(root, office, 'inventory')[0] }), /CLAUDE_CODE_AUTO_COMPACT_WINDOW=300000 claude/)
 })

@@ -13,6 +13,7 @@ import { projectDirOf } from '../lib/conversation.mjs'
 
 const NOW = Date.now()
 const MIN = 60_000
+const PROMPT = ['⏺ Done.', '', '────────', '❯ ', '────────'].join('\n')
 function office({ cfg = { compact: { focus: 'Keep: open buyers, promises, owner decisions of the last 7 days.' } }, desk = {} } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'oa-cmp-'))
   const home = mkdtempSync(join(tmpdir(), 'oa-cmp-home-'))
@@ -35,9 +36,9 @@ function office({ cfg = { compact: { focus: 'Keep: open buyers, promises, owner 
     writeFileSync(join(p, sid + '.jsonl'), turns.map((t) => JSON.stringify(t)).join('\n') + '\n')
   }
   const typed = []
-  const term = (titles) => ({ titles: () => titles, close: () => {}, send: (h, text) => typed.push({ h, text }) })
+  const term = (titles, screen) => ({ titles: () => titles, close: () => {}, send: (h, text) => typed.push({ h, text }), screen: () => screen })
   const health = () => officeHealth(root, { home, procs, now: NOW, checks: false, cwd: () => null })
-  const healIt = (h, titles = [{ handle: 't-inv', title: 'desk-inventory' }, { handle: 't-lead', title: 'Office Lead' }]) => heal(root, h, { home, now: NOW, kill: () => {}, freshProcs: () => procs, cwd: () => null, terminal: term(titles) })
+  const healIt = (h, titles = [{ handle: 't-inv', title: 'desk-inventory' }, { handle: 't-lead', title: 'Office Lead' }], screen = PROMPT) => heal(root, h, { home, now: NOW, kill: () => {}, freshProcs: () => procs, cwd: () => null, terminal: term(titles, screen) })
   return { root, home, procs, live, health, healIt, typed, desk: join(root, 'desks', 'inventory') }
 }
 
@@ -188,4 +189,39 @@ test('⛔ the boot hook prints it on a SessionStart from compaction only, and le
   assert.match(run('compact', 'desk-inventory', o.desk), /open inventory/)
   assert.equal(run('startup', 'Office Lead', o.root), '', 'no boot block, no wake: a fresh start prints nothing, as before')
   assert.equal(run('resume', 'desk-inventory', o.desk), '')
+})
+
+// ⛔ AT A TASK BOUNDARY, NOT ONLY AT THE SIZE LIMIT (0.19.6). The owner: the lead
+// should compact itself "like when switching to another job". A lead may have
+// its own numbers (a lower size, a shorter idle), and nothing is typed over a
+// line somebody is writing.
+test('config: the lead may carry its own aboveK, idleMin, everyMin and focus', () => {
+  const cfg = { compact: { aboveK: 150, idleMin: 30, focus: 'Keep: buyers.', lead: { aboveK: 200, idleMin: 10, everyMin: 60, focus: 'Open PRs, owner owed list, running jobs.' } } }
+  assert.deepEqual(compactConfig(cfg, { isLead: true }), { idleMin: 10, aboveK: 200, everyMin: 60, focus: 'Keep: buyers. Open PRs, owner owed list, running jobs.' })
+  assert.deepEqual(compactConfig(cfg, { desk: {} }), { idleMin: 30, aboveK: 150, everyMin: 120, focus: 'Keep: buyers.' }, 'a desk keeps the office numbers')
+  assert.equal(compactConfig({ compact: { lead: true, aboveK: 300 } }, { isLead: true }).aboveK, 300)
+})
+
+test('⛔ a lead idle and over its own size gets one compact; busy, under it, or a line being typed gets none', () => {
+  const cfg = { lead: { session: 'Office Lead' }, compact: { aboveK: 400, focus: 'Keep: buyers.', lead: { aboveK: 200, idleMin: 10 } } }
+  const lead = (opt = {}, screen) => {
+    const o = office({ cfg })
+    o.live('Office Lead', o.root, 741, { idleMin: 12, ctx: 250_000, ...opt })
+    const h = o.health()
+    const r = o.healIt(h, [{ handle: 't-lead', title: 'Office Lead' }], screen)
+    return { o, h, r }
+  }
+  const yes = lead()
+  assert.deepEqual(yes.o.typed.map((t) => t.h), ['t-lead'])
+  assert.match(yes.o.typed[0].text, /^\/compact Keep: buyers\./)
+  yes.o.typed.length = 0
+  yes.o.healIt(yes.o.health(), [{ handle: 't-lead', title: 'Office Lead' }])
+  assert.equal(yes.o.typed.length, 0, 'once: not again within everyMin')
+  assert.equal(lead({ status: 'busy' }).o.typed.length, 0, 'busy')
+  assert.match(lead({ ctx: 150_000 }).h.leads[0].compact.why, /150K, under 200K/)
+  assert.equal(lead({ idleMin: 5 }).o.typed.length, 0, 'idle 5 of 10 min')
+  const typing = lead({}, PROMPT.replace('❯ ', '❯ please check the Keisha th'))
+  assert.equal(typing.o.typed.length, 0, 'the owner is typing')
+  assert.match(typing.r.acts.find((a) => a.act === 'compact').why, /input line is not seen empty/)
+  assert.equal(lead({}, '').o.typed.length, 0, 'an unreadable screen is not an empty line')
 })

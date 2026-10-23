@@ -152,5 +152,10 @@
   ] },
   "0.19.5": { "date": "2026-10-23", "fixed": [
     "The desk wall-hook check now needs the hook on every tool that writes and its refusal kept, and fails a desk whose settings turn hooks off."
+  ] },
+  "0.19.6": { "date": "2026-10-23", "new": [
+    "A lead can compact at a task boundary with its own size, idle time and focus, typed in by the watchdog when it sits idle."
+  ], "fixed": [
+    "The watchdog never types a compact into a session whose input line is not empty, so a half-written message is left alone."
   ] }
 }
