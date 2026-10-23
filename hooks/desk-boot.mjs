@@ -36,7 +36,7 @@ import { rosterSafe, officeRoster } from '../lib/desk.mjs'
 import { allLeads, deskScope, leadsOfDesk } from '../lib/departments.mjs'
 import { afterLines } from '../lib/compact.mjs'
 import { profilesOf, rolesHere } from '../lib/role.mjs'
-import { readJobs, runHint, pluginGate } from '../lib/schedule.mjs'
+import { readJobs, runHint, pluginGate, fileGate } from '../lib/schedule.mjs'
 import { refreshShim } from '../lib/watchdog.mjs'
 import { spawnSync } from 'node:child_process'
 
@@ -144,8 +144,8 @@ export function jobLines(root, cfg, env, who) {
   else if (who?.kind !== 'lead') { const R = cfg?.profiles ? rolesHere(root, cfg) : { list: [] }; parked = parked.filter((j) => R.list.some((p) => p.name === j.role)) }
   if (!parked.length) return []
   return [`${parked.length} prepared job${parked.length > 1 ? 's' : ''} waiting${mine ? ` for this role` : ''}:`, ...parked.map((j) => {
-    const held = pluginGate(j)
-    return `- ${j.id} (role ${j.role}): ${runHint(j.id)}${held ? ` (held: ${held})` : j.needs?.command ? ` (runs once \`${j.needs.command}\` exits 0)` : ''}`
+    const held = pluginGate(j) ?? fileGate(root, j)
+    return `- ${j.id} (role ${j.role}): ${runHint(j.id)}${held ? ` (held: ${held})` : ''}`
   })]
 }
 

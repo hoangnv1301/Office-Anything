@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.20.3
+
+- ⛔ NO GATE RUNS ANYTHING (security review of 0.20.1). `needs.command` ran a
+  shell string from `.office/schedule.json` in whoever typed `/office-job run`:
+  one person's line in another's session, often a more trusted role than the one
+  that wrote it. A gate is data now. `needs.file` (`--needs-file`) is a path inside
+  the office that must exist, realpath-checked so a link out of the office is no
+  gate. `needs.command` is refused at add, and a job written with one before this
+  is held with the reason, its command never run. Pinned in
+  `tests/parked-jobs.test.mjs`.
+
 ## 0.20.2
 
 - ⛔ A STALE WATCHDOG SHIM SKIPPED A LIVE OFFICE FOR FOUR HOURS. The LaunchAgent's
