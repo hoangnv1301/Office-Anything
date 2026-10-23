@@ -149,5 +149,8 @@
   ] },
   "0.19.4": { "date": "2026-10-23", "new": [
     "An office that keeps its own wall hook can name it, and health turns red for any desk whose settings do not run it."
+  ] },
+  "0.19.5": { "date": "2026-10-23", "fixed": [
+    "The desk wall-hook check now needs the hook on every tool that writes and its refusal kept, and fails a desk whose settings turn hooks off."
   ] }
 }
