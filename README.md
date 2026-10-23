@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-585%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-592%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -890,6 +890,24 @@ At its time the role gets one line pointing at the brief:
 - **Its window passes** (`--until`, four hours by default): the job is marked missed, the lead is told, and health says so.
 
 A job is handed once. Remove any session cron for the same work, or two sessions do it. A desk cannot schedule a role. Nothing runs without the watchdog, and `add` warns when none is installed.
+
+**Prepared work: a parked job.** Some work is ready before anybody knows when to start it. Park it
+with no time, and whoever opens a session later starts it with one command:
+
+```bash
+node lib/schedule.mjs . add --id rename-and-tidy --parked --role full --file brief.md --needs-plugin ">=0.20.0"
+/office-job                  # in any session: the parked and pending jobs
+/office-job run rename-and-tidy
+```
+
+- Every session that may run it is told at its start: `1 prepared job waiting: - rename-and-tidy
+  (role full): /office-job run rename-and-tidy`. A role sees its own jobs, the lead and a session at
+  the root see every one, and a desk sees none.
+- `run` makes it due now and the watchdog hands it on its next pass, the way it hands any job, so
+  it is never handed twice.
+- `needs` holds it back: `--needs-plugin ">=0.20.0"` until that version runs (checked again at
+  hand-over), and `--needs-command "<exits 0 when ready>"`, which only the caller's `run` executes
+  after printing it, never the watchdog. A held job says why.
 
 ### Close a standing desk when idle, wake it on work
 

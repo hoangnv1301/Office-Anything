@@ -36,6 +36,7 @@ import { rosterSafe, officeRoster } from '../lib/desk.mjs'
 import { allLeads, deskScope, leadsOfDesk } from '../lib/departments.mjs'
 import { afterLines } from '../lib/compact.mjs'
 import { profilesOf, rolesHere } from '../lib/role.mjs'
+import { readJobs, runHint, pluginGate } from '../lib/schedule.mjs'
 import { spawnSync } from 'node:child_process'
 
 const DEFAULT = {
@@ -129,6 +130,24 @@ export function bootLines(root, who, cfg, cwd) {
   return out
 }
 
+// PREPARED WORK (0.20.1, lib/schedule.mjs): a parked job is named to every
+// session that may run it, so a coworker opening a session is told what waits
+// and the one command that starts it. A role sees its own; the lead and a
+// session at the root see every one this machine may run. A desk sees none:
+// a desk does not run a role's job.
+export function jobLines(root, cfg, env, who) {
+  if (who?.kind === 'desk') return []
+  let parked = readJobs(root).filter((j) => j.state === 'parked')
+  const mine = env.OFFICE_PROFILE
+  if (mine) parked = parked.filter((j) => j.role === mine)
+  else if (who?.kind !== 'lead') { const R = cfg?.profiles ? rolesHere(root, cfg) : { list: [] }; parked = parked.filter((j) => R.list.some((p) => p.name === j.role)) }
+  if (!parked.length) return []
+  return [`${parked.length} prepared job${parked.length > 1 ? 's' : ''} waiting${mine ? ` for this role` : ''}:`, ...parked.map((j) => {
+    const held = pluginGate(j)
+    return `- ${j.id} (role ${j.role}): ${runHint(j.id)}${held ? ` (held: ${held})` : j.needs?.command ? ` (runs once \`${j.needs.command}\` exits 0)` : ''}`
+  })]
+}
+
 // ROLES (0.17.0, lib/role.mjs): only with office.json "profiles". A session
 // opened as a role is told which, and its note; one at the root with no role is
 // told how to become one (a role is a new session, never a switch in place).
@@ -163,7 +182,7 @@ if (isMain(import.meta.url)) {
         try { writeAlert(root, cfg, { type: 'VERSION', subject: 'office-anything', text: `loaded ${v.loaded}, approved ${v.approved.join(',')}${v.enforce ? ' (enforce: desks refused)' : ''}`, quietKey: 'version:' + v.loaded }) } catch {}
       }
       const afterCompact = p?.source === 'compact' && !!cfg.compact?.after
-      const roles = roleLines(root, cfg, cwd, process.env, whoIs(root, cfg, { cwd }))
+      const roles = [...roleLines(root, cfg, cwd, process.env, whoIs(root, cfg, { cwd })), ...jobLines(root, cfg, process.env, whoIs(root, cfg, { cwd }))]
       if ((!cfg.boot || typeof cfg.boot !== 'object') && !(typeof cfg.lead?.wake === 'string' && cfg.lead.wake.trim()) && !afterCompact) { if (roles.length) console.log(roles.join('\n')); process.exit(0) }
       const who = whoIs(root, cfg, { cwd })
       // a case session runs under its parent's role, so its own name says which case it is

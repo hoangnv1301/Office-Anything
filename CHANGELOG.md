@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.20.1
+
+- ⭐ PARKED JOBS. The owner: prepared work starts with one easy command, by
+  whoever opens a session, coworkers included. `schedule.mjs add --parked`
+  takes no time; `/office-job run <id>` (`runJob`) makes it due now, and the
+  watchdog's next pass hands it as it hands any job, so it is never handed
+  twice. `hooks/desk-boot.mjs` names parked jobs at session start: a role its
+  own, the lead and the root every one here, a desk none. `needs.plugin`
+  (">=0.20.0", re-checked at hand-over) and `needs.command` (exits 0; run only by
+  the caller's `run`, printed first, never by the watchdog) hold it back.
+- ⛔ THE COMMIT REVIEW OF 0.20.0, two fixes. With office.json unreadable the wall
+  could not learn the prefixes, so an `aics-x` session no longer claimed a desk:
+  the hook now remembers the last good list in `.office/session-prefixes.json`.
+  The board stripped a prefix off a tab title to find its desk, so `erp-web` was
+  desk web: a title is a desk now only by `deskOfSession`, its current name wins,
+  and two tabs that tie are not guessed between.
+
 ## 0.20.0
 
 - ⭐ SESSIONS CARRY THEIR DEPARTMENT. The owner, 2026-10-23: a desk's session is

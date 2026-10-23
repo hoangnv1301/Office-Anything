@@ -168,5 +168,12 @@
     "Department leads can run on their own model, so the leads stay on Opus while the desks use Sonnet."
   ], "fixed": [
     "A session name that only looks like a desk's no longer resolves to the wrong desk: names are matched exactly."
+  ] },
+  "0.20.1": { "date": "2026-10-23", "new": [
+    "Prepared work can be parked with no start time; anyone starts it with /office-job run, and every session that may run it is told at its start.",
+    "A parked job can wait for a plugin version or a readiness command, and says why it is held."
+  ], "fixed": [
+    "With office.json unreadable, a session named like a department's desk is still refused, from the prefixes last seen.",
+    "The board sends to a desk's tab only on an exact name, and never guesses between two tabs of one name."
   ] }
 }
