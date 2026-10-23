@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-554%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-560%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -823,6 +823,27 @@ Each run of the watchdog:
 A desk that stays down is red in health with how long (`is not running · down 7m`), and once it has
 been down 5 minutes the lead is told whatever the restart did (`desk-x has been down 7 min`),
 once per 15 minutes.
+
+### Scheduled jobs: they run even when the session that scheduled them is gone
+
+A session's own cron lives in that session's memory: close it, and the job is gone without a word.
+A job the office schedules is on disk (`.office/schedule.json`, its brief in `.office/schedule/<id>.md`).
+The watchdog runs it as the role you name (`office.json` "profiles"):
+
+```bash
+node lib/schedule.mjs . add --id aics-desk-move --at 2026-10-23T05:07:00Z --role construction --file brief.md
+node lib/schedule.mjs . list
+node lib/schedule.mjs . cancel aics-desk-move --why "the lead postponed the move one day"
+node lib/schedule.mjs . done aics-desk-move --note "moved, checked, reported"
+```
+
+At its time the role gets one line pointing at the brief:
+- **The role is running, idle at an empty prompt:** the line is typed into its own tab.
+- **It is busy or asking:** the next pass tries again.
+- **It is not running:** the office opens it, with the line as its first message.
+- **Its window passes** (`--until`, four hours by default): the job is marked missed, the lead is told, and health says so.
+
+A job is handed once. Remove any session cron for the same work, or two sessions do it. A desk cannot schedule a role. Nothing runs without the watchdog, and `add` warns when none is installed.
 
 ### Close a standing desk when idle, wake it on work
 

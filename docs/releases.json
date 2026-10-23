@@ -129,5 +129,9 @@
   "0.18.8": { "date": "2026-10-23", "fixed": [
     "A running lead can use a newer installed plugin version's doorbell and commands, so an update no longer strands it on the old one.",
     "A lead launched with Remote Control now receives its doorbell kickoff instead of losing it to the flag, and start says so only when it ran."
+  ] },
+  "0.19.0": { "date": "2026-10-23", "new": [
+    "Scheduled jobs belong to the office, not a session: at their time the watchdog hands each to its role, opening that role if nobody is running it.",
+    "A job whose window passes is marked missed, the lead is told, and health says so until someone looks."
   ] }
 }

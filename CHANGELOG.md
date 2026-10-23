@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.0
+
+- ⛔ A SCHEDULED JOB RUNS WHETHER OR NOT ITS SESSION IS THERE. The owner,
+  2026-10-23: "if a scheduled run's session isn't there, it must init itself."
+  The desk move at 05:07Z was a session-only cron in one builder's memory;
+  had that session closed, nothing would have run and nobody would have known.
+  `lib/schedule.mjs` keeps jobs in `.office/schedule.json` (briefs in
+  `.office/schedule/<id>.md`), and the watchdog's heal hands each due job to
+  its role: typed into the running role's tab when it is idle at an empty
+  prompt, else the role is opened (lib/role.mjs openRole, new `prompt`) with
+  the job line as its first message. A window that passes marks the job
+  MISSED, with a SCHEDULE alert for the lead and a health warning. A job is
+  handed once, a desk cannot schedule a role, a cancel needs a reason, and
+  nothing real opens under a test.
+
 ## 0.18.8
 
 - ⛔ A PLUGIN UPDATE DOES NOT STRAND A RUNNING LEAD. A session keeps the hooks
