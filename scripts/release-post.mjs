@@ -3,7 +3,7 @@
 // not shipped behaviour).
 //
 //   node scripts/release-post.mjs [<version>] [--dry] [--ops <local-cabinets-ops path>]
-//   node scripts/release-post.mjs --missing [--from 0.10.0] [--dry]
+//   node scripts/release-post.mjs --missing [--from 0.10.0] [--dry]   (never a docs/releases.json "_skipped" one)
 //
 // The owner, 2026-10-23: no release note had been posted since 0.9.0, because
 // the "Discord text" each release carried only ever went to the lead. So the
@@ -115,13 +115,22 @@ export function postNote(version, { repo = REPO, ops = process.env.OPS_REPO || r
   return { state: dup ? 'dup' : 'posted', why: `${gh.why}; ${dup ? 'already posted' : 'posted'}${j.id ? ` (${j.id}, ${j.status ?? 'queued'})` : ''}` }
 }
 
+// the versions --missing still owes: every note from --from on, except those
+// docs/releases.json "_skipped" retires (0.19.7, the lead 2026-10-23: the 25
+// notes before 0.19 nobody needs; skipped, not owed). One version named on the
+// command line is posted whatever "_skipped" says.
+export function owed(n = notes(), from = '0.0.0') {
+  const sk = n._skipped && typeof n._skipped.through === 'string' && /^\d+\.\d+\.\d+$/.test(n._skipped.through) ? n._skipped.through : null
+  return Object.keys(n).filter((v) => !v.startsWith('_') && semverSort(v, from) >= 0 && !(sk && semverSort(v, sk) <= 0)).sort(semverSort)
+}
+
 if (isMain(import.meta.url)) {
   const a = process.argv.slice(2)
   const dry = a.includes('--dry')
   const opt = (k) => { const i = a.indexOf(k); return i >= 0 ? a[i + 1] : null }
   const ops = opt('--ops') ?? undefined
   const versions = a.includes('--missing')
-    ? Object.keys(notes()).filter((v) => !v.startsWith('_') && semverSort(v, opt('--from') ?? '0.0.0') >= 0).sort(semverSort)
+    ? owed(notes(), opt('--from') ?? '0.0.0')
     : [a.find((x) => /^\d+\.\d+\.\d+$/.test(x)) ?? JSON.parse(readFileSync(join(REPO, '.claude-plugin', 'plugin.json'), 'utf8')).version]
   let done = 0
   for (const [i, v] of versions.entries()) {
