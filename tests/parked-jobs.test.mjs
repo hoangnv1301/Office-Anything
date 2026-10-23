@@ -7,7 +7,7 @@
 // prefixes when office.json breaks, and the board's exact tab-title match).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, realpathSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, realpathSync, symlinkSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -43,7 +43,7 @@ test('a parked job has no time and waits; one with a time and --parked is refuse
   assert.ok(r.job, r.why)
   assert.deepEqual([r.job.state, r.job.at, r.job.until, r.job.needs], ['parked', null, null, { plugin: '>=0.20.0' }])
   assert.match(park(o, { id: 'other', at: '2026-10-24T05:00:00Z' }).why, /a parked job has no time/)
-  for (const [needs, why] of [[{ plugin: '0.20' }, /write ">=0.20.0"/], [{ when: 'x' }, /not a gate/], [{ command: 'a\nb' }, /one line/]]) assert.match(park(o, { id: 'bad-gate', needs }).why, why)
+  for (const [needs, why] of [[{ plugin: '0.20' }, /write ">=0.20.0"/], [{ when: 'x' }, /not a gate/], [{ command: 'true' }, /a gate never runs anything/], [{ file: '/etc/passwd' }, /inside the office/], [{ file: '../x' }, /no "\.\."/]]) assert.match(park(o, { id: 'bad-gate', needs }).why, why)
   // the watchdog never hands a parked job
   const acts = []
   runDue(o.root, { cfg: o.cfg, now: NOW + 86400_000, open: () => { throw new Error('opened a parked job') }, act: (a) => acts.push(a) })
@@ -71,19 +71,29 @@ test('⛔ run makes it due now and the watchdog hands it, once; not parked, a de
   assert.ok(cancelJob(o.root, 'second', 'the owner moved this to the ERP machine').job, 'a parked job can be cancelled')
 })
 
-test('⛔ "needs" holds it: an older plugin, or a command that does not exit 0; the watchdog re-checks the plugin', () => {
+test('⛔ "needs" holds it: an older plugin, or a file not there yet; nothing is ever run; the watchdog re-checks', () => {
   const o = office()
   park(o, { needs: { plugin: '>=0.20.0' } })
   assert.match(runJob(o.root, 'rename-and-tidy', { cfg: o.cfg, now: NOW, version: '0.19.7' }).why, /needs office-anything >=0.20.0; this is 0.19.7/)
   assert.equal(pluginGate({ needs: { plugin: '>=0.20.0' } }, '0.20.0'), null, 'equal is enough')
   assert.equal(pluginGate({ needs: { plugin: '>=0.20.0' } }, '0.21.3'), null)
   assert.equal(readJobs(o.root)[0].state, 'parked', 'still parked')
-  park(o, { id: 'needs-file', needs: { command: 'test -f ready.flag' } })
-  const said = []
-  assert.match(runJob(o.root, 'needs-file', { cfg: o.cfg, now: NOW, say: (t) => said.push(t) }).why, /needs `test -f ready\.flag` to exit 0, and it exited 1/)
-  assert.deepEqual(said, ['checking: test -f ready.flag'], 'the command is printed before it runs')
-  writeFileSync(join(o.root, 'ready.flag'), '')
+  park(o, { id: 'needs-file', needs: { file: '.office/ready.flag' } })
+  assert.match(runJob(o.root, 'needs-file', { cfg: o.cfg, now: NOW }).why, /waits for \.office\/ready\.flag, which is not there yet/)
+  // a link out of the office is not a gate
+  symlinkSync(tmpdir(), join(o.root, '.office', 'ready.flag'))
+  assert.match(runJob(o.root, 'needs-file', { cfg: o.cfg, now: NOW }).why, /leads outside the office/)
+  rmSync(join(o.root, '.office', 'ready.flag'))
+  writeFileSync(join(o.root, '.office', 'ready.flag'), '')
   assert.ok(runJob(o.root, 'needs-file', { cfg: o.cfg, now: NOW }).job)
+  // ⛔ a job written with a command before 0.20.3 is held, and its command never runs
+  const marker = join(o.root, 'ran-it')
+  const jobs = readJobs(o.root)
+  jobs.push({ id: 'old-command', role: 'full', brief: '.office/schedule/x.md', state: 'parked', at: null, until: null, needs: { command: `touch '${marker}'` } })
+  writeFileSync(join(o.root, '.office', 'schedule.json'), JSON.stringify({ jobs }))
+  assert.match(runJob(o.root, 'old-command', { cfg: o.cfg, now: NOW }).why, /no longer runs/)
+  assert.equal(existsSync(marker), false, 'nothing ran')
+  assert.match(jobLines(o.root, o.cfg, {}, null).join('\n'), /old-command .*held: it carries a needs\.command/)
   // a watchdog older than the run holds it too, and says so
   const j = readJobs(o.root)
   j.find((x) => x.id === 'rename-and-tidy').state = 'pending'

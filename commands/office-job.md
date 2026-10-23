@@ -12,7 +12,7 @@ path first (the office root: the folder holding `office.json`).
 - **No argument, or `list`:** `node lib/schedule.mjs <office> list`. Show the user the parked and
   pending jobs as printed: id, state, role, what each needs.
 - **`run <id>`:** `node lib/schedule.mjs <office> run <id>`. This is `runJob` in
-  `lib/schedule.mjs`: it checks the job's gate (a plugin version, or a command it prints and runs),
+  `lib/schedule.mjs`: it checks the job's gate (a plugin version, or a file inside the office that must exist; a gate never runs anything),
   then makes the job due now. The watchdog's next pass, within about two minutes, hands it to its
   role: typed into that role's idle tab, or the role opened with the job as its first message.
   Read the user the line it prints, or its refusal and the reason (held by its gate, not parked,

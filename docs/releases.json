@@ -179,5 +179,8 @@
   "0.20.2": { "date": "2026-10-23", "fixed": [
     "The watchdog keeps healing an office whose desks moved out of the desks folder; it had been skipping it as not found.",
     "An installed watchdog is brought up to date at every session start, so a plugin update reaches it without a reinstall."
+  ] },
+  "0.20.3": { "date": "2026-10-23", "fixed": [
+    "A prepared job's gate never runs a command any more: it waits for a plugin version or a file inside the office."
   ] }
 }

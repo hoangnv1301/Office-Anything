@@ -905,9 +905,9 @@ node lib/schedule.mjs . add --id rename-and-tidy --parked --role full --file bri
   the root see every one, and a desk sees none.
 - `run` makes it due now and the watchdog hands it on its next pass, the way it hands any job, so
   it is never handed twice.
-- `needs` holds it back: `--needs-plugin ">=0.20.0"` until that version runs (checked again at
-  hand-over), and `--needs-command "<exits 0 when ready>"`, which only the caller's `run` executes
-  after printing it, never the watchdog. A held job says why.
+- `needs` holds it back: `--needs-plugin ">=0.20.0"` until that version runs, and `--needs-file
+  <path>` until that file exists inside the office (a link out of it does not count). Both are
+  checked at `run` and again at hand-over. A gate never runs anything, and a held job says why.
 
 ### Close a standing desk when idle, wake it on work
 
