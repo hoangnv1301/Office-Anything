@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.19.4
+
+- ⛔ EVERY DESK CARRIES THE OFFICE'S OWN WALL HOOK, AND HEALTH SAYS WHEN ONE
+  DOES NOT. local-cabinets-ops audited it in `desks/checks/write-wall.mjs`,
+  which ran only when somebody ran it, and its rfq desk had no settings at all.
+  `office.json` `wall.deskHook` names the hook (`office/hooks/write-wall.mjs`);
+  `lib/desk-hook.mjs` passes a desk only when one PreToolUse entry of its
+  `.claude/settings.json` runs a script resolving to that file through any link
+  (or to this plugin's `hooks/desk-wall.mjs`), matches Bash, Write and Edit, and
+  does not swallow its refusal (`|| true`). A copy inside the desk's own folder
+  is not the office's hook. No `deskHook`, nothing asked. The other half of that
+  audit, database commands in desk transcripts, was already `wall.audit` in the
+  `desk-wall` check. Pinned in `tests/desk-hook.test.mjs`.
+
 ## 0.19.3
 
 - ⛔ A BARE NAME BUILDS AN OFFICE TOO (commit security review of 0.19.2). Only

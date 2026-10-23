@@ -146,5 +146,8 @@
     "A desk can no longer build an office folder in its own folder by a bare name, such as mkdir office or mv hooks office."
   ], "improved": [
     "Health turns red when a desk's folder holds an office folder or office.json, however it got there."
+  ] },
+  "0.19.4": { "date": "2026-10-23", "new": [
+    "An office that keeps its own wall hook can name it, and health turns red for any desk whose settings do not run it."
   ] }
 }
