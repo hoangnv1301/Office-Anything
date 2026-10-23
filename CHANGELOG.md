@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.20.2
+
+- ⛔ A STALE WATCHDOG SHIM SKIPPED A LIVE OFFICE FOR FOUR HOURS. The LaunchAgent's
+  shim is written once, at --install-watchdog, and local-cabinets-ops' was written
+  before desks could live in departments/: it ran health only when
+  `<root>/desks` existed. The departments cleanup retired desks/ (2026-10-23),
+  and from about 09:30Z every pass logged "office not found (disk not mounted,
+  or moved)" and exited, with the disk mounted. No dead-desk restart, bell kick,
+  limit resume or compact ran, and a scheduled job due at 10:17Z was never handed.
+  The 0.16.0 template had fixed the test, and nothing ever rewrote a shim already
+  installed.
+  - The shim now decides nothing but "does the folder exist": it finds the newest
+    install and runs its `lib/watchdog-pass.mjs`, where the office test lives
+    (an office.json, or any desk folder) and moves with every update.
+  - `lib/watchdog.mjs` `refreshShim` rewrites an installed shim that is not the one
+    this version writes (the file only; launchd is not touched). Every session
+    start (hooks/desk-boot.mjs), `health` and `ensureWatchdog` ask it.
+  - Both of the shim's messages are said once an hour.
+
 ## 0.20.1
 
 - ⭐ PARKED JOBS. The owner: prepared work starts with one easy command, by

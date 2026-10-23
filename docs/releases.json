@@ -175,5 +175,9 @@
   ], "fixed": [
     "With office.json unreadable, a session named like a department's desk is still refused, from the prefixes last seen.",
     "The board sends to a desk's tab only on an exact name, and never guesses between two tabs of one name."
+  ] },
+  "0.20.2": { "date": "2026-10-23", "fixed": [
+    "The watchdog keeps healing an office whose desks moved out of the desks folder; it had been skipping it as not found.",
+    "An installed watchdog is brought up to date at every session start, so a plugin update reaches it without a reinstall."
   ] }
 }
