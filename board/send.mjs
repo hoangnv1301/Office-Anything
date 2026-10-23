@@ -11,7 +11,12 @@ import { execFileSync, execFile } from 'node:child_process'
 // one literal star called the BUSIEST desks offline and made send miss them.
 // Strip any leading symbol run; a desk name starts with a letter.
 // The prefix is case-blind: a launcher that names tabs `desk-<name>` must match too.
-const DESK_PREFIX = /^desk-/i
+// ⛔ AND A DEPARTMENT'S (0.20.0): aics-web is desk web. The board's server sets
+// the office's prefixes (lib/desk.mjs sessionPrefixes) once it knows its root.
+let DESK_PREFIX = prefixRe(['desk'])
+export function usePrefixes(list) { DESK_PREFIX = prefixRe(list) }
+function prefixRe(list) { return new RegExp(`^(?:${[...new Set(list)].map((p) => p.replace(/[^a-z0-9]/g, '')).filter(Boolean).join('|')})-`, 'i') }
+export const deskPrefixed = (t) => DESK_PREFIX.test(String(t ?? ''))
 export const normalizeTitle = (t) => String(t ?? '').replace(/^[^A-Za-z0-9]+/, '').replace(DESK_PREFIX, '').trim()
 const namesADesk = (t) => DESK_PREFIX.test(String(t ?? '').replace(/^[^A-Za-z0-9]+/, ''))
 

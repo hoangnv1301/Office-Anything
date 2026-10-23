@@ -32,7 +32,7 @@ import { openModule, MODULE_DEADLINE_MS } from '../lib/wall-module.mjs'
 import { isMain } from '../lib/is-main.mjs'
 import { versionVerdict } from '../lib/version.mjs'
 import { allLeads, leadsOfDesk, departmentsOf, deskScope } from '../lib/departments.mjs'
-import { rosterSafe, officeRoster, deskAt } from '../lib/desk.mjs'
+import { rosterSafe, officeRoster, deskAt, deskShaped, plainDeskShaped, deskOfSession } from '../lib/desk.mjs'
 import { resolve, join, sep, relative } from 'node:path'
 import { existsSync, realpathSync, mkdirSync, appendFileSync } from 'node:fs'
 
@@ -112,7 +112,7 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     // no config to say who is who: a session that claims a desk by its name,
     // or stands in a desk's folder, is refused until somebody fixes the file
     const name = sessionName()
-    const claims = /^desk-/.test(name) || places.some((c) => standsInDesk(root, c))
+    const claims = deskShaped(root, name) || places.some((c) => standsInDesk(root, c))
     return claims ? { code: 2, why: `⛔ desk wall: ${error}. A desk session is refused until it is fixed; a developer session at the repo root can fix it.` } : { code: 0 }
   }
   if (!cfg.wall || typeof cfg.wall !== 'object') return { code: 0 }
@@ -134,9 +134,14 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
   }
   const declared = Array.isArray(cfg.wall.aliasNames)
   // names the office's module maps to a desk: the declared patterns, or (an
-  // office that declares none) any name that is not already desk-<x>
-  const aliasable = (n) => !!n && !/^desk-/.test(n) && (declared ? aliasPats.some((re) => re.test(n)) : true)
-  const deskShaped = (n) => /^desk-/.test(n) || aliasPats.some((re) => re.test(n))
+  // office that declares none) any name that is not already desk-<x>.
+  // ⛔ TWO QUESTIONS (0.20.0). A department's <prefix>-<x> CLAIMS a desk (one
+  // resolving to none is refused below), but a declared pattern may still map
+  // it: aics-alibaba-<Buyer> is a teammate the module names, not a desk
+  const roster = officeRoster(root).desks
+  const isDesk = (n) => !!deskOfSession(roster, n)
+  const aliasable = (n) => !!n && !plainDeskShaped(n) && !isDesk(n) && (declared ? aliasPats.some((re) => re.test(n)) : !deskShaped(root, n))
+  const shaped = (n) => deskShaped(root, n) || aliasPats.some((re) => re.test(n))
   const inDesk = places.some((c) => standsInDesk(root, c))
   // ⛔ A BROKEN MODULE STOPS DESKS, NOT THE PEOPLE WHO REPAIR IT. A desk-shaped
   // session, or one standing in a desk's folder, is refused; the lead and a
@@ -159,7 +164,7 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
         const mapped = m ? await m.call('alias', name, { root }) : null
         if (typeof mapped === 'string' && mapped) name = mapped
       } catch (e) {
-        if (failClosed && (deskShaped(session) || inDesk)) return refuseDesk(e)
+        if (failClosed && (shaped(session) || inDesk)) return refuseDesk(e)
         modErr ??= e
       }
     }
@@ -168,7 +173,7 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     if (!who) {
       // ⛔ A NAME SHAPED LIKE A DESK THAT RESOLVES TO NONE IS NOT A DEVELOPER.
       // An unrecorded cs-<x> fell through to "nobody" and was waved through.
-      if (failClosed && deskShaped(session)) return modErr ? refuseDesk(modErr) : { code: 2, why: `⛔ desk wall: this session is named ${session}, which this office reserves for desk sessions, and no desk answers to it` }
+      if (failClosed && shaped(session)) return modErr ? refuseDesk(modErr) : { code: 2, why: `⛔ desk wall: this session is named ${session}, which this office reserves for desk sessions, and no desk answers to it` }
       return { code: 0 }
     }
     const W0 = cfg.wall.footer ?? {}
@@ -199,7 +204,7 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     const reach = who.kind === 'desk' ? leadsOfDesk(cfg, who.desk) : allLeads(cfg)
     const names = reach.flatMap((l) => l.names)
     const wallCfg = myLead?.bash ? { ...cfg.wall, lead: { ...(cfg.wall?.lead ?? {}), bash: myLead.bash } } : cfg.wall
-    try { W = compileWall({ ...wallCfg, ...(aliasBroken ? { aliasNames: [] } : {}), root, scope: deskScope(root, cfg, officeRoster(root).desks), roleEnv: cfg.roleEnv, leadSession: names[0] ?? cfg.lead?.session, leadAliases: names.slice(1), leadWake: myLead?.wake ?? cfg.lead?.wake }) }
+    try { W = compileWall({ ...wallCfg, ...(aliasBroken ? { aliasNames: [] } : {}), root, scope: deskScope(root, cfg, roster), roleEnv: cfg.roleEnv, leadSession: names[0] ?? cfg.lead?.session, leadAliases: names.slice(1), leadWake: myLead?.wake ?? cfg.lead?.wake }) }
     catch (e) { return failClosed ? say('the wall broke while judging (' + e.message + '), and this office\'s wall fails closed') : { code: 0 } }
     if (cfg.wall.module) module()
     if (modErr && who.kind === 'desk') return failClosed ? refuseDesk(modErr) : { code: 0 }

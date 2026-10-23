@@ -7,6 +7,7 @@
 import { readFileSync } from 'node:fs'
 import { readOfficeConfig, findOffice, whoIs, sessionName } from '../lib/office.mjs'
 import { openTable, sessionTable, snapshot } from '../lib/tasks.mjs'
+import { sessionOf } from '../lib/desk.mjs'
 
 try {
   let payload = {}
@@ -22,7 +23,7 @@ try {
       if (table) console.log(table)
     } else if (w?.kind !== 'unknown') {
       // a desk (a case session reads its parent's) or a dev session: only what is assigned to its name
-      const name = w?.kind === 'desk' ? `desk-${w.desk}` : (process.env[cfg.roleEnv] || sessionName())
+      const name = w?.kind === 'desk' ? sessionOf(root, w.desk) : (process.env[cfg.roleEnv] || sessionName())
       const table = name ? sessionTable(root, name) : ''
       if (table) console.log(table)
     }
