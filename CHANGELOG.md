@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.6
+
+- ⭐ A LEAD COMPACTS AT A TASK BOUNDARY. The owner, 2026-10-23: the lead should
+  compact itself "like when switching to another job", not only at the size
+  limit. `compact.lead` may be its own `{ aboveK, idleMin, everyMin, focus }`
+  (local-cabinets-ops: 200K, 10 minutes), so heal types `/compact <focus>` into a
+  lead that sits idle over its size, at most once per its `everyMin`. The window
+  Claude Code compacts at by itself was already on every lead launch (start, the
+  watchdog's restart, `/role`) from `context.lead`; `tests/context.test.mjs` now
+  drives a department lead through start and `/role` to pin it.
+- ⛔ NEVER OVER SOMEBODY'S TYPING. Idle in the registry says nothing about text
+  in the input box, and the compact typed into the tab without looking. It now
+  needs the empty `❯` on screen (as the limit resume and the bell kick do); an
+  unreadable screen is not empty. Pinned in `tests/compact.test.mjs`.
+
 ## 0.19.5
 
 - ⛔ THE WALL-HOOK CHECK WAS EASIER TO PASS THAN THE WALL (commit security

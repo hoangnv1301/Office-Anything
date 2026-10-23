@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-569%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-572%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -671,11 +671,17 @@ session that is **idle at its prompt for `idleMin` with a context above `aboveK`
 ```
 
 A desk may set `compactIdleMin`, `compactAboveK`, `compactFocus`, or `"compact": false` in its
-`desk.json`; `"lead": false` leaves the lead out. **Off unless `office.json` says `"compact"`.**
+`desk.json`; `"lead": false` leaves the lead out. A lead compacts at a task boundary with its own
+numbers: `"lead": { "aboveK": 200, "idleMin": 10, "everyMin": 60, "focus": "Open PRs, the owner's
+owed list, running jobs." }`. **Off unless `office.json` says `"compact"`.** It works alongside
+`context.lead` (lib/context.mjs), the window Claude Code itself compacts at: every launch of a lead
+(start, the watchdog's restart, `/role`) carries it.
 
 - Never mid-turn and never into a dialog: idle in the registry, no tool call waiting for an answer,
   and heal looks again right before it types (same pid, same status stamp). One tab of that name,
   or nothing is typed. At most once per `everyMin`.
+- Never over somebody's typing: the tab's input line must be seen empty (`❯` alone) on screen, so
+  a half-written message is never typed into, and an unreadable screen counts as not empty.
 - The focus is short (300 characters) and is pointers, not content: the office's line, the desk's
   line, the open task ids. Anything durable belongs in the book or memory already.
 - Health shows every office session at or above `aboveK`, fattest first:
