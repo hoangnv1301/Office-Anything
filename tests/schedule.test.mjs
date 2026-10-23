@@ -123,6 +123,10 @@ test('cancel needs a reason; a cancelled job never runs', () => {
   const o = office()
   add(o)
   assert.match(cancelJob(o.root, 'aics-desk-move', 'later').why, /20\+ characters/)
+  const desk = { kind: 'desk', desk: 'x' }
+  assert.match(cancelJob(o.root, 'aics-desk-move', 'a desk would rather this did not run', { caller: desk }).why, /a desk does not cancel/)
+  assert.match(doneJob(o.root, 'aics-desk-move', null, { caller: desk }).why, /a desk does not close/)
+  assert.equal(readJobs(o.root)[0].state, 'pending')
   assert.equal(cancelJob(o.root, 'aics-desk-move', 'the lead postponed the move one day').job.state, 'cancelled')
   const opened = []
   runDue(o.root, { cfg: o.cfg, now: AT + 60_000, sessions: [], open: () => { opened.push(1); return { state: 'opened' } }, home: o.home })
