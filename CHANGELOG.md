@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.19.3
+
+- ⛔ A BARE NAME BUILDS AN OFFICE TOO (commit security review of 0.19.2). Only
+  operands with a slash were write targets, so `mkdir office && mv hooks office`
+  planted office/hooks in a desk's folder unseen. Every non-option operand of
+  the plain writers (rm excepted: it takes one away) is now judged for the
+  office shape; after a cd, the name's shape alone decides.
+- ⛔ AND WHAT THE WALL CANNOT READ, HEALTH SEES. tar, unzip or a script can
+  write anything; the wall reads common shell shapes. Health is now red for a
+  desk whose folder holds desks/, departments/, office/ or office.json at its
+  top level, where an office's hook fallback would look. Both pinned in
+  `tests/department-folders.test.mjs`.
+
 ## 0.19.2
 
 - ⛔ NOR AN office/ FOLDER. local-cabinets-ops' desks/ cleanup moved the office's
