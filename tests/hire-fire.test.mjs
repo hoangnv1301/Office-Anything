@@ -181,3 +181,20 @@ test('⛔ hire() itself refuses, not just the helper', () => {
     /refusing to hire/, 'the guard must be in the path everyone uses, not one they can skip')
   clean(root)
 })
+
+// ⛔ THE TEAMMATE GUARD (0.20.4, the owner, 2026-10-24): a desk's teammates are
+// <session>-<who>, and buyer names can be lower case, so a new desk may not be
+// named another desk's name plus "-"
+test('⛔ hire refuses a desk named like another desk\'s teammate: <its name>-<anything>', () => {
+  const root = fresh()
+  hire(root, { name: 'alibaba', kind: 'knowledge', description: 'holds cost catalog' })
+  for (const n of ['alibaba-x', 'alibaba-sathiyakumar']) assert.throws(() => hire(root, { name: n, kind: 'knowledge', description: 'holds cost catalog' }), /starts with "alibaba-": desk alibaba's teammates are named desk-alibaba-<who>/, n)
+  // its desk.json name and its old ids count too
+  writeFileSync(join(root, 'desks', 'alibaba', 'desk.json'), JSON.stringify({ name: 'ali', kind: 'knowledge', port: 9300, formerly: ['customer-service'] }))
+  assert.throws(() => hire(root, { name: 'ali-two', kind: 'knowledge', description: 'holds cost catalog' }), /starts with "ali-"/)
+  assert.throws(() => hire(root, { name: 'customer-service-b', kind: 'knowledge', description: 'holds cost catalog' }), /starts with "customer-service-"/)
+  // a name that merely shares letters is fine
+  assert.ok(hire(root, { name: 'alibabax', kind: 'knowledge', description: 'holds cost catalog' }))
+  assert.ok(hire(root, { name: 'pricing', kind: 'knowledge', description: 'holds cost catalog' }))
+  clean(root)
+})

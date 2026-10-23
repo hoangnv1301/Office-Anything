@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.4
+
+- ⛔ THE TEAMMATE GUARD (the owner, 2026-10-24). A desk's teammates are
+  `<its session>-<who>` (`aics-alibaba-<Buyer>`), and buyer names can be all lower
+  case, so a desk `alibaba-x` would be session `aics-alibaba-x`: buyer x's
+  teammate. `hire` refuses a new desk whose name starts with another desk's id,
+  desk.json name or `formerly` id plus `-`. Pinned in `tests/hire-fire.test.mjs`.
+
 ## 0.20.3
 
 - ⛔ NO GATE RUNS ANYTHING (security review of 0.20.1). `needs.command` ran a
