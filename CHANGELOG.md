@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.1
+
+- ⛔ AN UPDATE DOES NOT MAKE A RUNNING BELL "UNARMED". ERP (2026-10-23) armed
+  0.18.7's lead-bell; with 0.19.0 installed, the watchdog's health looked only
+  for 0.19.0's, said "ERP doorbell unarmed", and heal typed ERP a kickoff
+  naming the 0.19.0 folder, which ERP's 0.18.7 wall had never heard of. Health
+  now counts a lead's bell from any version folder of this plugin in the cache
+  (`lib/wall.mjs` `bellRoots`: a real folder there with this plugin's name; from
+  a checkout, the cache Claude Code recorded), notes `version` when it is not
+  the current one, and says so in the tail: "ERP doorbell runs 0.18.7's bell
+  (this is 0.19.0): restart it when idle". The wall is unchanged: since 0.18.8
+  it already accepts the newer recorded install, and never an older one. A
+  session started before 0.18.8 keeps its old wall until it restarts.
+  `tests/plugin-versions.test.mjs` drives the 0.18.7 → 0.19.0 upgrade.
+
 ## 0.19.0
 
 - ⛔ A SCHEDULED JOB RUNS WHETHER OR NOT ITS SESSION IS THERE. The owner,
