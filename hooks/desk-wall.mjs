@@ -32,7 +32,7 @@ import { openModule, MODULE_DEADLINE_MS } from '../lib/wall-module.mjs'
 import { isMain } from '../lib/is-main.mjs'
 import { versionVerdict } from '../lib/version.mjs'
 import { allLeads, leadsOfDesk, departmentsOf, deskScope } from '../lib/departments.mjs'
-import { rosterSafe, officeRoster, deskAt, deskShaped, plainDeskShaped, deskOfSession } from '../lib/desk.mjs'
+import { rosterSafe, officeRoster, deskAt, deskShaped, plainDeskShaped, deskOfSession, rememberPrefixes, knownPrefixes, sessionPrefixes, shapedBy } from '../lib/desk.mjs'
 import { resolve, join, sep, relative } from 'node:path'
 import { existsSync, realpathSync, mkdirSync, appendFileSync } from 'node:fs'
 
@@ -112,9 +112,12 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     // no config to say who is who: a session that claims a desk by its name,
     // or stands in a desk's folder, is refused until somebody fixes the file
     const name = sessionName()
-    const claims = deskShaped(root, name) || places.some((c) => standsInDesk(root, c))
+    // the prefixes from the last good read (lib/desk.mjs knownPrefixes): this file cannot say them
+    const claims = shapedBy([...new Set([...knownPrefixes(root), ...sessionPrefixes(root)])], name) || places.some((c) => standsInDesk(root, c))
     return claims ? { code: 2, why: `⛔ desk wall: ${error}. A desk session is refused until it is fixed; a developer session at the repo root can fix it.` } : { code: 0 }
   }
+  // a good read: remember this office's prefixes for a read that fails later
+  rememberPrefixes(root)
   if (!cfg.wall || typeof cfg.wall !== 'object') return { code: 0 }
   if (unreadable) return { code: 2, why: '⛔ desk wall: the hook could not read its payload, so nothing it asked for is allowed' }
   const failClosed = cfg.wall.failClosed !== false

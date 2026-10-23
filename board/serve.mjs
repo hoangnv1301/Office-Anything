@@ -20,7 +20,7 @@ import { newestSession, chatFrom, readTail, pendingAsk } from './transcript.mjs'
 import { subagentsOf, jobsOf } from './read.mjs'
 import { transcriptStats, worktop, filesUnder, treeOf } from './read.mjs'
 import { basename } from 'node:path'
-import { orcaAvailable, normalizeTitle, usePrefixes, deskPrefixed, terminalFor, keepTerminalsWarm, inboxOf, sendToInbox, routeFor, confirmDelivery, terminalForSession, requestGuard } from './send.mjs'
+import { orcaAvailable, normalizeTitle, useRoster, isDeskName, terminalFor, keepTerminalsWarm, inboxOf, sendToInbox, routeFor, confirmDelivery, terminalForSession, requestGuard } from './send.mjs'
 import { createHash, randomBytes } from 'node:crypto'
 import { execFileSync, execFile } from 'node:child_process'
 
@@ -39,7 +39,7 @@ function liveTitles() {
 }
 import { screenshotOf } from '../lib/cdp.mjs'
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, watch } from 'node:fs'
-import { rosterSafe, leadDesk, officeRoster, deskDir as deskFolder, deskAt, sessionPrefixes, deskOfSession } from '../lib/desk.mjs'
+import { rosterSafe, leadDesk, officeRoster, deskDir as deskFolder, deskAt, deskOfSession } from '../lib/desk.mjs'
 import { hire } from '../lib/hire.mjs'
 import { costOf, AS_OF as RATES_AS_OF } from '../lib/rates.mjs'
 import { officeTimeline } from './timeline.mjs'
@@ -91,7 +91,7 @@ export function leadSessionName(root) {
 // replaces the mtime heuristic wherever a file exists for the cwd. It
 // carries NO permission mode; the mode is stamped on the next transcript
 // entry and nowhere else, so the badge reads the record and says so.
-const desky = (s) => deskPrefixed(s?.name ?? '')
+const desky = (s) => isDeskName(s?.name ?? '')
 // ⛔ A NAMED ROW IS THAT NAME OR NOTHING. Ranking by the expected name still
 // handed the lead's row to whatever else was live at the root when the lead
 // was not: the owner's message would have gone to a developer's session. A
@@ -118,12 +118,12 @@ export function liveSessions(home = homedir(), { expect = new Map(), strict = ne
   const out = new Map()
   for (const [cwd, all0] of all) {
     const want = expect.get(cwd) ?? null
-    const list = all0.filter((j) => (!strict.has(cwd) || j.name === want) && !(want && deskPrefixed(want) && desky(j) && j.name !== want))
+    const list = all0.filter((j) => (!strict.has(cwd) || j.name === want) && !(want && isDeskName(want) && desky(j) && j.name !== want))
     if (!list.length) continue
     // ranked, in order: the name this cwd is expected to carry; not a desk's
     // name (a desk restored at the repo root must never become the lead's
     // row); remote-controlled; and only then the newest status change
-    const rank = (j) => [want && j.name === want ? 1 : 0, desky(j) && !(want && deskPrefixed(want)) ? 0 : 1, j.bridgeSessionId ? 1 : 0, j.updatedAt ?? 0]
+    const rank = (j) => [want && j.name === want ? 1 : 0, desky(j) && !(want && isDeskName(want)) ? 0 : 1, j.bridgeSessionId ? 1 : 0, j.updatedAt ?? 0]
     const better = (a, b) => { const x = rank(a), y = rank(b); for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false }
     out.set(cwd, list.reduce((best, j) => (better(j, best) ? j : best)))
   }
@@ -244,14 +244,13 @@ function friendlyFromName(root, home = homedir()) {
     if (!j.name) continue
     const hit = deskOfSession(officeRoster(root).desks, j.name)
     if (hit) { map.set(j.name, hit.desk.name); continue }
-    if (deskPrefixed(j.name)) { map.set(j.name, normalizeTitle(j.name)); continue }
     if (cwd === root) { map.set(j.name, 'team-lead'); continue }
     const at = deskAt(root, cwd)
     if (at) map.set(j.name, at.id)
   }
   return map
 }
-export const friendlyFrom = (map, from) => map.get(from) ?? (deskPrefixed(from) ? normalizeTitle(from) : from)
+export const friendlyFrom = (map, from) => map.get(from) ?? normalizeTitle(from)
 
 // ⛔ THE EXTENSION POINT FOR A PROJECT'S OWN PANELS. The board knows nothing
 // about any one business; an office that wants "pending approvals" or "orders
@@ -360,7 +359,7 @@ const statSafeSize = (p) => { try { return statSync(p).size } catch { return 0 }
 const json = (res, code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)) }
 
 export function makeServer(root) {
-  usePrefixes(sessionPrefixes(root))
+  useRoster(officeRoster(root).desks)
   if (!globalThis.__oaWarmer && orcaAvailable()) globalThis.__oaWarmer = keepTerminalsWarm()
   // ⛔ ONE TOKEN PER BOARD PROCESS, handed only to the page this board serves
   // (a <meta> in its HTML, which another site cannot read). Every writing

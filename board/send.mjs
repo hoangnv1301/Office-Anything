@@ -6,19 +6,33 @@
 // the terminals, for keystrokes. Neither open means the board is READ-ONLY
 // for that desk and says why; it never falls back to something cleverer.
 import { execFileSync, execFile } from 'node:child_process'
+import { deskOfSession, plainDeskId } from '../lib/desk.mjs'
 
 // ⛔ THE SPINNER GLYPH CYCLES while a desk works (✳ ✶ ✽ ...), so stripping
 // one literal star called the BUSIEST desks offline and made send miss them.
 // Strip any leading symbol run; a desk name starts with a letter.
-// The prefix is case-blind: a launcher that names tabs `desk-<name>` must match too.
-// ⛔ AND A DEPARTMENT'S (0.20.0): aics-web is desk web. The board's server sets
-// the office's prefixes (lib/desk.mjs sessionPrefixes) once it knows its root.
-let DESK_PREFIX = prefixRe(['desk'])
-export function usePrefixes(list) { DESK_PREFIX = prefixRe(list) }
-function prefixRe(list) { return new RegExp(`^(?:${[...new Set(list)].map((p) => p.replace(/[^a-z0-9]/g, '')).filter(Boolean).join('|')})-`, 'i') }
-export const deskPrefixed = (t) => DESK_PREFIX.test(String(t ?? ''))
-export const normalizeTitle = (t) => String(t ?? '').replace(/^[^A-Za-z0-9]+/, '').replace(DESK_PREFIX, '').trim()
-const namesADesk = (t) => DESK_PREFIX.test(String(t ?? '').replace(/^[^A-Za-z0-9]+/, ''))
+// ⛔ A TAB TITLE IS A DESK BY EXACT NAME (0.20.1, commit security review). A
+// prefix stripped off the title made erp-web desk web, another department's.
+// The board's server hands this module the roster (lib/desk.mjs officeRoster);
+// a title is a desk only when deskOfSession finds it, case and all. Without a
+// roster (a caller that never set one), only the plugin's own desk-<x>.
+let ROSTER = null
+export function useRoster(desks) { ROSTER = Array.isArray(desks) ? desks : null }
+const bare = (t) => String(t ?? '').replace(/^[^A-Za-z0-9]+/, '').trim()
+// exact, then in lower case (a launcher once titled tabs DESK-<name>; desk names
+// are lower case only, so this cannot reach another desk); else the plugin's
+// own desk-<x>, which always names a desk
+const deskOfTitle = (t) => {
+  const s = bare(t)
+  if (ROSTER) for (const n of [s, s.toLowerCase()]) { const h = deskOfSession(ROSTER, n); if (h) return h.key ? null : h.desk }
+  const id = plainDeskId(s.toLowerCase())
+  return id ? { name: id, session: s.toLowerCase() } : null
+}
+// a session or tab name that is a desk's (its case sessions included)
+export const isDeskName = (t) => { const s = bare(t); return (!!ROSTER && !!deskOfSession(ROSTER, s)) || !!plainDeskId(s.toLowerCase()) }
+// the desk id a title names, else the title as it reads (the lead's tab carries its task summary)
+export const normalizeTitle = (t) => deskOfTitle(t)?.name ?? bare(t)
+const namesADesk = (t) => isDeskName(t)
 
 export function orcaAvailable(run = execFileSync) {
   try { run('orca', ['--version'], { encoding: 'utf8', stdio: 'pipe' }); return true } catch { return false }
@@ -51,8 +65,12 @@ export function terminalFor(desk, run = execFileSync, dir = null) {
     terminals = JSON.parse(out)?.result?.terminals ?? []
     if (run === execFileSync) listCache = { at: Date.now(), terminals }
   }
-  const hit = terminals.find((t) => normalizeTitle(t.title) === desk)
-  if (hit) return hit.handle
+  // its current name first; two tabs that tie are a guess, and a guess is not sent to
+  const hits = terminals.filter((t) => normalizeTitle(t.title) === desk)
+  const now = hits.filter((t) => { const d = deskOfTitle(t.title); return d && bare(t.title) === d.session })
+  const best = now.length ? now : hits
+  if (best.length === 1) return best[0].handle
+  if (best.length > 1) return null
   // The LEAD's tab is titled with its task summary, never "team-lead", so a
   // title match cannot find it. The terminal's own working directory can:
   // exact worktreePath equality, which also makes v1's terminal (a different
