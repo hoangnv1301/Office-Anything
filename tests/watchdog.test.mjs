@@ -112,3 +112,78 @@ test('the shim honours CLAUDE_CONFIG_DIR and runs an install that EXISTS, the ne
   assert.equal(run.status, 0, run.stderr)
   assert.equal(readFileSync(join(w.root, 'which.txt'), 'utf8'), 'newer')
 })
+
+// ⛔ A STALE SHIM SKIPPED A LIVE OFFICE FOR FOUR HOURS (0.20.2). local-cabinets-ops'
+// shim, written before desks could leave desks/, tested `join(root, 'desks')`;
+// its cleanup retired desks/, and every pass said "office not found" while the
+// disk sat mounted. The shim now only finds the install and runs its
+// lib/watchdog-pass.mjs, and an installed shim is rewritten when it is not the
+// one this version writes: by every session start, health and ensureWatchdog.
+import { copyFileSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { refreshShim } from '../lib/watchdog.mjs'
+import { pass, officeThere } from '../lib/watchdog-pass.mjs'
+const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
+const OLD_SHIM = (root) => `// written by office-anything --install-watchdog\nimport { existsSync } from 'node:fs'\nimport { join } from 'node:path'\nconst root = ${JSON.stringify(root)}\nif (!existsSync(join(root, 'desks'))) process.exit(0)\n`
+// an office the way local-cabinets-ops is now: office.json, departments/, no desks/
+function retired() {
+  const w = world()
+  spawnSync('rm', ['-rf', join(w.root, 'desks')])
+  mkdirSync(join(w.root, 'departments', 'aics', 'web'), { recursive: true })
+  writeFileSync(join(w.root, 'departments', 'aics', 'web', 'desk.json'), JSON.stringify({ name: 'web', kind: 'knowledge', port: 9951 }))
+  writeFileSync(join(w.root, 'office.json'), JSON.stringify({ departments: { aics: { lead: 'AICS', desks: ['web'] } } }))
+  return w
+}
+
+test('⛔ an office with no desks/ (its desks in departments/) is still healed: the shim runs the plugin\'s own pass', () => {
+  const w = retired()
+  const r = installWatchdog(w.root, w.opts)
+  assert.doesNotMatch(readFileSync(r.shim, 'utf8'), /join\(root, 'desks'\)/, 'the shim decides nothing about the layout')
+  // an install with the real pass, and a health that says it ran
+  const install = mkdtempSync(join(tmpdir(), 'oa-wd-plugin-'))
+  mkdirSync(join(install, 'lib'), { recursive: true })
+  for (const f of ['watchdog-pass.mjs', 'desk.mjs', 'is-main.mjs']) copyFileSync(join(REPO, 'lib', f), join(install, 'lib', f))
+  writeFileSync(join(install, 'lib', 'health.mjs'), `import { writeFileSync } from 'node:fs'\nwriteFileSync(${JSON.stringify(join(w.root, 'ran.json'))}, JSON.stringify(process.argv.slice(2)))\nconsole.log('office: green')\n`)
+  mkdirSync(join(w.home, '.claude', 'plugins'), { recursive: true })
+  writeFileSync(join(w.home, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: { 'office-anything@office-anything': [{ installPath: install, version: '0.20.2' }] } }))
+  const run = spawnSync(process.execPath, [r.shim], { env: { ...process.env, HOME: w.home, CLAUDE_CONFIG_DIR: '' }, encoding: 'utf8' })
+  assert.equal(run.status, 0, run.stderr)
+  assert.deepEqual(JSON.parse(readFileSync(join(w.root, 'ran.json'), 'utf8')), [w.root, '--heal'])
+  assert.match(readFileSync(r.log, 'utf8'), /office: green/)
+})
+
+test('the pass: an office.json or a desk folder is an office; nothing there is said once an hour', () => {
+  const w = retired()
+  assert.equal(officeThere(w.root), true)
+  const calls = []
+  assert.equal(pass(w.root, join(w.home, 'p.log'), { run: (...a) => { calls.push(a); return { stdout: 'ok\n' } } }), 'ran')
+  assert.equal(calls[0][1][1], w.root)
+  const empty = mkdtempSync(join(tmpdir(), 'oa-wd-empty-')), log = join(w.home, 'e.log')
+  const t = Date.now()
+  for (const dt of [0, 60_000, 120_000]) assert.equal(pass(empty, log, { run: () => { throw new Error('ran') }, now: t + dt }), 'missing')
+  pass(empty, log, { run: () => ({}), now: t + 3700_000 })
+  assert.equal(readFileSync(log, 'utf8').trim().split('\n').length, 2, 'once an hour')
+})
+
+test('⛔ an installed shim an older version wrote is rewritten, a current one left alone, none never made', () => {
+  const w = retired()
+  const r = installWatchdog(w.root, w.opts)
+  writeFileSync(r.shim, OLD_SHIM(w.root))
+  assert.equal(refreshShim(w.root, { home: w.home }), 'rewritten')
+  assert.match(readFileSync(r.shim, 'utf8'), /watchdog-pass\.mjs/)
+  assert.equal(refreshShim(w.root, { home: w.home }), 'current')
+  assert.equal(w.calls.filter((c) => c[0] === 'bootstrap').length, 1, 'launchd is not touched by a refresh')
+  const other = world()
+  assert.equal(refreshShim(other.root, { home: other.home }), 'none', 'no watchdog installed: nothing is written')
+  assert.ok(!existsSync(pathsFor(other.root, other.home).shim))
+})
+
+test('⛔ every session start rewrites a stale shim (the boot hook), so an update reaches a watchdog nobody reinstalls', () => {
+  const w = retired()
+  const r = installWatchdog(w.root, w.opts)
+  writeFileSync(r.shim, OLD_SHIM(w.root))
+  const hook = spawnSync(process.execPath, [join(REPO, 'hooks', 'desk-boot.mjs')], { input: JSON.stringify({ cwd: w.root }), env: { ...process.env, HOME: w.home, CLAUDE_CONFIG_DIR: join(w.home, '.claude') }, cwd: w.root, encoding: 'utf8' })
+  assert.equal(hook.status, 0, hook.stderr)
+  assert.match(readFileSync(r.shim, 'utf8'), /watchdog-pass\.mjs/)
+})

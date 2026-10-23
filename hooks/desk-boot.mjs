@@ -37,6 +37,7 @@ import { allLeads, deskScope, leadsOfDesk } from '../lib/departments.mjs'
 import { afterLines } from '../lib/compact.mjs'
 import { profilesOf, rolesHere } from '../lib/role.mjs'
 import { readJobs, runHint, pluginGate } from '../lib/schedule.mjs'
+import { refreshShim } from '../lib/watchdog.mjs'
 import { spawnSync } from 'node:child_process'
 
 const DEFAULT = {
@@ -174,6 +175,9 @@ if (isMain(import.meta.url)) {
       const cwd = p?.cwd ? resolve(p.cwd) : process.cwd()
       const root = findOffice(cwd)
       if (!root) process.exit(0)
+      // ⛔ a watchdog shim an older version wrote is rewritten at every session start
+      // (lib/watchdog.mjs refreshShim): a stale one skipped this office for hours
+      try { refreshShim(root) } catch {}
       const cfg = readOfficeConfig(root)
       // an unapproved plugin version: the session is told, the lead alerted once
       const v = versionVerdict(cfg)
