@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.20.0
+
+- ⭐ SESSIONS CARRY THEIR DEPARTMENT. The owner, 2026-10-23: a desk's session is
+  `<dept prefix>-<id>` (aics-web-design, erp-inventory), its cases
+  `<session>--<key>`, buyer teammates `aics-alibaba-<Buyer>`. `office.json`
+  `departments.<id>.prefix`; a desk in no prefixed department stays `desk-<name>`.
+  Every `<prefix>-*` name is its department's for usage and alert routing.
+- ⛔ ONE OWNER FOR NAME -> DESK. About 25 sites built `'desk-' + x` or tested
+  `/^desk-/`. `lib/desk.mjs` now gives each desk `d.names`, every name it answers to,
+  and `deskOfSession` matches them exactly: `aics-web-design` is desk web-design,
+  never web's teammate. `tests/session-names.test.mjs` walks lib/, hooks/, board/,
+  checks/ and scripts/ and fails on a hand-built name or a shape test.
+- ⛔ THE WALL ASKS TWO QUESTIONS. A `<prefix>-<x>` that resolves to no desk is
+  refused (fail-closed), as an unknown `desk-<x>` always was. A declared
+  `wall.aliasNames` pattern may still map it, so a teammate is its desk and is
+  walled as that desk.
+- RENAMED FOLDERS. desk.json `"formerly": [old ids]` keeps the desk's old
+  sessions its own, and `start` finds its conversation under the old folder
+  (in its department's folder or desks/) and carries it over. An old id that is
+  another desk's makes both broken. A desk name or folder may not hold `--`.
+- A prefix is lowercase letters and digits, unique, not desk/cs/lead, and not a
+  lead's or a builder's name. Two departments claiming one prefix: neither gets it.
+- LEADS' OWN MODEL. `departments.<id>.model`, else `launch.lead.model`, for every
+  lead launch; `launch.model` stays the desks'. A watchdog restart brought the
+  leads back on Sonnet.
+
 ## 0.19.7
 
 - SKIPPED, NOT OWED. The release forum's cap is 10 posts a day, and

@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-573%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-585%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -266,6 +266,40 @@ what other desks message.
 - A name that is another desk's name or id makes both desks unreadable until it is fixed:
   `desk-<x>` must name one folder. `node checks/run.mjs` says so.
 - Commands take either: `/desk-start <id or name>`, `node lib/desks.mjs off <id or name>`.
+
+## Session names carry their department
+
+A department may give its desks a session prefix in `office.json`:
+
+```json
+"departments": {
+  "customer-service": { "lead": "AICS", "prefix": "aics", "model": "opus", "desks": ["web", "web-design"] },
+  "local-ops":        { "lead": "ERP",  "prefix": "erp",  "desks": ["inventory"] }
+}
+```
+
+Desk `web-design` is then `aics-web-design`, its cases `aics-web-design--<key>`, and `inventory`
+is `erp-inventory`. A desk in no department, or in one without a prefix, stays `desk-<name>`.
+Every `aics-*` name counts as customer service for token usage and alert routing.
+
+- **One owner.** A session name becomes a desk only by an exact match on the names that desk
+  answers to (`lib/desk.mjs` `deskOfSession`), never by its shape. So `aics-web-design` is that desk,
+  not a teammate of `aics-web`. A buyer teammate (`aics-alibaba-<Buyer>`) is no desk: the office's
+  wall module maps it, through a `wall.aliasNames` pattern, or the wall refuses it.
+- **A `<prefix>-<x>` that resolves to no desk is refused** by a fail-closed wall, like an unknown
+  `desk-<x>`. A developer session must not be called `aics-…` or `erp-…`.
+- **The old names still count.** A desk also answers to `desk-<name>`, so a running desk is alive and
+  renamed (heal restarts it under the new name when idle), and its conversation is resumed.
+- **A prefix** is lowercase letters and digits, unique, not `desk`, `cs` or `lead`, and not a lead's
+  or a builder's name. Health says when one is refused, and its desks keep `desk-`.
+- **A lead's model:** `departments.<id>.model`, else `launch.lead.model`. `launch.model` stays the
+  desks'. Every lead launch (start, the watchdog's restart) uses it.
+
+**A desk whose folder is renamed** (its id changes) lists its old ids in `desk.json`:
+`"formerly": ["alibaba-customer-service"]`. Its old session names stay its own, and its
+conversation is found under the old folder and carried over on its first start. An old id that is
+another desk's makes both unreadable. A desk name or folder may not contain `--`, because
+`<session>--<key>` is a case session.
 
 ## Run only some desks on this machine
 

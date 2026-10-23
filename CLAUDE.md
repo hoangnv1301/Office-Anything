@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 573 tests
+node --test "tests/**/*.test.mjs"    # 585 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
@@ -36,10 +36,16 @@ One file per desk. The roster, the port map, the docs table and the tests all re
 
 ⛔ **The folder is the id; `"name"` is the session name (0.11.0).** In code, `d.name` is the
 id (every key site reads it), `d.title` is desk.json `"name"` and `d.session` is
-`desk-<title>`. Build a session name from `d.session`, never `'desk-' + d.name`; turn one
+`desk-<title>` (or `<prefix>-<title>`, below). Build a session name from `d.session`, never `'desk-' + d.name`; turn one
 back into a desk with `deskOfSession`. A rename is one edit to `"name"`. Every real desk
 had id == name, so a site reading the wrong one passes everything else:
 `tests/desk-id.test.mjs` drives each path through a desk whose folder is not its name.
+
+⛔ **A session name becomes a desk only through `deskOfSession` (0.20.0).** `d.session` is
+`<prefix>-<title>` (a department's `prefix`, else `desk`), and `d.names` lists every name the desk
+answers to: old names and desk.json `"formerly"` ids. Match a name against them exactly. Never test
+the shape (`/^desk-/`) and never build `'desk-' + x`: `aics-web-design` would read as `aics-web`'s
+teammate. `tests/session-names.test.mjs` walks the code for both.
 
 ⛔ **Departments have two lead resolvers (0.12.0), and mixing them up starts AICS on a stranger's
 machine.** `allLeads` (identity: who IS a lead, the wall, duplicates) is office-wide;

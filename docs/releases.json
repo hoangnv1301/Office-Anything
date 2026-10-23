@@ -161,5 +161,12 @@
   ] },
   "0.19.7": { "date": "2026-10-23", "improved": [
     "Old release notes can be marked skipped, so catching up on the release forum posts only the notes still owed."
+  ] },
+  "0.20.0": { "date": "2026-10-23", "new": [
+    "Session names can carry their department, such as aics-web-design or erp-inventory, set by one prefix per department.",
+    "A desk whose folder is renamed keeps its old session names and its own conversation, which is carried over on its first start.",
+    "Department leads can run on their own model, so the leads stay on Opus while the desks use Sonnet."
+  ], "fixed": [
+    "A session name that only looks like a desk's no longer resolves to the wrong desk: names are matched exactly."
   ] }
 }
