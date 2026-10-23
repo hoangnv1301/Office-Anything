@@ -182,5 +182,8 @@
   ] },
   "0.20.3": { "date": "2026-10-23", "fixed": [
     "A prepared job's gate never runs a command any more: it waits for a plugin version or a file inside the office."
+  ] },
+  "0.20.4": { "date": "2026-10-24", "fixed": [
+    "Hiring refuses a desk named another desk's name plus a hyphen, so a desk can never share a name with that desk's teammates."
   ] }
 }

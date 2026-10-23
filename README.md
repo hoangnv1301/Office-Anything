@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-596%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-597%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -298,7 +298,9 @@ Every `aics-*` name counts as customer service for token usage and alert routing
 **A desk whose folder is renamed** (its id changes) lists its old ids in `desk.json`:
 `"formerly": ["alibaba-customer-service"]`. Its old session names stay its own, and its
 conversation is found under the old folder and carried over on its first start. An old id that is
-another desk's makes both unreadable. A desk name or folder may not contain `--`, because
+another desk's makes both unreadable. `hire` refuses a new desk named another desk's name (or id, or
+old id) plus `-`: desk `alibaba`'s teammates are `aics-alibaba-<who>`, so a desk `alibaba-x` would
+share a name with buyer x's teammate. A desk name or folder may not contain `--`, because
 `<session>--<key>` is a case session.
 
 ## Run only some desks on this machine
