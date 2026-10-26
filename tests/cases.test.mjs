@@ -153,6 +153,18 @@ test('the sweep: a lost claim closes its session, the idle close, waiting cases 
   assert.deepEqual(by('queued'), ['SC-261009-012'], 'over the cap the case stays with the parent')
 })
 
+test('the sweep releases the claim of an opened case whose session is gone (it must not throw: staleChild was left behind by the names change)', async () => {
+  const root = office(); writeFileSync(join(root, 'office.json'), JSON.stringify({ roleEnv: 'OFFICE_ROLE', launch: { waitSec: 2 } }))
+  const live = []; const a = fakeAdapter(); let clock = 0
+  const o = run(root, live, { adapter: a.fn, terminal: fakeTerm(live, { status: 'busy' }), now: () => (clock += 1000), procs: () => new Map() })
+  await openCase(root, 'design', 'SC-261009-137', o)
+  assert.equal(a.held['SC-261009-137'], 'desk-design--SC-261009-137')
+  live.length = 0   // the session died
+  const acts = await sweep(root, o)
+  assert.deepEqual(acts.filter((x) => x.act === 'released').map((x) => x.key), ['SC-261009-137'])
+  assert.equal(a.held['SC-261009-137'], undefined, 'the claim is given back')
+})
+
 test('route: a message naming a case goes to its live session, else to the parent; a case-less one stays put', () => {
   const root = office()
   const live = [{ pid: 1, name: 'desk-design--SC-261009-137', status: 'idle' }]

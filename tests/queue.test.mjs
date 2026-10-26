@@ -34,7 +34,7 @@ const cli = (root, args, role) => {
 test('filters: --assigned (desk-x matches x), --overdue, --owner, and they combine', () => {
   const root = office()
   add(root, { title: 'a', assigned: 'ops-construction', due: '2026-10-17' })
-  add(root, { title: 'b', assigned: 'ops-construction', due: '2026-10-25' })
+  add(root, { title: 'b', assigned: 'ops-construction', due: '2099-01-01' })   // far future: the CLI half of this test reads the real clock, and 2026-10-25 went overdue on its own
   add(root, { title: 'c', assigned: 'desk-design' })
   add(root, { title: 'd', assigned: 'owner' })
   const titles = (a) => a.map((t) => t.title).join('')
