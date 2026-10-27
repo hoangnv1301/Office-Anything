@@ -185,5 +185,8 @@
   ] },
   "0.20.4": { "date": "2026-10-24", "fixed": [
     "Hiring refuses a desk named another desk's name plus a hyphen, so a desk can never share a name with that desk's teammates."
+  ] },
+  "0.20.5": { "date": "2026-10-27", "fixed": [
+    "The case sweep no longer stops when an opened case has lost its session, so waiting cases open their own sessions again."
   ] }
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.5
+
+- ⛔ THE CASE SWEEP DIED ON A GONE SESSION (2026-10-27). The names change removed `staleChild`
+  but left one call in the release check for an opened case whose session is gone, so every sweep
+  that met one threw `staleChild is not defined` and no per-case session opened (design cases sat
+  waiting from 2026-10-25). The check asks only for the case's own child name now. Pinned in
+  `tests/cases.test.mjs`; the queue filter test no longer goes red on its own when a fixed date passes.
+
 ## 0.20.4
 
 - ⛔ THE TEAMMATE GUARD (the owner, 2026-10-24). A desk's teammates are
