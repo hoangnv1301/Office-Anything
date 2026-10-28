@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.21.0
+
+- ⭐ SMART COMPACT (the owner, 2026-10-28: the long-running sessions spend most of the weekly
+  budget re-reading huge contexts, and a fixed "compact at N" is wrong both ways). `compact.smart`
+  in office.json. A watcher with no model picks a desk or lead that is large for ITS OWN window
+  (lib/context.mjs), idle at an empty prompt, nothing open or queued, not compacted within
+  `everyHours`. A small model (`claude -p --model claude-haiku-5-5`, no tools, outside the office,
+  prompt in `lib/prompts/smart-compact.md`) reads the condensed tail and answers
+  `{ compact_now, reason, keep }`; `/compact <keep>` is typed on the road heal already uses, after
+  a fresh look. The lead needs a larger share of its window and a longer idle, and the judge is told
+  to be stricter with it. **Dry run by default**: decides, logs, types nothing.
+- Every decision is a line in `.office/smart-compact.jsonl`; a send gets an `after` line from its
+  `compact_boundary` (pre/post tokens). The board shows the log as a built-in "Smart compact" panel.
+- ⛔ A COMPACTION AFTER THE LAST TURN IS THE SIZE NOW. Claude Code 2.1.302+ compacts idle sessions
+  itself ("Compacted while idle, before the prompt cache expired"), so the last usage entry said
+  207K of a desk holding 20K. The smart compact reads the boundary's `postTokens` instead.
+- ⛔ ONE COMPACTOR: with `"dry_run": false`, heal's fixed-focus idle compact steps aside.
+- The watchdog pass runs `lib/smart-compact.mjs <root> pass` after health; it answers "off" or
+  "not due" at once. Pinned in `tests/smart-compact.test.mjs`.
+
 ## 0.20.5
 
 - ⛔ THE CASE SWEEP DIED ON A GONE SESSION (2026-10-27). The names change removed `staleChild`

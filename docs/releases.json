@@ -188,5 +188,10 @@
   ] },
   "0.20.5": { "date": "2026-10-27", "fixed": [
     "The case sweep no longer stops when an opened case has lost its session, so waiting cases open their own sessions again."
+  ] },
+  "0.21.0": { "date": "2026-10-28", "new": [
+    "Smart compact: a small model reads an idle session's recent turns and compacts it only between jobs, with a keep line naming its open items.",
+    "Candidates are picked without a model: large for their own context window, idle at an empty prompt, nothing queued, at most once every few hours.",
+    "Smart compact starts as a dry run that logs every decision and types nothing; the board shows its decisions and each compaction's size before and after."
   ] }
 }
