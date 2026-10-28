@@ -23,7 +23,7 @@ Those are exactly what the keep instruction must carry, by id. A session with ma
 
 ## The keep instruction (only when compact_now is true)
 
-One line of plain text, at most 700 characters (it is typed into a terminal; longer is cut), no line breaks, no markdown. It is typed after `/compact` and tells the summariser what to preserve. Write it as "Keep: …; Drop: …". Be concrete and use the ids exactly as they appear in the transcript.
+One line of plain text, at most 700 characters (it is typed into a terminal; longer is cut), no line breaks, no markdown. It is typed after `/compact` and tells the summariser what to preserve. Write it as "Drop: <a few words>. Keep: …", the short Drop part FIRST, so a cut at the end loses the least important keep items, never the Drop part. Be concrete and use the ids exactly as they appear in the transcript.
 
 Keep, when present in the transcript:
 - every open customer, buyer, case, thread, order, task or PR, with its id or name, and what it is waiting on;

@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-611%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-613%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -743,8 +743,8 @@ judgement per session, at a task boundary:
 ```json
 "compact": { "smart": { "enable": true, "dry_run": true, "model": "claude-haiku-5-5",
   "everyMin": 12, "everyHours": 4, "askEveryMin": 60,
-  "desk": { "ratio": 0.4, "minK": 120, "idleMin": 20 },
-  "lead": { "ratio": 0.6, "minK": 200, "idleMin": 30 },
+  "desk": { "ratio": 0.25, "minK": 120, "idleMin": 20 },
+  "lead": { "ratio": 0.35, "minK": 150, "idleMin": 30 },
   "doneMatch": "<regex over the last turn's tool calls: a unit of work finished>", "doneIdleMin": 5 } }
 ```
 
@@ -773,7 +773,15 @@ board shows them as its built-in **Smart compact** panel. By hand:
 
 ⚠️ Claude Code 2.1.302+ compacts idle sessions over 200K by itself about 54 minutes after the last
 turn, before the prompt cache expires, with no keep instruction ("idleCompaction" in settings.json).
-The smart compact's idle times are shorter, so it gets there first with its own keep line.
+The defaults are set under that line: with a 500K window a desk is a candidate from 125K after 20
+minutes and a lead from 175K after 30, so the smart compact gets there first with its own keep line.
+A session the judge declines, or one it never reaches (its screen not seen empty), still gets the CLI's
+generic summary at 200K; set `"idleCompaction": false` only if the office wants the smart compact alone.
+A lead parked on its own doorbell (registry "shell") counts as idle only while that bell is proven armed,
+and its idle clock is the transcript's last work that is not the bell.
+
+⚠️ Claude Code's prompt suggestions put grey text on the input line of an idle session, and a screen
+read cannot tell it from somebody typing, so such a session is skipped (never typed over).
 
 ## Usage limit: a stuck session is resumed when the limit lifts
 

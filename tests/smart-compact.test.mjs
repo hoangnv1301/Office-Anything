@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { smartConfig, smartLive, smartVerdict, sessionTail, keepLine, judge, smartPass, panelItems, readLog, condensedTail, PROMPT_FILE, KEEP_MAX } from '../lib/smart-compact.mjs'
+import { smartConfig, smartLive, smartVerdict, sessionTail, keepLine, judge, judgeEnv, smartPass, panelItems, readLog, condensedTail, PROMPT_FILE, KEEP_MAX } from '../lib/smart-compact.mjs'
 import { officeHealth } from '../lib/health.mjs'
 import { panelsOf } from '../board/serve.mjs'
 import { projectDirOf } from '../lib/conversation.mjs'
@@ -62,18 +62,20 @@ test('config: off unless compact.smart.enable is true; dry run unless dry_run is
   assert.equal(smartLive({ compact: { smart: { enable: true } } }), false)
   assert.equal(smartLive({ compact: { smart: { enable: true, dry_run: false } } }), true)
   assert.equal(smartConfig({ compact: { smart: { enable: true, model: 'x; rm -rf /' } } }).model, 'claude-haiku-5-5', 'a model name is a word, never a command')
-  assert.equal(smartConfig({ compact: { smart: { enable: true, desk: { ratio: 7 } } } }).desk.ratio, 0.4, 'out of range is the default')
+  assert.equal(smartConfig({ compact: { smart: { enable: true, desk: { ratio: 7 } } } }).desk.ratio, 0.25, 'out of range is the default')
 })
 
 test('the gates: size against the session\'s OWN window, idle, nothing open, nothing queued, once per everyHours, asking rate-limited', () => {
   const conf = smartConfig({ compact: { smart: { enable: true, doneMatch: 'queue-draft', doneIdleMin: 3 } } })
   const x = (o = {}) => ({ role: 'desk', status: 'idle', idleSince: NOW - 45 * MIN, max: 500_000, tail: { ctx: 250_000, pending: false, queued: 0, lastTools: [], lastAt: NOW - 45 * MIN, ...(o.tail ?? {}) }, ...o, ...(o.tail ? { tail: { ctx: 250_000, pending: false, queued: 0, lastTools: [], lastAt: NOW - 45 * MIN, ...o.tail } } : {}) })
   assert.equal(smartVerdict(conf, x(), { now: NOW }).verdict, 'ask')
-  // the same 150K is small in a 500K window and large in a 200K one
-  assert.match(smartVerdict(conf, x({ tail: { ctx: 150_000 } }), { now: NOW }).why, /150K of 500K, under 200K/)
-  assert.equal(smartVerdict(conf, x({ max: 200_000, tail: { ctx: 150_000 } }), { now: NOW }).verdict, 'ask')
-  // the lead: a larger share of its window
-  assert.match(smartVerdict(conf, x({ role: 'lead' }), { now: NOW }).why, /under 300K/)
+  // the same 200K is small in a 1M window and large in a 300K one
+  assert.match(smartVerdict(conf, x({ max: 1_000_000, tail: { ctx: 200_000 } }), { now: NOW }).why, /200K of 1000K, under 250K/)
+  assert.equal(smartVerdict(conf, x({ max: 300_000, tail: { ctx: 200_000 } }), { now: NOW }).verdict, 'ask')
+  // the lead: a larger share of its window, and still under Claude Code's own 200K idle line
+  assert.equal(smartVerdict(conf, x({ tail: { ctx: 160_000 } }), { now: NOW }).verdict, 'ask')
+  assert.match(smartVerdict(conf, x({ role: 'lead', tail: { ctx: 160_000 } }), { now: NOW }).why, /under 175K/)
+  assert.ok(smartVerdict(conf, x({ role: 'lead' }), { now: NOW }).threshold < 200_000 && conf.lead.idleMin < 54)
   assert.match(smartVerdict(conf, x({ status: 'busy', idleSince: null }), { now: NOW }).why, /running a turn/)
   assert.match(smartVerdict(conf, x({ tail: { pending: true } }), { now: NOW }).why, /tool call or question is open/)
   assert.match(smartVerdict(conf, x({ tail: { queued: 2 } }), { now: NOW }).why, /2 message\(s\) queued/)
@@ -115,6 +117,8 @@ test('the judge: runs outside the office with no tools, reads the prompt file; a
   assert.equal(a[a.indexOf('--system-prompt-file') + 1], PROMPT_FILE)
   assert.ok(existsSync(PROMPT_FILE))
   assert.ok(!seen[0].opt.cwd.startsWith(process.cwd()), 'never inside the office')
+  assert.ok(seen[0].opt.env.USER && seen[0].opt.env.LOGNAME, 'a bare LaunchAgent environment still finds the login')
+  assert.ok(judgeEnv({}).USER, 'USER filled from the account when the environment has none')
   const no = (r) => judge(conf, 'h', 't', { run: () => r })
   assert.equal(no({ error: Object.assign(new Error('t'), { code: 'ETIMEDOUT' }) }).compact_now, false)
   assert.equal(no({ status: 1, stdout: 'not json' }).compact_now, false)
@@ -209,4 +213,26 @@ test('the board shows the log as its own panel while compact.smart is on', () =>
   assert.ok(panelsOf(o.root).some((p) => p.id === 'smart-compact' && /smart-compact\.mjs' '.*' panel$/.test(p.command)))
   writeFileSync(join(o.root, 'office.json'), JSON.stringify({ compact: {} }))
   assert.ok(!panelsOf(o.root).some((p) => p.id === 'smart-compact'))
+})
+
+test('⛔ a lead parked on its own bell is idle since its last real work; a lead in a shell with no bell is not', () => {
+  const o = office()
+  writeFileSync(join(o.root, 'office.json'), JSON.stringify({ lead: { session: 'Office Lead', wake: 'node bell.mjs' }, context: { capTokens: 300_000 }, compact: { smart: { enable: true } } }))
+  o.live('Office Lead', o.root, 871, { ctx: 290_000, idleMin: 60, status: 'shell' })
+  // no bell process under it: a shell running something else is work
+  let r = o.pass({ bellRoots: ['/plug'] })
+  assert.match(r.decisions[0].reason, /shell, not provably idle/)
+  // its bell armed under it: idle since the transcript's last work
+  o.procs.set(872, { pid: 872, ppid: 871, ageSec: 30, cmd: 'node bell.mjs' })
+  r = o.pass({ bellRoots: ['/plug'], reask: true })
+  assert.equal(r.decisions[0].stage, 'judge', JSON.stringify(r.decisions[0]))
+  assert.match(r.decisions[0].gate, /idle 60 min/)
+})
+
+test('queued: a dequeue whose enqueue is older than the window does not cancel a message waiting now', () => {
+  const o = office()
+  const s = o.live('desk-inventory', o.desk, 881, { ctx: 250_000 })
+  const p = join(projectDirOf(o.desk, join(o.home, '.claude')), s.sessionId + '.jsonl')
+  writeFileSync(p, readFileSync(p, 'utf8') + [{ type: 'queue-operation', operation: 'dequeue' }, { type: 'queue-operation', operation: 'enqueue', content: 'WAKE' }].map((e) => JSON.stringify(e)).join('\n') + '\n')
+  assert.equal(sessionTail(o.home, s).queued, 1)
 })
