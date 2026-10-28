@@ -23,6 +23,7 @@ import { basename } from 'node:path'
 import { orcaAvailable, normalizeTitle, useRoster, isDeskName, terminalFor, keepTerminalsWarm, inboxOf, sendToInbox, routeFor, confirmDelivery, terminalForSession, requestGuard } from './send.mjs'
 import { createHash, randomBytes } from 'node:crypto'
 import { execFileSync, execFile } from 'node:child_process'
+import { smartConfig } from '../lib/smart-compact.mjs'
 
 // ⛔ ONLINE MEANS A LIVE TERMINAL, not "spoke recently". A desk sitting
 // quietly at its pane is online; the activity dot said otherwise and the
@@ -261,9 +262,12 @@ export const friendlyFrom = (map, from) => map.get(from) ?? normalizeTitle(from)
 // plain lines, one item each. The board shows exactly that, nothing invented.
 export function panelsOf(root) {
   const c = officeConfig(root)
-  if (!Array.isArray(c.panels)) return []
-  return c.panels.filter((p) => p && /^[a-z0-9][a-z0-9-]{0,39}$/.test(p.id ?? '') && typeof p.command === 'string' && p.command.trim())
+  const own = (Array.isArray(c.panels) ? c.panels : []).filter((p) => p && /^[a-z0-9][a-z0-9-]{0,39}$/.test(p.id ?? '') && typeof p.command === 'string' && p.command.trim())
     .map((p) => ({ id: p.id, title: typeof p.title === 'string' && p.title.trim() ? p.title.trim().slice(0, 60) : p.id, command: p.command }))
+  // the plugin's own panel (0.21.0): the smart compact log, while compact.smart is on
+  const q = (x) => `'${String(x).replace(/'/g, `'\\''`)}'`
+  if (smartConfig(c) && !own.some((p) => p.id === 'smart-compact')) own.push({ id: 'smart-compact', title: 'Smart compact', command: `${q(process.execPath)} ${q(fileURLToPath(new URL('../lib/smart-compact.mjs', import.meta.url)))} ${q(root)} panel` })
+  return own
 }
 export function panelBody(err, stdout, stderr) {
   const text = String(stdout ?? '').trim()

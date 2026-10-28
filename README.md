@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-598%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-613%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -734,6 +734,54 @@ owed list, running jobs." }`. **Off unless `office.json` says `"compact"`.** It 
   under `compact`. Its output (at most 40 lines, 20 s) is printed into the session only when it
   restarts from a compaction (SessionStart `compact`, documented to add its output to the
   compacted context). A command that fails says so; nothing is invented.
+
+## Smart compact: a model decides when, and what to keep
+
+The fixed idle compact above types one focus line at one size. `compact.smart` replaces it with a
+judgement per session, at a task boundary:
+
+```json
+"compact": { "smart": { "enable": true, "dry_run": true, "model": "claude-haiku-5-5",
+  "everyMin": 12, "everyHours": 4, "askEveryMin": 60,
+  "desk": { "ratio": 0.25, "minK": 120, "idleMin": 20 },
+  "lead": { "ratio": 0.35, "minK": 150, "idleMin": 30 },
+  "doneMatch": "<regex over the last turn's tool calls: a unit of work finished>", "doneIdleMin": 5 } }
+```
+
+1. **The watcher, no model.** Every `everyMin` the watchdog pass runs `lib/smart-compact.mjs`. A desk or
+   lead (never a teammate or case session) is a candidate when its context (input + cache read +
+   cache write of its last turn, or the size after a later compaction) is at least
+   `max(minK, ratio × its own window)`; the window is its `context` cap (lib/context.mjs). It must be
+   idle for `idleMin` (or `doneIdleMin` after a turn matching `doneMatch`), with no tool call open and
+   no message queued, not compacted within `everyHours`, and its input line seen empty on screen.
+   A judge's "no" is not asked again within `askEveryMin` unless the context grew by 15%.
+2. **The judge.** `claude -p --model <model>`, run from a temp folder with no tools, no settings
+   sources and no MCP, with `lib/prompts/smart-compact.md` as its system prompt and a JSON schema:
+   `{ compact_now, reason, keep }`. It reads the condensed tail after the last compaction (about
+   15K tokens; tool output cut short). It must say no mid-task; the lead is held stricter. A timeout,
+   an error or an answer outside the schema is a no.
+3. **The send.** After a fresh look (same pid, same status stamp, nothing new in the transcript,
+   input line still empty), `/compact <keep>` is typed into the tab titled with the session's name,
+   the road heal and the board already type on. The keep line is one line, at most 900 characters.
+
+**`dry_run` is the default**: it decides and logs and types nothing. With `"dry_run": false` the
+fixed-focus compact in heal steps aside, so one session never has two compactors. Every decision
+is a line in `.office/smart-compact.jsonl` (session, time, context and window, reason, keep text,
+the judge's cost); a sent one gets an `after` line with the compaction's size before and after. The
+board shows them as its built-in **Smart compact** panel. By hand:
+`node lib/smart-compact.mjs <root> pass [--now] [--reask] [--dry-run] [--only a,b] [--enable]`.
+
+⚠️ Claude Code 2.1.302+ compacts idle sessions over 200K by itself about 54 minutes after the last
+turn, before the prompt cache expires, with no keep instruction ("idleCompaction" in settings.json).
+The defaults are set under that line: with a 500K window a desk is a candidate from 125K after 20
+minutes and a lead from 175K after 30, so the smart compact gets there first with its own keep line.
+A session the judge declines, or one it never reaches (its screen not seen empty), still gets the CLI's
+generic summary at 200K; set `"idleCompaction": false` only if the office wants the smart compact alone.
+A lead parked on its own doorbell (registry "shell") counts as idle only while that bell is proven armed,
+and its idle clock is the transcript's last work that is not the bell.
+
+⚠️ Claude Code's prompt suggestions put grey text on the input line of an idle session, and a screen
+read cannot tell it from somebody typing, so such a session is skipped (never typed over).
 
 ## Usage limit: a stuck session is resumed when the limit lifts
 
