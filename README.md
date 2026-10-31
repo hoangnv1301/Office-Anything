@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-613%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-621%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -672,6 +672,37 @@ It prints a plain warning when:
 - Opus subagents make over 20% of the calls.
 
 Both limits are set in `office.json` `usage: { maxContextPerCall, maxOpusSubagentPct }`.
+
+**What kind of work spent them.** Every API call also gets a TRIGGER (what started its turn) and an
+ACTION (what the call did), so tokens can be benchmarked by kind of work:
+
+```
+node lib/usage.mjs [root] --hours 24 --by trigger,action     # table, biggest share first
+node lib/usage.mjs [root] --hours 24 --json                  # rows for a page to read
+```
+
+- Triggers: `heartbeat` (loop, cron, scheduled-job wakeups), `peer` (cross-session message),
+  `task-notice`, `compact`, `hook` (system-reminder only), `subagent-brief`, `person`; `unknown` when
+  the transcript starts after the turn did.
+- Actions: `find` (Read, Grep, Glob, LS, and Bash cat/head/tail/sed -n/grep/rg/find/ls/wc), `edit`,
+  `shell`, `browser`, `message`, `agent`, `web`, `skill`, `other-tool`, and `reply` (no tool, text only).
+  A call with several tools takes the first of that order: edit, message, agent, browser, web, skill, shell, find.
+- Each row is `{trigger, action, group, session, model, calls, input, output, cacheWrite, cacheRead,
+  effective}`; `effective` = input + output + cacheWrite. The table shows each category's share of
+  effective tokens and of cache-read.
+- ⛔ Prompt and command text is used in memory to pick a label and is never stored, printed or put in the JSON.
+
+The office adds its own labels in `office.json`, checked BEFORE the built-ins. `match` is a regex string; a bad one is skipped:
+
+```json
+"usage": {
+  "triggers": [ { "label": "reply customer", "match": "询盘回复" } ],
+  "actions":  [ { "label": "reply customer", "tool": "Bash", "match": "ops\\.mjs propose (询盘回复|发邮件|发WhatsApp)" } ]
+}
+```
+
+A trigger `match` is tested on the first 300 characters of the user line. An action `match` is tested
+on a Bash command's first 200 characters or a Skill name; `tool` (optional) limits it to that tool.
 
 **The lead's periodic check.** `node lib/sweep.mjs [root] once` runs the checks in `office.json`:
 
