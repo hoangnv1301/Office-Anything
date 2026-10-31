@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Token usage by kind of work (the owner, 2026-10-31: "categorize all the action so we can benchmark the token"). `lib/usage.mjs --by trigger|action|trigger,action` and `--json` label every API call with what started its turn and what it did; `office.json` `usage.triggers` / `usage.actions` add the office's own labels. Prompt and command text is used only in memory to pick a label.
+
 ## 0.21.0
 
 - ⭐ SMART COMPACT (the owner, 2026-10-28: the long-running sessions spend most of the weekly
