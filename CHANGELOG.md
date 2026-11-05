@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.22.0
+
+- ⭐ THE OFFICE NAMES ITS DEFAULT ROLE (the owner, 2026-11-05: "the full session by default for root is okay … they just have a convenient way to control", "should be on the plugin"). office.json `"defaultRole"` is what `office` opens on a machine whose `.office/local.json` names no `role`; the machine's own still wins, and one not in `profiles` is said. A root session with no role is told the default and how to open it.
+- ⭐ `office` LOOKS BEFORE IT OPENS (the owner: "do we know if david's code is even the same as ours?", "things should be clean for pull"). One line: branch, behind / ahead after a fetch, uncommitted files, worktrees, and the plugin against `plugin.approved`. It warns and changes nothing, unless office.json `"sync": { "pull": "ff-only-when-clean", "after": "…" }`: then a clean tree with no commits of its own is fast-forwarded and `after` runs. Never a merge, a rebase or a stash. `office --no-sync` skips it. Pinned in `tests/role.test.mjs`.
 
 - Token usage by kind of work (the owner, 2026-10-31: "categorize all the action so we can benchmark the token"). `lib/usage.mjs --by trigger|action|trigger,action` and `--json` label every API call with what started its turn and what it did; `office.json` `usage.triggers` / `usage.actions` add the office's own labels. Prompt and command text is used only in memory to pick a label.
 

@@ -162,6 +162,8 @@ export function roleLines(root, cfg, cwd, env, who) {
   }
   if (who || resolve(cwd) !== resolve(root)) return []
   const R = rolesHere(root, cfg)
+  // the office's default role (office.json "defaultRole" or this machine's local.json), named as the one step to take
+  if (R.default) return [`dev/construction session. The ${R.defaultFrom === 'office' ? "office's" : "machine's"} default role is ${R.default}: run \`office\` in a terminal (or /role) to open it; /role to pick another${R.list.length ? ` (${R.list.map((p) => p.name).join(', ')})` : ''}.`]
   return [`dev/construction session; /role to switch${R.list.length ? ` (${R.list.map((p) => p.name).join(', ')})` : ''}.`]
 }
 

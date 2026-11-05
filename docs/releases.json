@@ -1,197 +1,362 @@
 {
   "_note": "One release note per plugin version, posted to the Office-Anything release forum by scripts/release-post.mjs (ops verb 发版本日志, product office-anything). Sections: new, fixed, improved, todo; each item one English sentence, at most 160 characters, no PR numbers, ids or hashes. tests/releases.test.mjs requires the current version to have one.",
-  "_skipped": { "through": "0.18.8", "why": "Never posted before the release forum existed; nobody needs 25 old notes. Skipped, not owed.", "decided": "the AICS lead for the owner, 2026-10-23" },
-  "0.10.0": { "date": "2026-10-18", "new": [
-    "The lead keeps a persistent task list: tasks are added, updated, verified with evidence or dropped with a reason, and survive any context summary.",
-    "Every lead session start, resume or compaction prints its open tasks, and health turns red for a task left without an update for a day."
-  ] },
-  "0.10.1": { "date": "2026-10-19", "new": [
-    "One queue for the whole office: list tasks by assignee, overdue or owner, and each desk sees only the tasks assigned to it at start.",
-    "A daily digest of the queue is written each morning, and an assignee quiet for a day gets one nudge line in the lead's alerts."
-  ] },
-  "0.10.2": { "date": "2026-10-19", "new": [
-    "The board has a read-only Tasks panel: tasks by assignee with state, age, due date, overdue marks, the owner's words and the recorded evidence."
-  ] },
-  "0.10.3": { "date": "2026-10-20", "new": [
-    "A desk can read a PDF the owner uploaded, read-only, the same way it reads an uploaded image.",
-    "Health flags any session name the office owns that two live sessions carry, and names which one to keep and which to close."
-  ], "fixed": [
-    "When two sessions run one case, the case sweep keeps the most recently active one and stops the other by its own process, never by name.",
-    "A case session parked in its doorbell now counts as idle, so it can be closed when idle like any other."
-  ] },
-  "0.10.4": { "date": "2026-10-20", "new": [
-    "Standing desks can close themselves when idle and wake again when work names them, set per desk in office.json closeWhenIdle."
-  ], "fixed": [
-    "A terminal tab whose Claude had exited no longer counts as a running desk, so starting that desk opens it again instead of doing nothing."
-  ] },
-  "0.10.5": { "date": "2026-10-20", "fixed": [
-    "A desk taken off the close-when-idle list while it was closed is now woken on the next heal instead of staying closed."
-  ] },
-  "0.10.6": { "date": "2026-10-20", "fixed": [
-    "A case session that is already busy when it registers counts as up, so its claim is kept instead of being released mid-draft.",
-    "Turning on a per-case desk now says its cases open on the next sweep, not to start it by hand."
-  ] },
-  "0.10.7": { "date": "2026-10-20", "new": [
-    "The lead has its own doorbell: one line per new alert, matching log line or open item, de-duplicated, rate-limited and safe across restarts."
-  ], "fixed": [
-    "Monitor commands are now judged by the wall: a session's own doorbell runs, anything else is judged as the shell command it is."
-  ] },
-  "0.10.8": { "date": "2026-10-20", "fixed": [
-    "The lead's doorbell refuses log patterns that could hang, tests only the first 2,000 characters of a line, and follows only real log files."
-  ] },
-  "0.10.9": { "date": "2026-10-20", "new": [
-    "The lead can chain its listed commands with &&, ; and |, as long as every part is itself a listed command."
-  ], "fixed": [
-    "A case reopened after it was closed no longer carries its old close reason."
-  ] },
-  "0.10.10": { "date": "2026-10-20", "new": [
-    "An office can open its lead's wall fully; every lead action is then written to an audit log with credentials redacted, and desks keep their walls."
-  ], "improved": [
-    "A floor of secret files no office can unlist, and the lead's chained commands are judged exactly as the shell will read them."
-  ] },
-  "0.10.11": { "date": "2026-10-20", "fixed": [
-    "The lead's audit log also redacts quoted passwords and tokens and database-style password flags."
-  ] },
-  "0.11.0": { "date": "2026-10-21", "new": [
-    "Renaming a desk is one edit: change its name in desk.json, and it restarts under the new name once it is idle, keeping its own conversation."
-  ], "improved": [
-    "A message to a desk's old name is refused with its new name, and a desk name that clashes with another desk is refused at hire."
-  ] },
-  "0.12.0": { "date": "2026-10-22", "new": [
-    "Departments: one office with a lead per department and its own desks, and each machine says which departments it runs.",
-    "A desk of a department this machine does not run is left alone here: not started, watched, swept, shown on the board or messaged."
-  ], "improved": [
-    "Each department lead is started and healed on its own budget, and only on the machines that run its department."
-  ] },
-  "0.12.1": { "date": "2026-10-22", "fixed": [
-    "Choosing this machine's departments now works before office.json declares them, so a machine can be set up first."
-  ] },
-  "0.13.0": { "date": "2026-10-22", "new": [
-    "Idle compact: a desk or lead idle at its prompt with a large context is compacted before its next request, never mid-turn or into a question.",
-    "Health lists every office session with a large context, largest first."
-  ] },
-  "0.14.0": { "date": "2026-10-22", "new": [
-    "A generated Compact Instructions section tells compaction what each desk and the lead must keep, and a check names the sessions still missing it.",
-    "After a compaction, a session is told what is open right now, from the office's own read-only command."
-  ] },
-  "0.15.0": { "date": "2026-10-22", "new": [
-    "A session stopped by the Claude usage limit is resumed once the limit lifts: at the reset, or as soon as another session of the account answers again.",
-    "The lead is told once who is stuck, until when, how many messages are queued and what it was doing; after two failed resumes it needs a person."
-  ], "improved": [
-    "A limit on one model switches a desk to the fallback model until the reset, then back."
-  ] },
-  "0.15.1": { "date": "2026-10-23", "fixed": [
-    "Another tool's data under the departments key no longer switches departments on, which had left the machine with no lead to restart."
-  ] },
-  "0.16.0": { "date": "2026-10-23", "new": [
-    "A department's desks can live in its own folder; the walls, the send gate, health, the checks, the board and start all follow the desk there."
-  ], "improved": [
-    "A moved desk resumes its own conversation, and a desk found in two folders is flagged until one copy is removed.",
-    "Departments gain labels and session groups for the token page, and builders are listed separately from the leads."
-  ] },
-  "0.17.0": { "date": "2026-10-23", "new": [
-    "Open a session as a role: office aics, office erp or office construction starts it with its own folder, name and settings.",
-    "Inside any session, /role opens another role in a new Orca tab, or brings it forward if it is already open."
-  ], "improved": [
-    "Each role's settings are generated from office.json and never stored in the repo, and two sessions never run under one name."
-  ] },
-  "0.18.0": { "date": "2026-10-23", "new": [
-    "Each department lead's doorbell hears its own department's alerts and the office's, never another department's.",
-    "Health counts the desks that are up per department, and the board labels each desk with its department."
-  ], "fixed": [
-    "Installing the office command no longer needs a writable system folder: it falls back to your own bin folder and prints the PATH line."
-  ] },
-  "0.18.1": { "date": "2026-10-23", "new": [
-    "Every release now posts its own note to the Office-Anything release forum, and health warns while the version you run has none."
-  ] },
-  "0.18.2": { "date": "2026-10-23", "new": [
-    "A role opened below the office root, such as a department lead, keeps every root hook and permission, pinned to the root.",
-    "Boot text can say {up} for the path to the office root and {lead} for the session's own lead, so it stays right after a move."
-  ], "fixed": [
-    "A desk left behind as a link after a move counts once, as the desk in its department's folder.",
-    "A lead in a department folder can run its listed commands by their relative path, judged by what they really run."
-  ] },
-  "0.18.3": { "date": "2026-10-23", "fixed": [
-    "The lead's listed commands are judged from the real folder a session stands in, so a path through a moved desk's link cannot pass as another."
-  ] },
-  "0.18.4": { "date": "2026-10-23", "fixed": [
-    "Opening a department lead's role finds that lead running under any of its names, such as lead, and brings it forward instead of opening a second."
-  ] },
-  "0.18.5": { "date": "2026-10-23", "fixed": [
-    "A lead or desk with a doorbell is started with a first message that arms it, so a session the watchdog restarts is never left deaf.",
-    "A lead found with its doorbell off has the same line typed into its own tab, at most every half hour and only at an empty prompt."
-  ] },
-  "0.18.6": { "date": "2026-10-23", "fixed": [
-    "A desk can no longer build the shape of an office inside its own folder, so no office hook can be pointed at a file the desk wrote."
-  ] },
-  "0.18.7": { "date": "2026-10-23", "fixed": [
-    "A lead's doorbell rings only its own department's log files and asks: buyer alerts reach customer service, never another department's lead."
-  ] },
-  "0.18.8": { "date": "2026-10-23", "fixed": [
-    "A running lead can use a newer installed plugin version's doorbell and commands, so an update no longer strands it on the old one.",
-    "A lead launched with Remote Control now receives its doorbell kickoff instead of losing it to the flag, and start says so only when it ran."
-  ] },
-  "0.19.0": { "date": "2026-10-23", "new": [
-    "Scheduled jobs belong to the office, not a session: at their time the watchdog hands each to its role, opening that role if nobody is running it.",
-    "A job whose window passes is marked missed, the lead is told, and health says so until someone looks."
-  ] },
-  "0.19.1": { "date": "2026-10-23", "fixed": [
-    "After a plugin update, a lead still running the old version's doorbell counts as armed, so the watchdog stops typing it a kickoff its wall refuses."
-  ], "improved": [
-    "Health says when a lead's doorbell runs an older version's bell, so it can be restarted when idle."
-  ] },
-  "0.19.2": { "date": "2026-10-23", "fixed": [
-    "A desk can no longer create an office/ folder inside its own folder, where an office now keeps its hooks."
-  ] },
-  "0.19.3": { "date": "2026-10-23", "fixed": [
-    "A desk can no longer build an office folder in its own folder by a bare name, such as mkdir office or mv hooks office."
-  ], "improved": [
-    "Health turns red when a desk's folder holds an office folder or office.json, however it got there."
-  ] },
-  "0.19.4": { "date": "2026-10-23", "new": [
-    "An office that keeps its own wall hook can name it, and health turns red for any desk whose settings do not run it."
-  ] },
-  "0.19.5": { "date": "2026-10-23", "fixed": [
-    "The desk wall-hook check now needs the hook on every tool that writes and its refusal kept, and fails a desk whose settings turn hooks off."
-  ] },
-  "0.19.6": { "date": "2026-10-23", "new": [
-    "A lead can compact at a task boundary with its own size, idle time and focus, typed in by the watchdog when it sits idle."
-  ], "fixed": [
-    "The watchdog never types a compact into a session whose input line is not empty, so a half-written message is left alone."
-  ] },
-  "0.19.7": { "date": "2026-10-23", "improved": [
-    "Old release notes can be marked skipped, so catching up on the release forum posts only the notes still owed."
-  ] },
-  "0.20.0": { "date": "2026-10-23", "new": [
-    "Session names can carry their department, such as aics-web-design or erp-inventory, set by one prefix per department.",
-    "A desk whose folder is renamed keeps its old session names and its own conversation, which is carried over on its first start.",
-    "Department leads can run on their own model, so the leads stay on Opus while the desks use Sonnet."
-  ], "fixed": [
-    "A session name that only looks like a desk's no longer resolves to the wrong desk: names are matched exactly."
-  ] },
-  "0.20.1": { "date": "2026-10-23", "new": [
-    "Prepared work can be parked with no start time; anyone starts it with /office-job run, and every session that may run it is told at its start.",
-    "A parked job can wait for a plugin version or a readiness command, and says why it is held."
-  ], "fixed": [
-    "With office.json unreadable, a session named like a department's desk is still refused, from the prefixes last seen.",
-    "The board sends to a desk's tab only on an exact name, and never guesses between two tabs of one name."
-  ] },
-  "0.20.2": { "date": "2026-10-23", "fixed": [
-    "The watchdog keeps healing an office whose desks moved out of the desks folder; it had been skipping it as not found.",
-    "An installed watchdog is brought up to date at every session start, so a plugin update reaches it without a reinstall."
-  ] },
-  "0.20.3": { "date": "2026-10-23", "fixed": [
-    "A prepared job's gate never runs a command any more: it waits for a plugin version or a file inside the office."
-  ] },
-  "0.20.4": { "date": "2026-10-24", "fixed": [
-    "Hiring refuses a desk named another desk's name plus a hyphen, so a desk can never share a name with that desk's teammates."
-  ] },
-  "0.20.5": { "date": "2026-10-27", "fixed": [
-    "The case sweep no longer stops when an opened case has lost its session, so waiting cases open their own sessions again."
-  ] },
-  "0.21.0": { "date": "2026-10-28", "new": [
-    "Smart compact: a small model reads an idle session's recent turns and compacts it only between jobs, with a keep line naming its open items.",
-    "Candidates are picked without a model: large for their own context window, idle at an empty prompt, nothing queued, at most once every few hours.",
-    "Smart compact starts as a dry run that logs every decision and types nothing; the board shows its decisions and each compaction's size before and after."
-  ] }
+  "_skipped": {
+    "through": "0.18.8",
+    "why": "Never posted before the release forum existed; nobody needs 25 old notes. Skipped, not owed.",
+    "decided": "the AICS lead for the owner, 2026-10-23"
+  },
+  "0.10.0": {
+    "date": "2026-10-18",
+    "new": [
+      "The lead keeps a persistent task list: tasks are added, updated, verified with evidence or dropped with a reason, and survive any context summary.",
+      "Every lead session start, resume or compaction prints its open tasks, and health turns red for a task left without an update for a day."
+    ]
+  },
+  "0.10.1": {
+    "date": "2026-10-19",
+    "new": [
+      "One queue for the whole office: list tasks by assignee, overdue or owner, and each desk sees only the tasks assigned to it at start.",
+      "A daily digest of the queue is written each morning, and an assignee quiet for a day gets one nudge line in the lead's alerts."
+    ]
+  },
+  "0.10.2": {
+    "date": "2026-10-19",
+    "new": [
+      "The board has a read-only Tasks panel: tasks by assignee with state, age, due date, overdue marks, the owner's words and the recorded evidence."
+    ]
+  },
+  "0.10.3": {
+    "date": "2026-10-20",
+    "new": [
+      "A desk can read a PDF the owner uploaded, read-only, the same way it reads an uploaded image.",
+      "Health flags any session name the office owns that two live sessions carry, and names which one to keep and which to close."
+    ],
+    "fixed": [
+      "When two sessions run one case, the case sweep keeps the most recently active one and stops the other by its own process, never by name.",
+      "A case session parked in its doorbell now counts as idle, so it can be closed when idle like any other."
+    ]
+  },
+  "0.10.4": {
+    "date": "2026-10-20",
+    "new": [
+      "Standing desks can close themselves when idle and wake again when work names them, set per desk in office.json closeWhenIdle."
+    ],
+    "fixed": [
+      "A terminal tab whose Claude had exited no longer counts as a running desk, so starting that desk opens it again instead of doing nothing."
+    ]
+  },
+  "0.10.5": {
+    "date": "2026-10-20",
+    "fixed": [
+      "A desk taken off the close-when-idle list while it was closed is now woken on the next heal instead of staying closed."
+    ]
+  },
+  "0.10.6": {
+    "date": "2026-10-20",
+    "fixed": [
+      "A case session that is already busy when it registers counts as up, so its claim is kept instead of being released mid-draft.",
+      "Turning on a per-case desk now says its cases open on the next sweep, not to start it by hand."
+    ]
+  },
+  "0.10.7": {
+    "date": "2026-10-20",
+    "new": [
+      "The lead has its own doorbell: one line per new alert, matching log line or open item, de-duplicated, rate-limited and safe across restarts."
+    ],
+    "fixed": [
+      "Monitor commands are now judged by the wall: a session's own doorbell runs, anything else is judged as the shell command it is."
+    ]
+  },
+  "0.10.8": {
+    "date": "2026-10-20",
+    "fixed": [
+      "The lead's doorbell refuses log patterns that could hang, tests only the first 2,000 characters of a line, and follows only real log files."
+    ]
+  },
+  "0.10.9": {
+    "date": "2026-10-20",
+    "new": [
+      "The lead can chain its listed commands with &&, ; and |, as long as every part is itself a listed command."
+    ],
+    "fixed": [
+      "A case reopened after it was closed no longer carries its old close reason."
+    ]
+  },
+  "0.10.10": {
+    "date": "2026-10-20",
+    "new": [
+      "An office can open its lead's wall fully; every lead action is then written to an audit log with credentials redacted, and desks keep their walls."
+    ],
+    "improved": [
+      "A floor of secret files no office can unlist, and the lead's chained commands are judged exactly as the shell will read them."
+    ]
+  },
+  "0.10.11": {
+    "date": "2026-10-20",
+    "fixed": [
+      "The lead's audit log also redacts quoted passwords and tokens and database-style password flags."
+    ]
+  },
+  "0.11.0": {
+    "date": "2026-10-21",
+    "new": [
+      "Renaming a desk is one edit: change its name in desk.json, and it restarts under the new name once it is idle, keeping its own conversation."
+    ],
+    "improved": [
+      "A message to a desk's old name is refused with its new name, and a desk name that clashes with another desk is refused at hire."
+    ]
+  },
+  "0.12.0": {
+    "date": "2026-10-22",
+    "new": [
+      "Departments: one office with a lead per department and its own desks, and each machine says which departments it runs.",
+      "A desk of a department this machine does not run is left alone here: not started, watched, swept, shown on the board or messaged."
+    ],
+    "improved": [
+      "Each department lead is started and healed on its own budget, and only on the machines that run its department."
+    ]
+  },
+  "0.12.1": {
+    "date": "2026-10-22",
+    "fixed": [
+      "Choosing this machine's departments now works before office.json declares them, so a machine can be set up first."
+    ]
+  },
+  "0.13.0": {
+    "date": "2026-10-22",
+    "new": [
+      "Idle compact: a desk or lead idle at its prompt with a large context is compacted before its next request, never mid-turn or into a question.",
+      "Health lists every office session with a large context, largest first."
+    ]
+  },
+  "0.14.0": {
+    "date": "2026-10-22",
+    "new": [
+      "A generated Compact Instructions section tells compaction what each desk and the lead must keep, and a check names the sessions still missing it.",
+      "After a compaction, a session is told what is open right now, from the office's own read-only command."
+    ]
+  },
+  "0.15.0": {
+    "date": "2026-10-22",
+    "new": [
+      "A session stopped by the Claude usage limit is resumed once the limit lifts: at the reset, or as soon as another session of the account answers again.",
+      "The lead is told once who is stuck, until when, how many messages are queued and what it was doing; after two failed resumes it needs a person."
+    ],
+    "improved": [
+      "A limit on one model switches a desk to the fallback model until the reset, then back."
+    ]
+  },
+  "0.15.1": {
+    "date": "2026-10-23",
+    "fixed": [
+      "Another tool's data under the departments key no longer switches departments on, which had left the machine with no lead to restart."
+    ]
+  },
+  "0.16.0": {
+    "date": "2026-10-23",
+    "new": [
+      "A department's desks can live in its own folder; the walls, the send gate, health, the checks, the board and start all follow the desk there."
+    ],
+    "improved": [
+      "A moved desk resumes its own conversation, and a desk found in two folders is flagged until one copy is removed.",
+      "Departments gain labels and session groups for the token page, and builders are listed separately from the leads."
+    ]
+  },
+  "0.17.0": {
+    "date": "2026-10-23",
+    "new": [
+      "Open a session as a role: office aics, office erp or office construction starts it with its own folder, name and settings.",
+      "Inside any session, /role opens another role in a new Orca tab, or brings it forward if it is already open."
+    ],
+    "improved": [
+      "Each role's settings are generated from office.json and never stored in the repo, and two sessions never run under one name."
+    ]
+  },
+  "0.18.0": {
+    "date": "2026-10-23",
+    "new": [
+      "Each department lead's doorbell hears its own department's alerts and the office's, never another department's.",
+      "Health counts the desks that are up per department, and the board labels each desk with its department."
+    ],
+    "fixed": [
+      "Installing the office command no longer needs a writable system folder: it falls back to your own bin folder and prints the PATH line."
+    ]
+  },
+  "0.18.1": {
+    "date": "2026-10-23",
+    "new": [
+      "Every release now posts its own note to the Office-Anything release forum, and health warns while the version you run has none."
+    ]
+  },
+  "0.18.2": {
+    "date": "2026-10-23",
+    "new": [
+      "A role opened below the office root, such as a department lead, keeps every root hook and permission, pinned to the root.",
+      "Boot text can say {up} for the path to the office root and {lead} for the session's own lead, so it stays right after a move."
+    ],
+    "fixed": [
+      "A desk left behind as a link after a move counts once, as the desk in its department's folder.",
+      "A lead in a department folder can run its listed commands by their relative path, judged by what they really run."
+    ]
+  },
+  "0.18.3": {
+    "date": "2026-10-23",
+    "fixed": [
+      "The lead's listed commands are judged from the real folder a session stands in, so a path through a moved desk's link cannot pass as another."
+    ]
+  },
+  "0.18.4": {
+    "date": "2026-10-23",
+    "fixed": [
+      "Opening a department lead's role finds that lead running under any of its names, such as lead, and brings it forward instead of opening a second."
+    ]
+  },
+  "0.18.5": {
+    "date": "2026-10-23",
+    "fixed": [
+      "A lead or desk with a doorbell is started with a first message that arms it, so a session the watchdog restarts is never left deaf.",
+      "A lead found with its doorbell off has the same line typed into its own tab, at most every half hour and only at an empty prompt."
+    ]
+  },
+  "0.18.6": {
+    "date": "2026-10-23",
+    "fixed": [
+      "A desk can no longer build the shape of an office inside its own folder, so no office hook can be pointed at a file the desk wrote."
+    ]
+  },
+  "0.18.7": {
+    "date": "2026-10-23",
+    "fixed": [
+      "A lead's doorbell rings only its own department's log files and asks: buyer alerts reach customer service, never another department's lead."
+    ]
+  },
+  "0.18.8": {
+    "date": "2026-10-23",
+    "fixed": [
+      "A running lead can use a newer installed plugin version's doorbell and commands, so an update no longer strands it on the old one.",
+      "A lead launched with Remote Control now receives its doorbell kickoff instead of losing it to the flag, and start says so only when it ran."
+    ]
+  },
+  "0.19.0": {
+    "date": "2026-10-23",
+    "new": [
+      "Scheduled jobs belong to the office, not a session: at their time the watchdog hands each to its role, opening that role if nobody is running it.",
+      "A job whose window passes is marked missed, the lead is told, and health says so until someone looks."
+    ]
+  },
+  "0.19.1": {
+    "date": "2026-10-23",
+    "fixed": [
+      "After a plugin update, a lead still running the old version's doorbell counts as armed, so the watchdog stops typing it a kickoff its wall refuses."
+    ],
+    "improved": [
+      "Health says when a lead's doorbell runs an older version's bell, so it can be restarted when idle."
+    ]
+  },
+  "0.19.2": {
+    "date": "2026-10-23",
+    "fixed": [
+      "A desk can no longer create an office/ folder inside its own folder, where an office now keeps its hooks."
+    ]
+  },
+  "0.19.3": {
+    "date": "2026-10-23",
+    "fixed": [
+      "A desk can no longer build an office folder in its own folder by a bare name, such as mkdir office or mv hooks office."
+    ],
+    "improved": [
+      "Health turns red when a desk's folder holds an office folder or office.json, however it got there."
+    ]
+  },
+  "0.19.4": {
+    "date": "2026-10-23",
+    "new": [
+      "An office that keeps its own wall hook can name it, and health turns red for any desk whose settings do not run it."
+    ]
+  },
+  "0.19.5": {
+    "date": "2026-10-23",
+    "fixed": [
+      "The desk wall-hook check now needs the hook on every tool that writes and its refusal kept, and fails a desk whose settings turn hooks off."
+    ]
+  },
+  "0.19.6": {
+    "date": "2026-10-23",
+    "new": [
+      "A lead can compact at a task boundary with its own size, idle time and focus, typed in by the watchdog when it sits idle."
+    ],
+    "fixed": [
+      "The watchdog never types a compact into a session whose input line is not empty, so a half-written message is left alone."
+    ]
+  },
+  "0.19.7": {
+    "date": "2026-10-23",
+    "improved": [
+      "Old release notes can be marked skipped, so catching up on the release forum posts only the notes still owed."
+    ]
+  },
+  "0.20.0": {
+    "date": "2026-10-23",
+    "new": [
+      "Session names can carry their department, such as aics-web-design or erp-inventory, set by one prefix per department.",
+      "A desk whose folder is renamed keeps its old session names and its own conversation, which is carried over on its first start.",
+      "Department leads can run on their own model, so the leads stay on Opus while the desks use Sonnet."
+    ],
+    "fixed": [
+      "A session name that only looks like a desk's no longer resolves to the wrong desk: names are matched exactly."
+    ]
+  },
+  "0.20.1": {
+    "date": "2026-10-23",
+    "new": [
+      "Prepared work can be parked with no start time; anyone starts it with /office-job run, and every session that may run it is told at its start.",
+      "A parked job can wait for a plugin version or a readiness command, and says why it is held."
+    ],
+    "fixed": [
+      "With office.json unreadable, a session named like a department's desk is still refused, from the prefixes last seen.",
+      "The board sends to a desk's tab only on an exact name, and never guesses between two tabs of one name."
+    ]
+  },
+  "0.20.2": {
+    "date": "2026-10-23",
+    "fixed": [
+      "The watchdog keeps healing an office whose desks moved out of the desks folder; it had been skipping it as not found.",
+      "An installed watchdog is brought up to date at every session start, so a plugin update reaches it without a reinstall."
+    ]
+  },
+  "0.20.3": {
+    "date": "2026-10-23",
+    "fixed": [
+      "A prepared job's gate never runs a command any more: it waits for a plugin version or a file inside the office."
+    ]
+  },
+  "0.20.4": {
+    "date": "2026-10-24",
+    "fixed": [
+      "Hiring refuses a desk named another desk's name plus a hyphen, so a desk can never share a name with that desk's teammates."
+    ]
+  },
+  "0.20.5": {
+    "date": "2026-10-27",
+    "fixed": [
+      "The case sweep no longer stops when an opened case has lost its session, so waiting cases open their own sessions again."
+    ]
+  },
+  "0.21.0": {
+    "date": "2026-10-28",
+    "new": [
+      "Smart compact: a small model reads an idle session's recent turns and compacts it only between jobs, with a keep line naming its open items.",
+      "Candidates are picked without a model: large for their own context window, idle at an empty prompt, nothing queued, at most once every few hours.",
+      "Smart compact starts as a dry run that logs every decision and types nothing; the board shows its decisions and each compaction's size before and after."
+    ]
+  },
+  "0.22.0": {
+    "date": "2026-11-06",
+    "new": [
+      "An office can name a default role for every machine; a machine's own default still wins, and a root session is told how to open it.",
+      "Before it opens a session, office says how far the code is behind or ahead, how many files are uncommitted, and whether the plugin version is approved.",
+      "An office can opt in to a fast-forward pull of a clean tree when office opens, and a command to run after it; never a merge or a rebase.",
+      "Token usage can be broken down by the kind of work, with labels each office defines."
+    ]
+  }
 }

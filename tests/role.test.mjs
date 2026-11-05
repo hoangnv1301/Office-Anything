@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
-import { profilesOf, rolesHere, settingsOf, writeProfile, profilesDir, roleCommand, openRole, hereRole, launchRefused } from '../lib/role.mjs'
+import { syncCheck, profilesOf, rolesHere, settingsOf, writeProfile, profilesDir, roleCommand, openRole, hereRole, launchRefused } from '../lib/role.mjs'
 import { roleLines } from '../hooks/desk-boot.mjs'
 import { readOfficeConfig } from '../lib/office.mjs'
 
@@ -154,7 +154,9 @@ test('⛔ a desk does not open a role', () => {
 
 test('boot: a root session with no role is told how to get one; a role is told which, and its note; no profiles, nothing', () => {
   const o = office()
-  assert.deepEqual(roleLines(o.root, o.cfg, o.root, {}, null), ['dev/construction session; /role to switch (construction, full, aics).'])
+  assert.deepEqual(roleLines(o.root, o.cfg, o.root, {}, null), ["dev/construction session. The machine's default role is aics: run `office` in a terminal (or /role) to open it; /role to pick another (construction, full, aics)."], 'a machine with a default is told the one step')
+  const nodef = office({ machine: { departments: ['customer-service'] } })
+  assert.deepEqual(roleLines(nodef.root, nodef.cfg, nodef.root, {}, null), ['dev/construction session; /role to switch (construction, full, aics).'], 'no default: as before')
   assert.deepEqual(roleLines(o.root, o.cfg, o.root, { OFFICE_PROFILE: 'construction' }, null), ['You are construction, opened as the construction role.', 'Do not search departments/.'])
   assert.deepEqual(roleLines(o.root, o.cfg, join(o.root, 'desks', 'x'), {}, { kind: 'desk' }), [])
   assert.deepEqual(roleLines(o.root, o.cfg, o.root, {}, { kind: 'lead' }), [], 'the lead already knows who it is')
@@ -175,7 +177,7 @@ test('⛔ through the real boot hook: the root line prints with profiles, and no
   const HOOK = fileURLToPath(new URL('../hooks/desk-boot.mjs', import.meta.url))
   const boot = (root, env = {}) => { const e = { ...process.env, CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'oa-role-cfg-')), ...env }; delete e.OFFICE_ROLE; if (!env.OFFICE_PROFILE) delete e.OFFICE_PROFILE; return spawnSync(process.execPath, [HOOK], { input: JSON.stringify({ cwd: root, source: 'startup' }), encoding: 'utf8', env: e, cwd: root }).stdout.trim() }
   const o = office()
-  assert.equal(boot(o.root), 'dev/construction session; /role to switch (construction, full, aics).')
+  assert.equal(boot(o.root), "dev/construction session. The machine's default role is aics: run `office` in a terminal (or /role) to open it; /role to pick another (construction, full, aics).")
   assert.equal(boot(o.root, { OFFICE_PROFILE: 'construction' }), 'You are construction, opened as the construction role.\nDo not search departments/.')
   assert.equal(boot(office({ profiles: null }).root), '')
 })
@@ -269,3 +271,48 @@ test('⛔ a lead running under an alias is that role running: no second lead', (
   assert.match(r.why, /AICS is already open as "lead": Orca tab term_L, brought forward/)
   assert.equal(hereRole(o.root, 'aics', { cfg: readOfficeConfig(o.root), sessions: [live('工厂ERP', o.root)], term, home: o.home }).state, 'already')
 })
+
+// 0.22.0, the owner 2026-11-05: "the full session by default for root is okay … they just have a convenient way to control", "should be on the plugin"
+test('defaultRole: the office names every machine\'s default; this machine\'s local.json still wins; an undeclared one is said and the menu stays', () => {
+  const o1 = office({ machine: { departments: [] }, extra: { defaultRole: 'full' } })
+  const R1 = rolesHere(o1.root, readOfficeConfig(o1.root))
+  assert.equal(R1.default, 'full'); assert.equal(R1.defaultFrom, 'office')
+  const o2 = office({ machine: { departments: ['customer-service'], role: 'aics' }, extra: { defaultRole: 'full' } })
+  const R2 = rolesHere(o2.root, readOfficeConfig(o2.root))
+  assert.equal(R2.default, 'aics'); assert.equal(R2.defaultFrom, 'machine')
+  const o3 = office({ machine: { departments: [] }, extra: { defaultRole: 'boss' } })
+  const R3 = rolesHere(o3.root, readOfficeConfig(o3.root))
+  assert.equal(R3.default, null); assert.ok(R3.problems.some((p) => /defaultRole "boss"/.test(p)))
+  const o4 = office({ machine: { departments: [] }, extra: { defaultRole: 'aics' } })
+  assert.equal(rolesHere(o4.root, readOfficeConfig(o4.root)).default, null, 'a department role this machine does not run is never its default')
+  assert.match(roleLines(o1.root, readOfficeConfig(o1.root), o1.root, {}, null).join(' '), /office's default role is full: run `office`/)
+})
+
+test('⛔ syncCheck: says behind / ahead, uncommitted files, worktrees and the plugin; pulls ONLY a clean tree, fast-forward only, and only when the office opts in', () => {
+  const calls = []
+  const fake = (st) => (args) => { calls.push(args.join(' ')); const k = args[0]; const ok = (stdout) => ({ status: 0, stdout, stderr: '' })
+    if (k === 'rev-parse' && args[1] === '--is-inside-work-tree') return ok('true')
+    if (k === 'fetch') return ok('')
+    if (k === 'rev-parse') return ok('main')
+    if (k === 'rev-list') return ok(`${st.behind}\t${st.ahead}`)
+    if (k === 'status') return ok(st.dirty)
+    if (k === 'worktree') return ok('worktree /a\nHEAD x\n\nworktree /b\n')
+    if (k === 'merge') return ok('')
+    return { status: 1, stdout: '', stderr: '' } }
+  const on = { sync: { pull: 'ff-only-when-clean' }, plugin: { approved: ['0.22.0'] } }
+  const a = syncCheck('/x', on, { git: fake({ behind: 3, ahead: 0, dirty: '' }), version: '0.22.0' })
+  assert.equal(a.pulled, true); assert.match(a.lines.join('\n'), /3 behind \/ 0 ahead; 0 uncommitted files; 2 worktrees/); assert.match(a.lines.join('\n'), /0\.22\.0 \(approved\)/)
+  assert.ok(calls.includes('merge --ff-only --quiet @{upstream}'))
+  calls.length = 0
+  const b = syncCheck('/x', on, { git: fake({ behind: 3, ahead: 0, dirty: ' M a.js\n?? b' }), version: '0.21.0' })
+  assert.equal(b.pulled, false); assert.ok(!calls.some((c) => c.startsWith('merge')), 'never with uncommitted files')
+  assert.ok(b.warn.some((w) => /2 uncommitted files/.test(w))); assert.ok(b.warn.some((w) => /0\.21\.0 is not a version this office approved/.test(w)))
+  calls.length = 0
+  syncCheck('/x', on, { git: fake({ behind: 2, ahead: 1, dirty: '' }), version: '0.22.0' })
+  assert.ok(!calls.some((c) => c.startsWith('merge')), 'never when the tree has its own commits')
+  calls.length = 0
+  const d = syncCheck('/x', {}, { git: fake({ behind: 5, ahead: 0, dirty: '' }), version: '0.22.0' })
+  assert.equal(d.pulled, false); assert.ok(!calls.some((c) => c.startsWith('merge')), 'not opted in: says, never pulls')
+  assert.ok(d.warn.some((w) => /5 commits behind/.test(w)))
+})
+

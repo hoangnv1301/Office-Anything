@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-621%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-623%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -432,7 +432,7 @@ folder, `--name` and `--settings`. The roles are `office.json` `"profiles"`:
 ```
 
 ```
-office              # this machine's default role (.office/local.json "role"), else a menu
+office              # this machine's default role (.office/local.json "role"), else the office's (office.json "defaultRole"), else a menu
 office aics         # that role, in this terminal
 /role               # inside any session: pick one, and it opens in a NEW tab
 node lib/role.mjs install   # put `office` on this machine's PATH (never sudo: ~/.local/bin when
@@ -456,6 +456,19 @@ node lib/role.mjs install   # put `office` on this machine's PATH (never sudo: ~
   the root `.claude/settings.json`, so its generated settings carry the root's hooks (with
   `CLAUDE_PROJECT_DIR` set to the root), its permissions and `enabledPlugins`
   (`"rootSettings": false` leaves them out).
+
+
+### The office's default role, and the look before it opens (0.22.0)
+
+```json
+"defaultRole": "full",
+"sync": { "pull": "ff-only-when-clean", "after": "node scripts/dev/post-merge-restart.mjs ORIG_HEAD HEAD --apply" }
+```
+
+- `defaultRole`: what `office` opens on any machine whose `.office/local.json` names no `role`. A machine's own `role` still wins. A name that isn't in `profiles` is reported and the menu stays. A root session with no role is told the default and the one step to open it.
+- Before it opens a session, `office` prints one look at the tree: branch, behind and ahead of its upstream after a fetch, uncommitted files, worktrees, and the plugin version against `"plugin": { "approved": [...] }`. It warns; it changes nothing.
+- `sync.pull: "ff-only-when-clean"` (opt-in) also fast-forwards the tree when it is behind, has no commits of its own, and has no uncommitted files. Never a merge, a rebase or a stash. `sync.after` then runs once (for example, a restart of what the pull changed).
+- `office --no-sync` skips the look.
 
 ## The checks
 
