@@ -5,6 +5,8 @@
 // messaging inbox, the way SendMessage reaches it, and the orca CLI that owns
 // the terminals, for keystrokes. Neither open means the board is READ-ONLY
 // for that desk and says why; it never falls back to something cleverer.
+import { parseApproval } from '../lib/approvals.mjs'
+import { markOfficeTyped } from '../lib/typed-mark.mjs'
 import { execFileSync, execFile } from 'node:child_process'
 import { deskOfSession, plainDeskId } from '../lib/desk.mjs'
 
@@ -85,10 +87,14 @@ export function terminalFor(desk, run = execFileSync, dir = null) {
   return null
 }
 
-export function send(desk, text, run = execFileSync, dir = null) {
+export function send(desk, text, run = execFileSync, dir = null, root = null) {
+  // ⛔ THE BOARD NEVER TYPES AN APPROVAL PHRASE: text typed into a pane reads as the owner's typing to Claude Code, and the
+  // board's requests come from any local process. The owner types his approval in his own session.
+  if (parseApproval(text)) return { ok: false, why: 'the board does not type an approval phrase into a session; the owner types it himself' }
   if (!orcaAvailable(run)) return { ok: false, why: 'no orca CLI on this host; the board is read-only here' }
   const handle = terminalFor(desk, run, dir)
   if (!handle) return { ok: false, why: `no live terminal is titled "${desk}" or working in its folder` }
+  if (root) markOfficeTyped(root, text)   // whatever the board types is the office's, never the owner's
   run('orca', ['terminal', 'send', '--terminal', handle, '--text', text, '--enter', '--json'], { encoding: 'utf8', stdio: 'pipe' })
   return { ok: true, handle }
 }

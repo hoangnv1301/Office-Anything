@@ -390,5 +390,14 @@
       "A role you open with /role can now reopen itself when an ask or task waits for it; turn it on per role with wakeOnWork in office.json.",
       "It is not reopened right after you close it, never opens a second beside a live session, and stops at the hourly limit."
     ]
+  },
+  "0.27.0": {
+    "date": "2026-11-06",
+    "new": [
+      "Sessions can approve each other with a signed grant that names who gave it; the owner's own typed approval is still recorded with his words and scope.",
+      "Gates marked owner-only (price figures, payments, permanent deletes, gate changes) take only the owner's typed approval; a chat message never counts.",
+      "The approval ledger is signed and chained, so an edited, deleted or echoed line is caught and nothing is trusted until the owner repairs it.",
+      "An office can list tool calls that need the owner's approval, and they are refused until the ledger covers every exact target they name."
+    ]
   }
 }

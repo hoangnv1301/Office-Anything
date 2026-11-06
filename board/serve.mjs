@@ -20,6 +20,8 @@ import { newestSession, chatFrom, readTail, pendingAsk } from './transcript.mjs'
 import { subagentsOf, jobsOf } from './read.mjs'
 import { transcriptStats, worktop, filesUnder, treeOf } from './read.mjs'
 import { basename } from 'node:path'
+import { parseApproval } from '../lib/approvals.mjs'
+import { markOfficeTyped } from '../lib/typed-mark.mjs'
 import { orcaAvailable, normalizeTitle, useRoster, isDeskName, terminalFor, keepTerminalsWarm, inboxOf, sendToInbox, routeFor, confirmDelivery, terminalForSession, requestGuard } from './send.mjs'
 import { createHash, randomBytes } from 'node:crypto'
 import { execFileSync, execFile } from 'node:child_process'
@@ -878,6 +880,9 @@ export function makeServer(root) {
             const row = chatRosterCheap(root).find((r) => r.key === key)
             if (!row) return json(res, 404, { ok: false, why: 'unknown desk' })
             if (!text || typeof text !== 'string' || text.length > 8000) return json(res, 400, { ok: false, why: 'no text, or too long' })
+            // ⛔ NO APPROVAL PHRASE THROUGH THE BOARD (see board/send.mjs): any local process can POST here, and the token is
+            // in the page it serves. Whatever the board types is recorded as the office's own typing, never the owner's.
+            if (parseApproval(text)) return json(res, 403, { ok: false, why: 'the board does not carry an approval phrase; the owner types it in his own session' })
             const R = reach(root, key)
             if (R.named && !R.ls) return json(res, 200, { ok: false, why: 'the lead (' + leadSessionName(root) + ') is not running; nothing was sent' })
             const { ls, terminal } = R
@@ -898,6 +903,7 @@ export function makeServer(root) {
               // synchronous wait froze this single-threaded server for everyone.
               // Dispatch async, answer in under a second; the transcript (via
               // SSE) is the delivery confirmation, and the outbox shows pending.
+              try { markOfficeTyped(root, text) } catch (e) { return json(res, 200, { ok: false, why: 'could not record the text before typing it (' + e.message + '); nothing was typed' }) }
               const child = execFile('orca', ['terminal', 'send', '--terminal', terminal, '--text', text, '--enter', '--json'], { timeout: 60000 }, () => {})
               let replied = false
               const early = setTimeout(() => { replied = true; json(res, 200, { ok: true, via: 'terminal', handle: terminal, dispatched: true }) }, 700)
