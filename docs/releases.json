@@ -383,5 +383,12 @@
       "A task that is waiting must say who can unblock it and what they must do, in one plain line, and that line is shown wherever the task is listed.",
       "A block is said once to the one who can unblock it; to the owner as one plain line, and never again for the same line."
     ]
+  },
+  "0.26.0": {
+    "date": "2026-11-06",
+    "new": [
+      "A role you open with /role can now reopen itself when an ask or task waits for it; turn it on per role with wakeOnWork in office.json.",
+      "It is not reopened right after you close it, never opens a second beside a live session, and stops at the hourly limit."
+    ]
   }
 }

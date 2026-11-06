@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.26.0
+
+- ⭐ A ROLE CLOSED ON PURPOSE COMES BACK FOR WORK (opt-in). A role opened with `/role` (`office.json` "profiles", e.g. full, construction) was never reopened: close the full session and an ask or step task assigned to it reached nobody. A profile with `"wakeOnWork": true` is now reopened by heal through `lib/role.mjs openRole` (its settings and name, never a second one under a live name) when an open ask or step task is assigned to its session. Not right after it closed: it must have been seen down for 10 minutes. It spends heal's own budget (`maxHealsPerHour`, then an alert to the lead), waits the 5-minute settle after each open, and says each wake as `role-wake` in heal.log. A due scheduled job already opens its role through the schedule runner and is unchanged. Default off; department leads are not roles here. Pinned in `tests/heal-role-wake.test.mjs`.
+
 ## 0.25.0
 
 - ⭐ A BLOCK NAMES WHO CAN UNBLOCK IT, ONCE, IN ONE PLAIN LINE (Office-Anything #97: "#dev channel has no id, owner must create it"). `tasks.mjs update T-… --state waiting` is refused without `--blocked-by "<who>: <what they must do>"`; the open table and a session's own list show `WAITING ON <who>: <what>`; going back to `working` clears it. heal raises each (task, line) once through the follow-through sweep: an `ASK-OWNER` plain line when the owner is the one, else `BLOCKED` for the named one. The bell always hears `BLOCKED`. **Behaviour change:** a caller that set `--state waiting` with no `--blocked-by` now gets the error that says what to add; `working|done` are unchanged. Pinned in `tests/blocks.test.mjs`.
