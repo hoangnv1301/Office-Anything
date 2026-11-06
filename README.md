@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-662%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-701%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -621,6 +621,35 @@ node lib/tasks.mjs list [--all] [--json]
   The open table shows `WAITING ON <who>: <what>`, and heal says the block once per task and line: to the owner as one plain `ASK-OWNER`
   line when the owner is the one, else as `BLOCKED` for the named one (the lead sends it). The same line never rings twice; a different
   blocker is a new block; going back to `working` clears it.
+- **The owner's approval travels, and sessions approve each other by ledger, never by chat (0.27.0).** The owner types, as the first line of a prompt in his
+  session, `approve <action> target:<where> [hours:1-168] [once]` (for example `approve post-release-note target:#releases hours:12`).
+  The UserPromptSubmit hook (`hooks/typed-prompt.mjs`) writes the grant to `.office/approvals.jsonl`: his words, session, time,
+  scope (the action AND the target; no "approve everything"), expiry and use limit. **No session writes a grant** (there is no
+  record command), a grant is dated within minutes of the transcript turn it cites, and each prompt makes one grant ever (no replay of an old
+  prompt by running the hook by hand, which the wall also refuses). `gates-change` and `repair-ledger` approvals are single-use. **Every ledger line is signed and chained**: an HMAC under a key in `~/.config/office-anything/` (0600, outside the
+  office, created by the hook, named by no tool call: the wall refuses any call that names it), each line carrying the previous line's MAC,
+  the newest MAC also kept beside the key. A line that is echoed, edited, inserted or deleted, or a tail that is cut off, poisons the
+  ledger and every check refuses until the owner types `approve repair-ledger target:ledger`, which sets the damaged file aside and starts a
+  new, empty ledger (every earlier approval is gone, so a revoked or spent grant cannot come back). The wall also refuses tool calls that
+  write `.office/approvals*` or `projects/*.jsonl` (a second layer: a regex over command text is not a boundary).
+  Any session runs `node lib/approvals.mjs check --action … --target …` (exit 4 when not approved; `--use` spends a `once`). Every check
+  re-verifies the grant against the transcript turn it cites: a file under `<CLAUDE_CONFIG_DIR or ~/.claude>/projects/<this office's project>/`
+  by real path (office.json cannot widen that), that session's own, the turn marked `turnOrigin: "human"` with `promptSource: "typed"` or
+  `"queued"`, saying exactly what the grant says. A peer message, a task notification or a scheduled prompt fails. Text the office itself
+  types into a pane (a scheduled job line, the usage-limit resume text, the doorbell kickoff, a compact, what the board sends) also looks
+  typed, so the office records it (`.office/office-typed.jsonl`) and it is refused as an approval source; the board refuses an approval
+  phrase outright, and a tool call that types into a terminal (orca send, a terminal's send-keys, osascript, `/api/send`) is refused whatever the text.
+  **Sessions approve each other** with `node lib/approvals.mjs grant --to <session|*> --action <a> --target <t> [--hours N] [--once] --why "…"`:
+  the plugin signs the line with the office key and records who granted it; `check` prints "approved by the owner" or "approved by <session>".
+  A session cannot grant to itself (a `*` grant skips its granter), a desk grants only if `approvals.desksMayGrant` is true, and a peer grant
+  never satisfies an **owner-only** gate (`"owner": true`, plus `gates-change` and `repair-ledger`, always). This office's owner-only list:
+  `"approvals": { "gates": [{ "match": "send-price\\.mjs\\s+(?<target>\\S+)", "action": "send-price", "owner": true }, { "match": "pay\\.mjs\\s+(?<target>\\S+)", "action": "payment", "owner": true }, { "match": "\\brm\\s+-rf?\\s+(?<target>\\S+)", "action": "permanent-delete", "owner": true }] }`
+  (a price or money figure sent to a buyer, payments, permanent deletes; changes to gates and approvals are owner-only by themselves).
+  `office.json` `"approvals": { "gates": [{ "match": "discord-post\\.mjs\\s+(?<target>#[a-z-]+)", "action": "post-discord" }] }` makes the
+  wall hook refuse any matching call, for every session, until EVERY target the call names is approved (a gate with no `(?<target>)` group is approved with `target:*`); a `once` grant is spent at the
+  gate. The gates are the owner's: the accepted list is kept beside the signing key, office.json can add gates, and removing or loosening one changes nothing until the owner types `approve gates-change target:office`. It fails closed: a damaged ledger, a gate that will not compile, or a gate that throws denies (and alerts), and a broken
+  office.json keeps the accepted gates. **Limit:** a process of this user that reads the signing key, a session that can write the
+  transcript, or one that types into a terminal outside the tool hooks can still forge a typed turn; an office closes those roads with its own wall.
 - **Backup.** `.office/` is gitignored, so the first write or inject of each day copies the file to
   `.office/tasks-snapshots/tasks-YYYYMMDD.jsonl` (the state before that day's first change), keeping 14.
   Back up `.office/` itself if the list matters to you.

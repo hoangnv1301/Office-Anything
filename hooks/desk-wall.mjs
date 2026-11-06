@@ -35,6 +35,7 @@ import { allLeads, leadsOfDesk, departmentsOf, deskScope } from '../lib/departme
 import { rosterSafe, officeRoster, deskAt, deskShaped, plainDeskShaped, deskOfSession, rememberPrefixes, knownPrefixes, sessionPrefixes, shapedBy } from '../lib/desk.mjs'
 import { resolve, join, sep, relative } from 'node:path'
 import { existsSync, realpathSync, mkdirSync, appendFileSync } from 'node:fs'
+import { gateVerdict, ledgerWriteVerdict, effectiveGatesCfg, cachedGatesCfg } from '../lib/approvals.mjs'
 
 // The office's own rules, in its own file: office.json "wall.module" names an
 // ES module inside the office exporting judge(payload, who, { root, cfg, session }) ->
@@ -107,8 +108,13 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
   try { p = JSON.parse(raw || '{}'); if (!p || typeof p !== 'object') { p = null; unreadable = true } } catch { unreadable = true }
   const { root, places } = locate(p, env, here)
   if (!root) return { code: 0 }
+  // ⛔ NO SESSION WRITES THE APPROVAL LEDGER, in any office state, before anything can fail (lib/approvals.mjs)
+  if (p) { const no = ledgerWriteVerdict(p); if (no) return { code: 2, why: no } }
   const { cfg, error } = readOfficeConfigStrict(root)
   if (error) {
+    // ⛔ A BROKEN office.json DOES NOT SWITCH THE APPROVAL GATES OFF: the ones it last read cleanly still hold
+    const last = p ? cachedGatesCfg(root) : null
+    if (last) { try { const no = gateVerdict(root, last, p, { asker: () => sessionName() }); if (no) return { code: 2, why: no } } catch (e) { return { code: 2, why: `⛔ the approval gate failed (${e.message}), so this call is refused` } } }
     // no config to say who is who: a session that claims a desk by its name,
     // or stands in a desk's folder, is refused until somebody fixes the file
     const name = sessionName()
@@ -118,6 +124,15 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
   }
   // a good read: remember this office's prefixes for a read that fails later
   rememberPrefixes(root)
+  // the office's approval gates (lib/approvals.mjs): independent of the wall, for every session
+  // ⛔ A GATE THAT THROWS DENIES (it used to be waved through)
+  // ⛔ office.json CAN ADD GATES, NEVER REMOVE OR LOOSEN THEM: the owner-accepted list keeps applying (lib/approvals.mjs effectiveGatesCfg)
+  if (p) {
+    try {
+      const eff = effectiveGatesCfg(root, cfg)
+      if (eff.approvals?.gates !== undefined) { const no = gateVerdict(root, eff, p, { asker: () => (typeof cfg.roleEnv === 'string' && process.env[cfg.roleEnv]) || sessionName() }); if (no) return { code: 2, why: no } }
+    } catch (e) { return { code: 2, why: `⛔ the approval gate failed (${e.message}), so this call is refused rather than let through` } }
+  }
   if (!cfg.wall || typeof cfg.wall !== 'object') return { code: 0 }
   if (unreadable) return { code: 2, why: '⛔ desk wall: the hook could not read its payload, so nothing it asked for is allowed' }
   const failClosed = cfg.wall.failClosed !== false
