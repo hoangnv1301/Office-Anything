@@ -35,7 +35,7 @@ import { allLeads, leadsOfDesk, departmentsOf, deskScope } from '../lib/departme
 import { rosterSafe, officeRoster, deskAt, deskShaped, plainDeskShaped, deskOfSession, rememberPrefixes, knownPrefixes, sessionPrefixes, shapedBy } from '../lib/desk.mjs'
 import { resolve, join, sep, relative } from 'node:path'
 import { existsSync, realpathSync, mkdirSync, appendFileSync } from 'node:fs'
-import { gateVerdict, ledgerWriteVerdict, effectiveGatesCfg, cachedGatesCfg } from '../lib/approvals.mjs'
+import { gateVerdict, ledgerWriteVerdict, identityVerdict, effectiveGatesCfg, cachedGatesCfg } from '../lib/approvals.mjs'
 
 // The office's own rules, in its own file: office.json "wall.module" names an
 // ES module inside the office exporting judge(payload, who, { root, cfg, session }) ->
@@ -109,7 +109,7 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
   const { root, places } = locate(p, env, here)
   if (!root) return { code: 0 }
   // ⛔ NO SESSION WRITES THE APPROVAL LEDGER, in any office state, before anything can fail (lib/approvals.mjs)
-  if (p) { const no = ledgerWriteVerdict(p); if (no) return { code: 2, why: no } }
+  if (p) { const no = ledgerWriteVerdict(p) ?? identityVerdict(p); if (no) return { code: 2, why: no } }
   const { cfg, error } = readOfficeConfigStrict(root)
   if (error) {
     // ⛔ A BROKEN office.json DOES NOT SWITCH THE APPROVAL GATES OFF: the ones it last read cleanly still hold
@@ -127,6 +127,7 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
   // the office's approval gates (lib/approvals.mjs): independent of the wall, for every session
   // ⛔ A GATE THAT THROWS DENIES (it used to be waved through)
   // ⛔ office.json CAN ADD GATES, NEVER REMOVE OR LOOSEN THEM: the owner-accepted list keeps applying (lib/approvals.mjs effectiveGatesCfg)
+  if (p) { const no = identityVerdict(p, [cfg.roleEnv]); if (no) return { code: 2, why: no } }
   if (p) {
     try {
       const eff = effectiveGatesCfg(root, cfg)

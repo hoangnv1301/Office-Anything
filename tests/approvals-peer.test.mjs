@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { grantPeer, peerGranter, checkApproval, gateVerdict, grants, grantFromPrompt, verifyGrant, projectDirName, ledgerWriteVerdict, effectiveGatesCfg, run as cli, readLedger, repairFile } from '../lib/approvals.mjs'
 import { existsSync } from 'node:fs'
+import { identityVerdict } from '../lib/approvals.mjs'
 
 const T0 = Date.parse('2026-11-06T09:00:00Z')
 const SID = '99999999-2222-4333-8444-555555555555'
@@ -126,4 +127,34 @@ test('the wall refuses a hook run by its bare file name, a copy of it or a shell
   const no = (c) => assert.ok(ledgerWriteVerdict(call(c)), c)
   for (const c of ['cd hooks && node typed-prompt.mjs', 'sh -c "node typed-prompt.mjs"', 'cp hooks/typed-prompt.mjs /tmp/x.mjs', 'NODE hooks/TYPED-PROMPT.mjs']) no(c)
   for (const c of ['cat hooks/typed-prompt.mjs', 'git add hooks/typed-prompt.mjs', 'git log -- hooks/typed-prompt.mjs']) assert.equal(ledgerWriteVerdict(call(c)) ?? null, null, c)
+})
+
+test('the wall refuses any tool call that sets a role variable: prefix, export, env, sh -c, process.env, any case; reading it is fine', () => {
+  const bad = ['OFFICE_ROLE=Lead node lib/approvals.mjs grant --to full', 'export CLAUDE_CODE_SESSION_NAME=lead', 'env office_role=lead node x.mjs', 'sh -c "CLAUDE_CODE_SESSION_NAME=Lead node y.mjs"',
+    'bash -c \'export OFFICE_ROLE="Lead"; node z\'', 'node -e "process.env.OFFICE_ROLE = \'Lead\'"', 'node -e "spawn(a,b,{env:{OFFICE_ROLE:\'Lead\'}})"', 'declare -x OFFICE_ROLE=lead', 'MYROLE=lead node q']
+  for (const c of bad.slice(0, -1)) assert.match(identityVerdict(call(c)) ?? '', /may not set the session's role/, c)
+  assert.match(identityVerdict(call(bad.at(-1)), ['MYROLE']) ?? '', /MYROLE/, 'the office\'s own roleEnv name counts too')
+  for (const c of ['echo $OFFICE_ROLE', 'printenv MYROLE', 'node lib/approvals.mjs list', '[ "$OFFICE_ROLE" == lead ]']) assert.equal(identityVerdict(call(c)), null, c)
+  assert.equal(identityVerdict({ tool_name: 'Edit', tool_input: { new_string: 'OFFICE_ROLE=x' } }), null)
+})
+
+test('the granter is the registered session; env is only a fallback; a mismatch is refused', () => {
+  const { root, cfg } = office()
+  const cfgDir = mkdtempSync(join(tmpdir(), 'oa-peer-reg-')); mkdirSync(join(cfgDir, 'sessions'))
+  const reg = (name) => writeFileSync(join(cfgDir, 'sessions', `${process.pid}.json`), JSON.stringify({ name }))
+  const who = (envRole) => peerGranter(root, cfg, { cwd: root, pid: process.pid, env: { CLAUDE_CONFIG_DIR: cfgDir, ...(envRole ? { OFFICE_ROLE: envRole } : {}) } })
+  reg('Lead')
+  assert.equal(who().name, 'Lead', 'registry alone is enough')
+  assert.equal(who('lead').name, 'Lead', 'env agreeing with the registry is fine')
+  assert.match(who('full').why, /registered as Lead, but its environment says full/)
+  reg('full')
+  assert.match(who('Lead').why, /registered as full/, 'posing as the lead from the full session is refused')
+  // through the command: the grant is not written
+  const out = []
+  assert.throws(() => cli(['grant', '--to', 'construction', '--action', 'post-discord', '--target', '#r', '--why', 'posing as lead'], { cwd: root, pid: process.pid, env: { CLAUDE_CONFIG_DIR: cfgDir, OFFICE_ROLE: 'Lead' }, out: (x) => out.push(x), now: T0 }), /registered as full/)
+  cli(['grant', '--to', 'construction', '--action', 'post-discord', '--target', '#r', '--why', 'registered grant'], { cwd: root, pid: process.pid, env: { CLAUDE_CONFIG_DIR: cfgDir }, out: (x) => out.push(x), now: T0 })
+  assert.match(out[0], /full approves post-discord/)
+  // no registry entry: the env is the fallback
+  const empty = mkdtempSync(join(tmpdir(), 'oa-peer-reg2-'))
+  assert.equal(peerGranter(root, cfg, { cwd: root, pid: process.pid, env: { CLAUDE_CONFIG_DIR: empty, OFFICE_ROLE: 'Lead' } }).name, 'Lead')
 })
