@@ -10,7 +10,6 @@ import { fileURLToPath } from 'node:url'
 import { startRelease, releaseStatus, closeStep, installHere, releaseConfig } from '../lib/release-job.mjs'
 import { readTasks } from '../lib/tasks.mjs'
 import { followThrough } from '../lib/follow.mjs'
-import { grantFromPrompt } from '../lib/approvals.mjs'
 import { closeNoteStep } from '../scripts/release-post.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -69,17 +68,18 @@ test('a step the assignee marked done is not rung; the stale-task road asks the 
   assert.deepEqual(followThrough(root, CFG, { now: T0 + 90 * MIN }).filter((a) => a.id === id), [])
 })
 
-test('status says who has the owner\'s yes to tell each person, and who does not', () => {
+test('status says who has the owner\'s yes to tell each person, and who does not; with no ledger the step is closed by hand', () => {
   const root = office()
   startRelease(root, CFG, '0.24.0', { now: T0 })
-  assert.equal(releaseStatus(root, CFG, '0.24.0', { now: T0 }).find((s) => s.step === 'notify:David').approved, false)
-  const sid = '11111111-2222-4333-8444-555555555555', text = 'approve notify-release target:David'
-  const tr = join(root, `${sid}.jsonl`)
-  writeFileSync(tr, JSON.stringify({ type: 'user', promptId: 'p1', turnOrigin: 'human', promptSource: 'typed', message: { content: text } }) + '\n')
-  grantFromPrompt(root, {}, { session: 'full', sessionId: sid, text, promptId: 'p1', transcript: tr }, { now: T0 })
-  const s = releaseStatus(root, CFG, '0.24.0', { now: T0 + 2000 })
-  assert.equal(s.find((x) => x.step === 'notify:David').approved, true)
-  assert.equal(s.find((x) => x.step === 'note').approved, undefined)
+  const yes = { checkApproval: (r, q) => (q.action === 'notify-release' && q.target === 'David' ? { ok: true, grant: { id: 'A-261106-1' } } : { ok: false, why: 'the owner has not approved it' }) }
+  const no = { checkApproval: () => ({ ok: false, why: 'the owner has not approved notify-release' }) }
+  const row = (a) => releaseStatus(root, CFG, '0.24.0', { now: T0, approvals: a }).find((x) => x.step === 'notify:David')
+  assert.equal(row(no).approved, false)
+  assert.deepEqual([row(yes).approved, row(yes).approval], [true, 'A-261106-1'])
+  assert.equal(releaseStatus(root, CFG, '0.24.0', { now: T0, approvals: yes }).find((x) => x.step === 'note').approved, undefined)
+  const none = row(null)
+  assert.equal(none.approved, undefined); assert.equal(none.byHand, true)
+  assert.equal(releaseStatus(root, CFG, '0.24.0', { now: T0, approvals: null }).find((x) => x.step === 'note').byHand, undefined)
 })
 
 const fakeInstalled = (v) => () => v
@@ -136,7 +136,7 @@ test('CLI: start, status, done', () => {
   const root = office()
   const run = (...a) => spawnSync(process.execPath, [CLI, root, ...a], { encoding: 'utf8', env: { ...process.env, CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'oa-rel-cfg-')) } })
   assert.match(run('start', '0.24.0').stdout, /4 step\(s\) put down: note, notify:David, install:mac, install:box/)
-  assert.match(run('status').stdout, /note\s+open\s+lead[\s\S]*notify:David[\s\S]*no owner yes yet/)
+  assert.match(run('status').stdout, /note\s+open\s+lead[\s\S]*notify:David[\s\S]*(no owner yes yet|close by hand)/)
   assert.equal(run('done', '0.24.0', 'note').status, 1, 'no evidence, no close')
   assert.match(run('done', '0.24.0', 'note', '--evidence', 'forum post', '--proof', 'accepted').stdout, /closed/)
   assert.match(run('status', '0.24.0').stdout, /note\s+verified/)

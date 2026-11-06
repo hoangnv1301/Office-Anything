@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-639%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-649%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -610,7 +610,7 @@ node lib/tasks.mjs list [--all] [--json]
   `install:<machine>` for each machine in `release.machines`. A step past due is rung, raised to the lead, then said once to the
   owner (the same sweep as an ask); it is closed with `release-job.mjs done <version> <step> --evidence … --proof …`, and
   `scripts/release-post.mjs` closes `note` itself after a post it saw succeed. `status` lists the steps and whether the owner's yes
-  (`notify-release`, see the approval ledger) exists for each person. `release-job.mjs install [<version>] [--apply]` is this machine's
+  (`notify-release`, see the approval ledger) exists for each person when the plugin has the ledger; without it the notify step is closed by hand. `release-job.mjs install [<version>] [--apply]` is this machine's
   own pass: dry unless `--apply`; it refuses a version `plugin.approved` does not name, waits while a session is working, runs
   `claude plugin marketplace update` and `claude plugin update`, reads the installed version back before closing the step, and names the idle
   sessions that still run the old code (it restarts none). `"release": { "owner": "lead", "notify": ["David"], "machines": [{ "name": "mac",
