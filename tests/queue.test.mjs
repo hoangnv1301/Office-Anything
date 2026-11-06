@@ -76,7 +76,7 @@ test('SessionStart: a desk or dev session gets ONLY its own open tasks, the upda
   const ops = run('ops-construction').stdout
   assert.match(ops, /Quote Cheng/); assert.match(ops, /due 2026-10-20/); assert.match(ops, /open/)
   assert.ok(!ops.includes('Fix wall') && !ops.includes('Design sheet') && !ops.includes('Old'), ops)
-  assert.match(ops, /update T-\.\.\. --state working\|waiting\|done --note/)
+  assert.match(ops, /update T-\.\.\. --state working\|done --note/)
   assert.ok(!/verify|drop/.test(ops.split('\n').slice(1).join('\n').replace(/never verify or drop/i, '')), 'it is not offered what it may not do')
   assert.match(run('desk-design', join(root, 'desks', 'design')).stdout, /Design sheet/)
   assert.ok(!run('desk-design', join(root, 'desks', 'design')).stdout.includes('Quote Cheng'))

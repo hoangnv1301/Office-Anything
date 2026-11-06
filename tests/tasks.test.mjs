@@ -106,7 +106,7 @@ test('the table: open work only, oldest first, with the way to add and update', 
   const b = add(root, { title: 'Reply to Cheng' }, LEAD, NOW - 20 * 60_000)
   const c = add(root, { title: 'finished one' }, LEAD, NOW - 3 * HOUR)
   verifyTask(root, c.id, { evidence: 'x', proof: 'checked' }, { by: LEAD, now: NOW })
-  updateTask(root, b.id, { state: 'waiting' }, { by: LEAD, now: NOW - 10 * 60_000 })
+  updateTask(root, b.id, { state: 'waiting', blockedBy: 'owner: say which buyer first' }, { by: LEAD, now: NOW - 10 * 60_000 })
   const t = openTable(root, { now: NOW })
   const rows = t.split('\n').filter((l) => /^T-/.test(l))
   assert.equal(rows.length, 2)

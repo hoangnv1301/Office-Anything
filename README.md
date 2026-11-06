@@ -581,7 +581,7 @@ node lib/tasks.mjs list [--all] [--json]
 - **Every session works from it.** `list --assigned <name>` (`desk-x` matches `x`), `--overdue` and
   `--owner` filter the list. At start, resume, clear and compact a desk or a dev session (any session
   with a registry name: `ops-construction`, `alibaba-98`…) is shown only the open tasks assigned to
-  its name, with `update … --state working|waiting|done --note`; it prints nothing when it has none.
+  its name, with `update … --state working|done --note` (or `--state waiting --blocked-by "<who>: <what>"`); it prints nothing when it has none.
   A dev session or desk can update its own tasks and add one for the lead, never `verify` or `drop`
   (its identity is the session, not a flag). A case session reads its parent desk's tasks.
 - **A daily digest.** `health --heal` (the watchdog) writes `.office/digest.md` on its first run after
@@ -616,6 +616,11 @@ node lib/tasks.mjs list [--all] [--json]
   sessions that still run the old code (it restarts none). `"release": { "owner": "lead", "notify": ["David"], "machines": [{ "name": "mac",
   "host": "<hostname>", "session": "full" }], "minutes": { "note": 60, "notify": 120, "install": 720 } }`. A lead whose Bash list is
   closed lists `node {plugin}/lib/release-job.mjs` and `approvals.mjs` like `tasks.mjs`.
+- **A block names who can unblock it (0.25.0).** `update T-… --state waiting` is refused without
+  `--blocked-by "<who can unblock it>: <what they must do>"`, one plain line such as `owner: create the #dev channel, it has no id`.
+  The open table shows `WAITING ON <who>: <what>`, and heal says the block once per task and line: to the owner as one plain `ASK-OWNER`
+  line when the owner is the one, else as `BLOCKED` for the named one (the lead sends it). The same line never rings twice; a different
+  blocker is a new block; going back to `working` clears it.
 - **Backup.** `.office/` is gitignored, so the first write or inject of each day copies the file to
   `.office/tasks-snapshots/tasks-YYYYMMDD.jsonl` (the state before that day's first change), keeping 14.
   Back up `.office/` itself if the list matters to you.

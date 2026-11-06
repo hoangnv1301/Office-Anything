@@ -24,7 +24,7 @@ test('queueView: by assignee, with state counts, age, due, OVERDUE and STALE, an
   const root = office()
   const a = add(root, { title: 'overdue one', assigned: 'ops-construction', due: '2026-10-17' }, NOW - 30 * HOUR)
   add(root, { title: 'working one', assigned: 'ops-construction' }, NOW - 2 * HOUR)
-  updateTask(root, add(root, { title: 'waiting', assigned: 'desk-design' }, NOW - 3 * HOUR).id, { state: 'waiting' }, { by: LEAD, now: NOW - HOUR })
+  updateTask(root, add(root, { title: 'waiting', assigned: 'desk-design' }, NOW - 3 * HOUR).id, { state: 'waiting', blockedBy: 'owner: pick the buyer' }, { by: LEAD, now: NOW - HOUR })
   const v = add(root, { title: 'checked', assigned: 'desk-design' }, NOW - 5 * HOUR)
   verifyTask(root, v.id, { evidence: 'proof.txt', proof: 'seen' }, { by: LEAD, now: NOW - HOUR })
   const q = queueView(root, { now: NOW })

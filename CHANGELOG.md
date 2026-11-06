@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.25.0
+
+- ⭐ A BLOCK NAMES WHO CAN UNBLOCK IT, ONCE, IN ONE PLAIN LINE (Office-Anything #97: "#dev channel has no id, owner must create it"). `tasks.mjs update T-… --state waiting` is refused without `--blocked-by "<who>: <what they must do>"`; the open table and a session's own list show `WAITING ON <who>: <what>`; going back to `working` clears it. heal raises each (task, line) once through the follow-through sweep: an `ASK-OWNER` plain line when the owner is the one, else `BLOCKED` for the named one. The bell always hears `BLOCKED`. **Behaviour change:** a caller that set `--state waiting` with no `--blocked-by` now gets the error that says what to add; `working|done` are unchanged. Pinned in `tests/blocks.test.mjs`.
+
 ## 0.24.0
 
 - Review fix: a release step that cannot be closed after a successful install or a posted note is retried once, then alerted to the lead and said in the result (and `release-post.mjs` exits 6); it is no longer swallowed.

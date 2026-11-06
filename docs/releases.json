@@ -376,5 +376,12 @@
       "A step nobody closes is rung again, raised to the lead, then said once to the owner; a step closes only with evidence.",
       "A machine updates the plugin at its next idle, only to a version the office approved, and reads the installed version back before it counts it done."
     ]
+  },
+  "0.25.0": {
+    "date": "2026-11-06",
+    "new": [
+      "A task that is waiting must say who can unblock it and what they must do, in one plain line, and that line is shown wherever the task is listed.",
+      "A block is said once to the one who can unblock it; to the owner as one plain line, and never again for the same line."
+    ]
   }
 }
