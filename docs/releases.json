@@ -399,5 +399,11 @@
       "The approval ledger is signed and chained, so an edited, deleted or echoed line is caught and nothing is trusted until the owner repairs it.",
       "An office can list tool calls that need the owner's approval, and they are refused until the ledger covers every exact target they name."
     ]
+  },
+  "0.27.1": {
+    "date": "2026-11-06",
+    "new": [
+      "Granting an approval is checked harder: only the installed Claude Code counts as a session, and a tool call cannot change the home folder."
+    ]
   }
 }

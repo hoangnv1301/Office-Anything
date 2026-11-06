@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { grantPeer, peerGranter, checkApproval, gateVerdict, grants, grantFromPrompt, verifyGrant, projectDirName, ledgerWriteVerdict, effectiveGatesCfg, run as cli, readLedger, repairFile } from '../lib/approvals.mjs'
 import { existsSync } from 'node:fs'
-import { identityVerdict } from '../lib/approvals.mjs'
+import { identityVerdict, registeredSession } from '../lib/approvals.mjs'
 
 const T0 = Date.parse('2026-11-06T09:00:00Z')
 const SID = '99999999-2222-4333-8444-555555555555'
@@ -27,11 +27,11 @@ function office(approvals = { gates: GATES }) {
   return { root, cfg }
 }
 // a fake process table and registry: shell 5000 under claude 4000, whose registry entry (in the claude process's own config dir) names it
-function rg(name, { env = '', startedAt = T0, write = true, claudeComm = '/usr/local/bin/claude' } = {}) {
+function rg(name, { env = '', startedAt = T0, write = true, claudeComm = '/usr/local/bin/claude', exe = '/opt/claude/real/claude', mid = null } = {}) {
   const home = mkdtempSync(join(tmpdir(), 'oa-peer-home-')); mkdirSync(join(home, '.claude', 'sessions'), { recursive: true })
   if (write) writeFileSync(join(home, '.claude', 'sessions', '4000.json'), JSON.stringify({ pid: 4000, startedAt, name }))
-  const tbl = { 5000: { ppid: 4000, comm: '/bin/zsh', lstart: 'x' }, 4000: { ppid: 1, comm: claudeComm, lstart: new Date(T0 + 700).toString() } }
-  return { pid: 5000, home, proc: { info: (p) => tbl[p] ?? null, env: () => env } }
+  const tbl = { 5000: { ppid: mid ? 4500 : 4000, comm: '/bin/zsh', lstart: 'x' }, ...(mid ? { 4500: { ppid: 4000, comm: mid, lstart: 'x' } } : {}), 4000: { ppid: 1, comm: claudeComm, lstart: new Date(T0 + 700).toString() } }
+  return { pid: 5000, home, installs: { files: [], dirs: ['/opt/claude/real'] }, proc: { info: (p) => tbl[p] ?? null, env: () => env, exe: () => exe } }
 }
 const as = (root, cfg, name) => peerGranter(root, cfg, { env: { OFFICE_ROLE: name }, cwd: root, ...rg(name) })
 
@@ -180,4 +180,21 @@ test('the wall refuses writing the session registry and unsetting a role variabl
   for (const c of ['env -u OFFICE_ROLE node x.mjs', 'unset OFFICE_ROLE', 'sh -c "unset CLAUDE_CODE_SESSION_NAME; node x"', 'export CLAUDE_CONFIG_DIR=/tmp/x', 'CLAUDE_CONFIG_DIR=/tmp/x node y']) assert.match(identityVerdict(call(c)) ?? '', /may not set/, c)
   assert.equal(ledgerWriteVerdict(call('cat ~/.claude/sessions/4000.json')), null)
   assert.equal(ledgerWriteVerdict({ tool_name: 'Write', tool_input: { file_path: '/repo/tests/sessions/a.test.mjs' } }), null)
+})
+
+test('the claude ancestor must be the installed Claude Code, with only shells or node between it and the caller; HOME and env -i are walled', () => {
+  const { root, cfg } = office()
+  const who = (reg) => peerGranter(root, cfg, { cwd: root, pid: 5000, ...reg, env: { OFFICE_ROLE: 'Lead' } })
+  assert.equal(who(rg('Lead')).name, 'Lead')
+  assert.equal(who(rg('Lead', { exe: '/opt/claude/real/versions/2.1/claude' })).name, 'Lead', 'inside the install dir')
+  assert.match(who(rg('Lead', { exe: '/tmp/evil/claude' })).why, /cannot name/, 'a program called claude from elsewhere')
+  assert.match(who({ ...rg('Lead'), proc: { ...rg('Lead').proc, exe: () => null } }).why, /cannot name/, 'executable unknown')
+  assert.equal(who(rg('Lead', { mid: '/usr/local/bin/node' })).name, 'Lead', 'node between is fine')
+  assert.match(who(rg('Lead', { mid: '/tmp/x/claude' })).why, /cannot name/, 'a claude-named process in between')
+  assert.match(who(rg('Lead', { mid: '/usr/bin/python3' })).why, /cannot name/, 'neither a shell nor node in between')
+  // the registry home is the account\'s, not $HOME
+  assert.equal(registeredSession({ pid: 5000, ...rg('Lead'), home: undefined }), null, 'the real home has no such entry')
+  for (const c of ['HOME=/tmp/x node lib/approvals.mjs grant', 'export HOME=/tmp/x', 'env -u HOME node x']) assert.match(identityVerdict(call(c)) ?? '', /may not set/, c)
+  for (const c of ['env -i node lib/approvals.mjs grant --to full', 'env -i PATH=/bin node x', 'env - node x', 'sh -c "env -i node x"', 'exec -c node x', 'ENV --ignore-environment node x', 'env -iu FOO node x']) assert.match(identityVerdict(call(c)) ?? '', /empty its environment/, c)
+  for (const c of ['env FOO=1 node x', 'env | sort', 'git -c core.x=1 status']) assert.equal(identityVerdict(call(c)), null, c)
 })

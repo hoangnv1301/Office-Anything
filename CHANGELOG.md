@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.27.1
+
+- Security-scan fixes to who may grant (follow-up to 0.27.0): the registry's home folder is the account's own (from the password database), never `$HOME`, and `HOME` joins the variables a tool call may not set. The `claude` ancestor is trusted only when its executable (read from the process itself) is the installed Claude Code, and only shells or node may sit between it and the caller: a program that merely calls itself `claude`, or a `claude`, python or other process in between, grants nothing. A tool call that empties its environment (`env -i`, `env -`, `exec -c`) is refused.
+
 ## 0.27.0
 
 - ⭐ SESSIONS APPROVE EACH OTHER (owner, 2026-11-06: "session should be able to approve each other"). Any registered session (the lead, `full`, `construction`, a department lead; a desk only when `office.json` has `approvals.desksMayGrant: true`) grants another session an approval with `node lib/approvals.mjs grant --to <session|*> --action <a> --target <t> [--hours N] [--once] --why "…"`. The plugin signs and chains the line with the office key (the session never holds the key) and records WHO granted it; it is checked like an owner grant (action AND exact target, expiry, `once`, revoke). A session cannot grant to itself, and a `*` grant never covers its granter. A message in chat is still not an approval: the ledger is what a desk trusts.
