@@ -118,12 +118,18 @@ export function postNote(version, { repo = REPO, ops = process.env.OPS_REPO || r
 // A POSTED NOTE CLOSES ITS STEP (#97): when the office has put the release's steps down
 // (lib/release-job.mjs start), the post this script just saw succeed is the evidence. -> the step id | null
 export async function closeNoteStep(version, ops, { now = Date.now() } = {}) {
-  try {
-    const { findOffice } = await import('../lib/office.mjs')
-    const { closeStep } = await import('../lib/release-job.mjs')
-    const root = findOffice(ops)
-    return root ? closeStep(root, version, 'note', { evidence: `release forum post for ${version}`, proof: 'scripts/release-post.mjs saw the forum accept the note' }, { now }) : null
-  } catch { return null }
+  const { findOffice, readOfficeConfig } = await import('../lib/office.mjs')
+  const { closeByKey } = await import('../lib/tasks.mjs')
+  const root = findOffice(ops)
+  if (!root) return null
+  // null from closeByKey = no open step (no job started, or already closed): nothing to do. A write that fails is retried
+  // once, then said to the lead and thrown: a posted note whose step stays open would ring as late.
+  let err = null
+  for (let n = 0; n < 2; n++) {
+    try { return closeByKey(root, `release:${version}:note`, { evidence: `release forum post for ${version}`, proof: 'scripts/release-post.mjs saw the forum accept the note' }, { now }) } catch (e) { err = e }
+  }
+  try { const { writeAlert } = await import('../lib/alerts.mjs'); writeAlert(root, readOfficeConfig(root), { type: 'ASK-LATE', kase: '-', subject: 'release', text: `the release note for ${version} was posted, but its step could not be closed (${err.message}); it will keep ringing until it is`, now }) } catch {}
+  throw err
 }
 
 // the versions --missing still owes: every note from --from on, except those
@@ -150,6 +156,6 @@ if (isMain(import.meta.url)) {
     if (r.state === 'cap') { console.error(`⛔ the release forum's daily cap is reached after ${done} post(s); left: ${versions.slice(i).join(', ')}. Run again tomorrow.`); process.exit(5) }
     if (r.state === 'refused') { console.error(`⛔ ${v} was NOT posted: ${r.why}`); process.exit(4) }
     if (r.state === 'posted') done++
-    if (!dry && (r.state === 'posted' || r.state === 'dup')) { const id = await closeNoteStep(v, ops ?? process.env.OPS_REPO ?? resolve(REPO, '..', 'local-cabinets-ops')); if (id) console.log(`${v}: release step "post the note" ${id} closed`) }
+    if (!dry && (r.state === 'posted' || r.state === 'dup')) { let id = null; try { id = await closeNoteStep(v, ops ?? process.env.OPS_REPO ?? resolve(REPO, '..', 'local-cabinets-ops')) } catch (e) { console.error(`⛔ ${v} was posted, but its release step could not be closed: ${e.message}`); process.exit(6) } if (id) console.log(`${v}: release step "post the note" ${id} closed`) }
   }
 }

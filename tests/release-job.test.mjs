@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { startRelease, releaseStatus, closeStep, installHere, releaseConfig } from '../lib/release-job.mjs'
 import { readTasks } from '../lib/tasks.mjs'
 import { followThrough } from '../lib/follow.mjs'
-import { captureWords, recordApproval } from '../lib/approvals.mjs'
+import { grantFromPrompt } from '../lib/approvals.mjs'
 import { closeNoteStep } from '../scripts/release-post.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -73,10 +73,10 @@ test('status says who has the owner\'s yes to tell each person, and who does not
   const root = office()
   startRelease(root, CFG, '0.24.0', { now: T0 })
   assert.equal(releaseStatus(root, CFG, '0.24.0', { now: T0 }).find((s) => s.step === 'notify:David').approved, false)
-  const tr = join(root, 't.jsonl')
-  writeFileSync(tr, JSON.stringify({ type: 'user', promptId: 'p1', turnOrigin: 'human', promptSource: 'typed', message: { content: 'yes, tell David' } }) + '\n')
-  captureWords(root, { session: 'full', text: 'yes, tell David', promptId: 'p1', transcript: tr }, { now: T0 })
-  recordApproval(root, { session: 'full', quote: 'tell David', action: 'notify-release', target: 'David' }, { now: T0 + 1000 })
+  const sid = '11111111-2222-4333-8444-555555555555', text = 'approve notify-release target:David'
+  const tr = join(root, `${sid}.jsonl`)
+  writeFileSync(tr, JSON.stringify({ type: 'user', promptId: 'p1', turnOrigin: 'human', promptSource: 'typed', message: { content: text } }) + '\n')
+  grantFromPrompt(root, {}, { session: 'full', sessionId: sid, text, promptId: 'p1', transcript: tr }, { now: T0 })
   const s = releaseStatus(root, CFG, '0.24.0', { now: T0 + 2000 })
   assert.equal(s.find((x) => x.step === 'notify:David').approved, true)
   assert.equal(s.find((x) => x.step === 'note').approved, undefined)
@@ -140,4 +140,18 @@ test('CLI: start, status, done', () => {
   assert.equal(run('done', '0.24.0', 'note').status, 1, 'no evidence, no close')
   assert.match(run('done', '0.24.0', 'note', '--evidence', 'forum post', '--proof', 'accepted').stdout, /closed/)
   assert.match(run('status', '0.24.0').stdout, /note\s+verified/)
+})
+
+test('a step that cannot be closed is retried, alerted and said, never swallowed', async () => {
+  const root = office()
+  startRelease(root, CFG, '0.24.0', { now: T0 })
+  // make the task file unwritable so the close fails
+  const { chmodSync } = await import('node:fs')
+  chmodSync(join(root, '.office', 'tasks.jsonl'), 0o444)
+  if (process.getuid?.() === 0) return
+  const r = installHere(root, CFG, { host: 'box1', apply: true, sessions: [], installed: (() => { let n = 0; return () => (n++ ? '0.24.0' : '0.20.5') })(), run: () => ({ status: 0 }), now: T0 })
+  assert.equal(r.state, 'updated'); assert.ok(r.unrecorded); assert.match(r.why, /could not be closed/)
+  assert.match(readFileSync(join(root, '.office', 'alerts.log'), 'utf8'), /ASK-LATE .* release .* could not be closed/)
+  await assert.rejects(() => closeNoteStep('0.24.0', root), /EACCES|permission/)
+  chmodSync(join(root, '.office', 'tasks.jsonl'), 0o644)
 })
