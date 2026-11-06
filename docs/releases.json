@@ -358,5 +358,15 @@
       "An office can opt in to a fast-forward pull of a clean tree when office opens, and a command to run after it; never a merge or a rebase.",
       "Token usage can be broken down by the kind of work, with labels each office defines."
     ]
+  },
+  "0.23.0": {
+    "date": "2026-11-06",
+    "new": [
+      "A question sent to another session becomes a tracked ask with a due time; the answer, or a message back to the asker, closes it.",
+      "An ask nobody answers is rung again, then raised to the lead, then said once to the owner in one plain line."
+    ],
+    "improved": [
+      "The lead's bell always hears the follow-through alerts, even when an office listed its own alert types."
+    ]
   }
 }

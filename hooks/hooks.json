@@ -38,6 +38,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "SendMessage",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/ask-track.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

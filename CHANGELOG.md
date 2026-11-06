@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.23.0
+
+- Review fixes before merge: ask tracking is OFF unless office.json `asks.track` is true and only tracks asks to a known lead, desk, case session or registered session; a `?` in a URL, quoted text or code is not a question; a desk's case session (`desk-x--key`) and the office module's aliases resolve to the session; "on it" is noted and leaves the ask open (an answer, or the asker, closes it); the alert is written before a step is marked rung, and heal reports a failure instead of swallowing it.
+
+- ⭐ AN ASK BETWEEN SESSIONS IS A CASE WITH A DUE TIME (Office-Anything #97: `full` asked AICS and waited; nothing re-rang). A PostToolUse hook on `SendMessage` (`hooks/ask-track.mjs`) records a question sent to another session as a task of kind `ask` (from the sender, assigned to the recipient, due in 30 minutes), so no model has to remember to; the recipient's message back to the asker, or `tasks.mjs answer T-… --text "…"`, closes it for good (`answered` is final). `node lib/tasks.mjs ask --to <session> --question "…" [--minutes N]` is the manual road.
+- ⭐ `lib/follow.mjs`, run by heal (one writer per office), rings a late case once per step and records every step in `tasks.jsonl`, so a restart never rings twice: `ASK-DUE` NUDGE lines for the asked session (due, then `reringTimes` more, every `reringMinutes`), `ASK-LATE` raised to the lead, then one plain `ASK-OWNER` line after `ownerAfterMinutes` past due. office.json `followThrough` tunes it. The bell always hears these three types, whatever `lead.bell.types` lists. Pinned in `tests/asks.test.mjs`.
+
 ## 0.22.0
 
 - ⭐ THE OFFICE NAMES ITS DEFAULT ROLE (the owner, 2026-11-05: "the full session by default for root is okay … they just have a convenient way to control", "should be on the plugin"). office.json `"defaultRole"` is what `office` opens on a machine whose `.office/local.json` names no `role`; the machine's own still wins, and one not in `profiles` is said. A root session with no role is told the default and how to open it.
