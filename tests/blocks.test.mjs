@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import { addTask, updateTask, readTasks, openTable, blockOf } from '../lib/tasks.mjs'
 import { followThrough } from '../lib/follow.mjs'
 import { poll } from '../lib/lead-bell.mjs'
+import { queueView } from '../lib/tasks.mjs'
 
 const MIN = 60_000
 const T0 = Date.parse('2026-11-06T09:00:00Z')
@@ -69,4 +70,11 @@ test('the bell hears BLOCKED and the owner line whatever types the office listed
   const r = poll(root, CFG, { now: T0 + 3 * MIN, state: r0.state })
   assert.equal(r.lines.length, 1, JSON.stringify(r.lines))
   assert.match(r.lines[0], /^alert BLOCKED T-\d+-1 aics: Blocked: Tell David about 0\.22\.0 \(lead\)\. aics can unblock it: confirm the release note wording\.$/)
+})
+
+test('the board\'s read-only API carries the block (the board has no button that sets a state, so there is nothing to send --blocked-by)', () => {
+  const root = office(); const t = mk(root)
+  updateTask(root, t.id, { state: 'waiting', blockedBy: 'owner: create the #dev channel, it has no id' }, { by: LEAD, now: T0 + MIN })
+  const row = queueView(root, { now: T0 + 2 * MIN }).assignees.flatMap((a) => a.tasks).find((x) => x.id === t.id)
+  assert.deepEqual(row.blocked, { who: 'owner', what: 'create the #dev channel, it has no id' })
 })
