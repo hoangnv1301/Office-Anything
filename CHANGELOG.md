@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.0
+
+- Review fix: a release step that cannot be closed after a successful install or a posted note is retried once, then alerted to the lead and said in the result (and `release-post.mjs` exits 6); it is no longer swallowed.
+
+- ⭐ A RELEASE IS A JOB WITH STEPS, EACH A CASE WITH AN OWNER AND AN ALARM (Office-Anything #97: 0.22.0 was released, then nothing moved until the owner asked twice, and the Mac stayed on 0.20.5 until a session ran `claude plugin update` by hand). `node lib/release-job.mjs start <version>` puts down tasks of kind `step` (key `release:<v>:<step>`, once): `note`, `notify:<name>` for each person office.json `release.notify` names, `install:<machine>` for each machine in `release.machines`, each with an owner and a due time. A step past due is rung, raised to the lead and said once to the owner by the same sweep as an ask (`lib/follow.mjs`); a step is closed with evidence, never by saying so. `scripts/release-post.mjs` closes `note` itself on a post it saw succeed.
+- ⭐ `release-job.mjs install [<version>] [--apply]`: this machine's own pass. Dry unless `--apply`; refuses a machine office.json does not list, a version `plugin.approved` does not name (and says who can unblock it), and a machine with a working session (it waits for the next idle). It runs `claude plugin marketplace update` and `claude plugin update`, reads the installed version back, and only then closes the step; it names the idle sessions that still run the old code. `status` shows each step and whether the owner's yes (`notify-release`, lib/approvals.mjs) exists for each person to tell when this plugin has the approval ledger (otherwise the notify step is closed by hand). Pinned in `tests/release-job.test.mjs`.
+
 ## 0.23.0
 
 - Review fixes before merge: ask tracking is OFF unless office.json `asks.track` is true and only tracks asks to a known lead, desk, case session or registered session; a `?` in a URL, quoted text or code is not a question; a desk's case session (`desk-x--key`) and the office module's aliases resolve to the session; "on it" is noted and leaves the ask open (an answer, or the asker, closes it); the alert is written before a step is marked rung, and heal reports a failure instead of swallowing it.

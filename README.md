@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-639%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-649%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -605,6 +605,17 @@ node lib/tasks.mjs list [--all] [--json]
   `tasks.jsonl`, so a restart never rings twice. `office.json` `"followThrough": { "reringMinutes": 15,
   "reringTimes": 2, "ownerAfterMinutes": 90 }` tunes it; the bell hears the three types whatever `lead.bell.types` lists.
   The plugin cannot type into another session, so the re-ring is a line the lead sends, like a stale-task nudge.
+- **A release is a job with steps (0.24.0).** `node lib/release-job.mjs start <version>` puts down one case per step, each
+  with an owner and a due time: `note` (post the release note), `notify:<name>` for each person `release.notify` names, and
+  `install:<machine>` for each machine in `release.machines`. A step past due is rung, raised to the lead, then said once to the
+  owner (the same sweep as an ask); it is closed with `release-job.mjs done <version> <step> --evidence … --proof …`, and
+  `scripts/release-post.mjs` closes `note` itself after a post it saw succeed. `status` lists the steps and whether the owner's yes
+  (`notify-release`, see the approval ledger) exists for each person when the plugin has the ledger; without it the notify step is closed by hand. `release-job.mjs install [<version>] [--apply]` is this machine's
+  own pass: dry unless `--apply`; it refuses a version `plugin.approved` does not name, waits while a session is working, runs
+  `claude plugin marketplace update` and `claude plugin update`, reads the installed version back before closing the step, and names the idle
+  sessions that still run the old code (it restarts none). `"release": { "owner": "lead", "notify": ["David"], "machines": [{ "name": "mac",
+  "host": "<hostname>", "session": "full" }], "minutes": { "note": 60, "notify": 120, "install": 720 } }`. A lead whose Bash list is
+  closed lists `node {plugin}/lib/release-job.mjs` and `approvals.mjs` like `tasks.mjs`.
 - **Backup.** `.office/` is gitignored, so the first write or inject of each day copies the file to
   `.office/tasks-snapshots/tasks-YYYYMMDD.jsonl` (the state before that day's first change), keeping 14.
   Back up `.office/` itself if the list matters to you.
