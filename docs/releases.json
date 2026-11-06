@@ -368,5 +368,13 @@
     "improved": [
       "The lead's bell always hears the follow-through alerts, even when an office listed its own alert types."
     ]
+  },
+  "0.24.0": {
+    "date": "2026-11-06",
+    "new": [
+      "A release is a job with steps (post the note, tell the people, update each machine); each step is a case with an owner and a due time.",
+      "A step nobody closes is rung again, raised to the lead, then said once to the owner; a step closes only with evidence.",
+      "A machine updates the plugin at its next idle, only to a version the office approved, and reads the installed version back before it counts it done."
+    ]
   }
 }
