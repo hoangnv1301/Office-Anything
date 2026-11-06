@@ -4,7 +4,7 @@ A Claude Code plugin. You hire a desk, you fire a desk, and every role has a bou
 exits non-zero.
 
 ```bash
-node --test "tests/**/*.test.mjs"    # 701 tests
+node --test "tests/**/*.test.mjs"    # 709 tests
 node checks/run.mjs                  # every check, one exit code
 ```
 
