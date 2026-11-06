@@ -3,12 +3,12 @@
 // anyone remembering), rung again when late, raised to the lead, then said once to the owner.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { addAsk, answerAsk, readTasks, trackAsk, closeAsksByReply, canonName, sessionTable, openTable, staleTasks } from '../lib/tasks.mjs'
+import { addAsk, answerAsk, readTasks, trackAsk, closeAsksByReply, canonName, sessionTable, openTable, staleTasks, isAck, isQuestion } from '../lib/tasks.mjs'
 import { followThrough, nextStep, followPolicy } from '../lib/follow.mjs'
 import { poll } from '../lib/lead-bell.mjs'
 import { heal } from '../lib/heal.mjs'
@@ -22,7 +22,7 @@ function office(cfg = {}) {
   const root = mkdtempSync(join(tmpdir(), 'oa-asks-'))
   mkdirSync(join(root, 'desks', 'aics'), { recursive: true })
   writeFileSync(join(root, 'desks', 'aics', 'desk.json'), JSON.stringify({ name: 'aics', kind: 'knowledge', port: 9701 }))
-  writeFileSync(join(root, 'office.json'), JSON.stringify({ roleEnv: 'OFFICE_ROLE', lead: { session: 'Lead', bell: {} }, ...cfg }))
+  writeFileSync(join(root, 'office.json'), JSON.stringify({ roleEnv: 'OFFICE_ROLE', lead: { session: 'Lead', bell: {} }, asks: { track: true }, ...cfg }))
   return root
 }
 const log = (root) => { try { return readFileSync(join(root, '.office', 'alerts.log'), 'utf8').trim().split('\n') } catch { return [] } }
@@ -76,7 +76,8 @@ test('an answer closes it for good: no ring after, and only the asked one (or th
   const root = office()
   const a = addAsk(root, { to: 'desk-aics', question: 'Can you post it?' }, { by: FULL, now: T0 })
   assert.throws(() => answerAsk(root, a.id, { text: 'done' }, { by: { kind: 'session', name: 'someone-else' }, now: T0 }), /only they/)
-  assert.throws(() => answerAsk(root, a.id, { text: 'done' }, { by: FULL, now: T0 }), /only they/)
+  // the asker can close it too
+  assert.equal(answerAsk(root, addAsk(root, { to: 'desk-aics', question: 'x?' }, { by: FULL, now: T0 }).id, { text: 'never mind' }, { by: FULL, now: T0 }).state, 'answered')
   assert.equal(answerAsk(root, a.id, { text: 'posted, link in #releases' }, { by: { kind: 'desk', desk: 'aics' }, now: T0 + 5 * MIN }).state, 'answered')
   assert.throws(() => answerAsk(root, a.id, { text: 'again' }, { by: { kind: 'owner' } }), /final/)
   assert.deepEqual(followThrough(root, JSON.parse(readFileSync(join(root, 'office.json'), 'utf8')), { now: T0 + 500 * MIN }), [])
@@ -113,7 +114,10 @@ test('heal runs the follow-through, so one writer per office rings it', () => {
 
 // the hook: the ask is recorded from the message itself
 function hook(root, role, to, message) {
-  const env = { ...process.env, OFFICE_ROLE: role, CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'oa-asks-cfg-')) }
+  const cfgDir = mkdtempSync(join(tmpdir(), 'oa-asks-cfg-'))
+  mkdirSync(join(cfgDir, 'sessions'), { recursive: true })
+  writeFileSync(join(cfgDir, 'sessions', `${process.pid}.json`), JSON.stringify({ pid: process.pid, name: 'full' }))
+  const env = { ...process.env, OFFICE_ROLE: role, CLAUDE_CONFIG_DIR: cfgDir }
   return spawnSync(process.execPath, [HOOK], { input: JSON.stringify({ tool_name: 'SendMessage', tool_input: { to, message }, cwd: root }), encoding: 'utf8', env })
 }
 test('hook: a question sent to a session opens an ask; a statement does not; a second message opens no second', () => {
@@ -144,4 +148,63 @@ test('trackAsk and closeAsksByReply treat a lead alias and a desk name as the sa
   trackAsk(root, { from: 'desk-aics', to: 'Lead', text: 'May I?' }, { now: T0 })
   assert.equal(readTasks(root)[0].assigned, 'lead')
   assert.equal(closeAsksByReply(root, { from: 'Lead', to: 'desk-aics' }, { now: T0 }).length, 1)
+})
+
+test('hook: off unless the office opts in, and only for a session it knows', () => {
+  const off = office({ asks: undefined })
+  hook(off, 'full', 'desk-aics', 'Can you post it?')
+  assert.equal(readTasks(off).length, 0, 'no opt-in: nothing tracked')
+  const root = office()
+  hook(root, 'full', 'nobody-at-all', 'Can you post it?')
+  hook(root, 'full', 'desk-ghost', 'Can you post it?')
+  assert.equal(readTasks(root).length, 0, 'an unknown recipient is not tracked')
+  hook(root, 'full', 'Lead', 'Can you post it?')
+  assert.equal(readTasks(root)[0].assigned, 'lead')
+})
+
+test('a question mark in a URL, a quoted buyer or a code block is not a question', () => {
+  assert.equal(isQuestion('See https://x.example/page?id=3 for the draft.'), false)
+  assert.equal(isQuestion('The buyer wrote "can you ship to Texas?" and I answered yes.'), false)
+  assert.equal(isQuestion('> is it done?\nIt is done.'), false)
+  assert.equal(isQuestion('```\nwhy?\n```\nfine'), false)
+  assert.equal(isQuestion('Can you post the note? Link: https://x.example/a?b=1'), true)
+  assert.equal(isQuestion('ASK post the note'), true)
+  assert.equal(isQuestion('Did it go out?'), true)
+})
+
+test('"on it" acknowledges and leaves the ask open; an answer closes it', () => {
+  assert.equal(isAck('On it.'), true); assert.equal(isAck('looking into it'), true)
+  assert.equal(isAck('Posted, link in #releases'), false); assert.equal(isAck('Yes, done.'), false)
+  const root = office()
+  hook(root, 'full', 'desk-aics', 'Can you post it?')
+  hook(root, 'desk-aics', 'full', 'On it.')
+  let t = readTasks(root)[0]
+  assert.equal(t.state, 'open'); assert.equal(t.notes.length, 1); assert.match(t.notes[0].text, /not answered/)
+  hook(root, 'desk-aics', 'full', 'Posted, link is in #releases.')
+  assert.equal(readTasks(root)[0].state, 'answered')
+})
+
+test('a desk\'s case session is the desk: its reply closes the ask put to the desk', () => {
+  const root = office()
+  mkdirSync(join(root, 'desks', 'rfq'), { recursive: true })
+  writeFileSync(join(root, 'desks', 'rfq', 'desk.json'), JSON.stringify({ name: 'rfq', kind: 'knowledge', port: 9702, perCase: { keyPattern: '^RFQ-\\d+$', adapter: 'x' } }))
+  addAsk(root, { to: 'desk-rfq', question: 'Can you price RFQ-7?' }, { by: FULL, now: T0 })
+  assert.equal(canonName(root, 'desk-rfq--RFQ-7'), 'desk-rfq')
+  assert.equal(closeAsksByReply(root, { from: 'desk-rfq--RFQ-7', to: 'full' }, { now: T0 }).length, 1)
+})
+
+test('a failed alert write leaves the step unrung so the next pass retries; heal says it failed', () => {
+  const root = office({ alerts: { file: '.office/typed.log' } })
+  addAsk(root, { to: 'desk-aics', question: 'Can you post it?' }, { by: FULL, now: T0 })
+  const cfg = JSON.parse(readFileSync(join(root, 'office.json'), 'utf8'))
+  mkdirSync(join(root, '.office'), { recursive: true })
+  writeFileSync(join(root, '.office', 'typed.log'), '')
+  chmodSync(join(root, '.office', 'typed.log'), 0o444)
+  if (process.getuid?.() === 0) return   // root can write anything
+  assert.throws(() => followThrough(root, cfg, { now: T0 + 31 * MIN }))
+  assert.equal(readTasks(root)[0].rings.length, 0, 'not marked rung')
+  const r = heal(root, { code: 0, desks: [], checks: [], orphans: [], lead: null }, { now: T0 + 31 * MIN, home: mkdtempSync(join(tmpdir(), 'oa-asks-home-')), kill: () => {}, freshProcs: () => new Map(), cwd: () => null })
+  assert.ok(r.acts.some((a) => a.act === 'follow-through' && a.ok === false), JSON.stringify(r.acts))
+  chmodSync(join(root, '.office', 'typed.log'), 0o644)
+  assert.equal(followThrough(root, cfg, { now: T0 + 32 * MIN })[0].step, 'due', 'the retry rings')
 })

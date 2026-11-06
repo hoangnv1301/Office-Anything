@@ -5,7 +5,7 @@
 **Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
 gets a desk, a browser, a live board, and limits that are enforced, not suggested.
 
-<img alt="tests" src="https://img.shields.io/badge/tests-634%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-639%20passing-3fb950">
 <img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
@@ -595,10 +595,10 @@ node lib/tasks.mjs list [--all] [--json]
 - **Staleness is said.** Health is red for a task open with no update for 24 h, or `done` but not verified
   for 6 h, and `health --heal` (the watchdog) writes it to `.office/alerts.log` for the lead (once per
   15 minutes per task).
-- **An ask between sessions is a case with a due time (0.23.0).** A question sent with `SendMessage`
-  is recorded by a hook (`hooks/ask-track.mjs`; no model has to remember): a task of kind `ask`, from the
-  sender, assigned to the recipient, due in 30 minutes. The recipient's message back to the asker, or
-  `node lib/tasks.mjs answer T-… --text "…"`, closes it for good. `node lib/tasks.mjs ask --to <session> --question "…" [--minutes N]`
+- **An ask between sessions is a case with a due time (0.23.0).** With `office.json` `"asks": { "track": true }` (off by default), a question sent with `SendMessage` to a
+  known lead, desk, case session or registered session is recorded by a hook (`hooks/ask-track.mjs`; no model has to remember): a task of kind `ask`, from the
+  sender, assigned to the recipient, due in 30 minutes. A question is a `?` in the sender's own words (not in a URL, quoted text or code). The recipient's answer back to the asker, or
+  `node lib/tasks.mjs answer T-… --text "…"` (the asker may close it too), closes it for good; "on it" is noted and leaves it open. `node lib/tasks.mjs ask --to <session> --question "…" [--minutes N]`
   is the manual road. A late ask is not left waiting: heal (`lib/follow.mjs`) writes `ASK-DUE` (a `NUDGE`
   line for the lead to send to the asked session; again every 15 minutes, twice more), then `ASK-LATE`
   (raised to the lead), then one plain `ASK-OWNER` line 90 minutes past due. Each step is an event in
