@@ -1,0 +1,22 @@
+name: Feature request
+description: A check, gate, command or capability the office is missing
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The fault it prevents
+      description: What went wrong, or would, without it? This project adds things because something broke.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+      description: Say whether it should report (a check in checks/) or block (a hook in hooks/). They are different jobs.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered

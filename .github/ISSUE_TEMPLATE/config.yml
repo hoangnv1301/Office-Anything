@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/hoangnv1301/Office-Anything/security/advisories/new
+    about: Privately, please. Not as a public issue.
+  - name: Live demo
+    url: https://hoangnv1301.github.io/Office-Anything/
+    about: See a desk refuse a job that is not its own before you install.

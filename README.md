@@ -2,18 +2,19 @@
 
 <div align="center">
 
-**Supercharge your Claude Code into a whole office.** Hire and fire AI agents — each
-gets a desk, a browser, a live board, and limits that are enforced, not suggested.
+**Turn Claude Code into a whole office.** Hire and fire AI agents. Each one gets a desk, a
+browser, a live board, and limits that are enforced, not suggested.
 
+<a href="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml"><img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg"></a>
 <img alt="tests" src="https://img.shields.io/badge/tests-713%20passing-3fb950">
-<img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
-<img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
+<a href="https://github.com/hoangnv1301/Office-Anything/releases"><img alt="version" src="https://img.shields.io/github/package-json/v/hoangnv1301/Office-Anything?filename=.claude-plugin%2Fplugin.json&label=version&color=8957e5"></a>
+<a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
 <img alt="claude code" src="https://img.shields.io/badge/Claude%20Code-plugin-8957e5">
 
-[Install](#install) · [Hire](#hire-someone) · [Try](#try-something-without-letting-it-in) ·
-[Fire](#fire-someone) · [The wall](#the-wall) · [The checks](#the-checks) · [The board](#the-board) ·
-[Design](#design-philosophy) · [Roadmap](#roadmap)
+[Quickstart](#quickstart) · [Commands](#commands) · [The wall](#the-wall) ·
+[The checks](#the-checks) · [The board](#the-board) · [Docs](#documentation) ·
+[Contributing](#contributing)
 
 <img src="assets/board-hero.svg" width="100%"
      alt="The office board: a sidebar of desks each with its own colored shape, the lead's live chat in the middle with a message routed to pricing and its reply, and the desk's own browser mirrored on the right. Built entirely on what Claude Code already writes.">
@@ -25,6 +26,21 @@ gets a desk, a browser, a live board, and limits that are enforced, not suggeste
 <sub>Pick a desk, try to give it a job that isn't its own, and watch it refuse.</sub>
 
 </div>
+
+## What it is
+
+Office-Anything is a [Claude Code](https://claude.com/claude-code) plugin for running
+**several AI agents as one team** without trusting any of them to behave.
+
+- **A desk per agent.** One folder, one `desk.json`, one browser profile, one Claude Code
+  session. Nothing about a desk lives anywhere else, so firing it actually removes it.
+- **Walls, not prompts.** A desk that holds your prices has *no way to send* a message to a
+  customer. Hooks block the forbidden tool call before it runs; they do not ask nicely.
+- **Checks with one exit code.** `node checks/run.mjs` audits any office, including one you
+  did not write, and an audit that examined nothing reports UNKNOWN, never green.
+- **A board you can watch.** Every desk's live chat, browser and state on one read-only
+  local page, phone included.
+- **Zero dependencies.** Plain Node.js, no database, no login, no cloud, no telemetry.
 
 ## Why Office-Anything?
 
@@ -45,17 +61,41 @@ Office-Anything's answer is a **desk**: one folder, one `desk.json` contract, on
 profile, one agent — with the dangerous capability *absent*, not switched off, and a set of
 checks that audit the whole office with one exit code.
 
-## Install
+## Requirements
+
+| need | for |
+|---|---|
+| [Claude Code](https://claude.com/claude-code) | everything; each desk is a Claude Code session |
+| Node.js 22+ | the checks, hooks and helpers (no `npm install`; the plugin has no dependencies) |
+| Google Chrome | desks that browse; each gets its own profile, started only when a tool needs it |
+| macOS + the Orca terminal | optional: `/desk-start`, `/desk-recover` and the unattended watchdog open terminal tabs and use launchd. `/role` falls back to tmux or Terminal |
+
+Hiring, firing, the walls, the checks and the board are plain Node.js and work wherever
+Claude Code does.
+
+## Quickstart
+
+**1. Add the marketplace and install** (inside Claude Code):
 
 ```bash
+/plugin marketplace add hoangnv1301/Office-Anything
 /plugin install office-anything@office-anything
 ```
 
-Restart Claude Code once so the hooks arm, and you are set. (In
-non-interactive `claude -p` runs, slash commands may not resolve — ask for
-the skill by name instead: "use your office-anything desk-hire skill".) The plugin stays
-quiet until your repo has a `desks/` directory — hire your first desk and
-everything switches on together.
+**2. Restart Claude Code once.** ⚠️ Hooks arm only when a session starts. A session that
+was already running when you installed has no wall yet, and a test write will go through.
+
+**3. Hire your first desk, teach it, check the office:**
+
+```bash
+/desk-hire "someone who answers our Instagram DMs"
+# write desks/<name>/facts.md: everything the desk knows, it learns from you
+node checks/run.mjs        # one exit code for the whole office
+```
+
+The plugin stays quiet until your repo has a `desks/` directory: hire your first desk and
+everything switches on together. In non-interactive `claude -p` runs slash commands may not
+resolve, so ask for the skill by name instead: "use your office-anything desk-hire skill".
 
 ## Updating
 
@@ -69,7 +109,46 @@ version:
 
 Then `/reload-plugins` (or restart Claude Code) to run the new version in the
 current session. Only official Anthropic marketplaces auto-update in the
-background; everything else, including this one, updates on demand.
+background; everything else, including this one, updates on demand. `/desk-status`
+tells you which version this machine actually loaded.
+
+## Commands
+
+The filename in [`commands/`](commands/) is the slash command.
+
+| command | what it does |
+|---|---|
+| `/desk-hire "<role>"` | hire a desk from a one-line description; two readers must agree on its kind |
+| `/desk-try "<thing>"` | hire a throwaway desk to try a tool, so firing it removes everything it brought |
+| `/desk-fire <name> --reason "…"` | fire a desk with the checklist that stops it breaking the rest; archives, never deletes |
+| `/desk-start <name\|all\|lead>` | start a desk resuming its own conversation, never another's |
+| `/desk-recover` | after a crash: the lead first, then every desk, each resuming its own conversation |
+| `/desk-health` | is every desk running and listening; optionally heal |
+| `/desk-onoff` | which desks run on this machine; switch one on or off here only |
+| `/desk-case` | one session per case under its parent desk: open, list, close, route, sweep |
+| `/desk-board` | open the office board: desks, usage, live chat, every check |
+| `/desk-status` | which plugin version this machine loaded and whether the office approved it |
+| `/office-job` | list, run or cancel the office's prepared jobs |
+| `/role <name>` | open a new session as a role from `office.json` profiles |
+
+## Documentation
+
+This README is also the reference manual; every claim in it is pinned by a test. Start with
+the first five sections, then dip into the rest as your office grows.
+
+| start here | as the office grows | running it every day |
+|---|---|---|
+| [Hire someone](#hire-someone) | [The desk wall, and a desk that remembers](#the-desk-wall-and-a-desk-that-remembers) | [Start and recover](#start-and-recover-each-desk-resumes-its-own-conversation) |
+| [Try something](#try-something-without-letting-it-in) | [Rename a desk](#rename-a-desk-edit-one-field) | [The lead's task list](#the-leads-task-list) |
+| [Fire someone](#fire-someone) | [Session names carry their department](#session-names-carry-their-department) | [One session per case](#one-session-per-case) |
+| [The wall](#the-wall) | [Run only some desks on this machine](#run-only-some-desks-on-this-machine) | [Saving tokens](#saving-tokens-with-no-model-in-the-loop) · [Smart compact](#smart-compact-a-model-decides-when-and-what-to-keep) |
+| [The checks](#the-checks) | [Departments](#departments-a-lead-per-department) | [Are the desks working?](#are-the-desks-working-and-not-troublesome) |
+| [The board](#the-board) | [Roles](#roles-open-a-session-as-who-you-mean-to-be) | [Health and self-healing](#health-is-every-desk-actually-listening) |
+| [Design philosophy](#design-philosophy) | [Hold a version](#hold-a-version-approve-what-your-office-runs) · [The sandbox](#the-sandbox-a-guarantee-under-the-wall) | [Scheduled jobs](#scheduled-jobs-they-run-even-when-the-session-that-scheduled-them-is-gone) |
+
+Also: [CHANGELOG](CHANGELOG.md) (one entry per fault found in production) ·
+[CONTRIBUTING](CONTRIBUTING.md) · [SECURITY](SECURITY.md) ·
+[live demo](https://hoangnv1301.github.io/Office-Anything/)
 
 ## Hire someone
 
@@ -1251,7 +1330,8 @@ never would; the [changelog](CHANGELOG.md) is that list, one entry per fault.
 
 - **`state-shape`** — state files sorted by lifetime (the FHS names: `run/ lib/ log/
   cache/ spool/`), so "can I delete this" has an answer by construction.
-- **A task panel** — each desk's own TaskList, the CLI's todo list, on the board.
+- **Each desk's own TaskList** — the CLI's per-session todo list on the board, beside the
+  lead's task queue the Tasks panel already shows.
 - **Session picker** — a desk's older sessions, not only its newest.
 - **Restart on latest, resumed** — one button that updates Claude Code and reopens every
   desk exactly where it was, with `--resume`.
@@ -1264,12 +1344,25 @@ never would; the [changelog](CHANGELOG.md) is that list, one entry per fault.
 Typed commits, one grammar enforced in two places, and every claim the README makes is
 pinned by a test — including this one. Start at [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Community
+
+- 🐛 **Found a bug?** [Open an issue](https://github.com/hoangnv1301/Office-Anything/issues/new/choose)
+  with the output of `node checks/run.mjs` and `/desk-status`.
+- 💡 **Have an idea?** Feature requests use the same link; say which fault it prevents.
+- 🔒 **Security issue?** Do not open a public issue. See [SECURITY.md](SECURITY.md).
+
+Everyone taking part is expected to follow the [Code of Conduct](.github/CODE_OF_CONDUCT.md).
+
 ## Acknowledgments
 
 - Repo structure and release style informed by
   [Agent-Reach](https://github.com/Panniantong/Agent-Reach).
 - Built on what [Claude Code](https://claude.com/claude-code) already provides — hooks,
   slash commands, plugins, subagents. Nothing here reimplements any of it.
+
+## License
+
+Released under the [MIT License](LICENSE).
 
 ## Star history
 

@@ -1,0 +1,15 @@
+# The plugin itself has no dependencies. These are the two places that do:
+# the CI actions, and the board's UI build.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+    commit-message: { prefix: ci }
+  - package-ecosystem: npm
+    directory: /board/ui
+    schedule: { interval: monthly }
+    commit-message: { prefix: build }
+    groups:
+      board-ui:
+        patterns: ["*"]

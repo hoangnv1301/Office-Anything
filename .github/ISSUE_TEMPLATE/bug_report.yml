@@ -1,0 +1,49 @@
+name: Bug report
+description: Something the plugin did that it should not have, or did not do that it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Every fault in the CHANGELOG was found by using the plugin, so a
+        concrete repro is the most useful thing you can send. **Security issues go to a private
+        advisory, not here** (see SECURITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      placeholder: "/desk-fire chat refused with ... although nothing depends on chat"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The commands you ran, in order. A desk that had to exist first counts as a step.
+      placeholder: |
+        1. /desk-hire "..."
+        2. edit desks/<name>/desk.json ...
+        3. node checks/run.mjs
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Output of `node checks/run.mjs`
+      description: Run it from the office root. Remove anything private; findings name locations, never secret values.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Plugin version
+      description: From `/desk-status`, or `version` in `.claude-plugin/plugin.json`
+      placeholder: "0.27.1"
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "macOS 15, Node 22.11, Claude Code 2.x, terminal: Orca"
+    validations:
+      required: true
