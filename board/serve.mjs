@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { gatherOffice, slugFor } from './read.mjs'
 import { queueView, evidenceOf } from '../lib/tasks.mjs'
+import { boardView as ownerWordsView } from '../lib/owner-words.mjs'
 import { newestSession, chatFrom, readTail, pendingAsk } from './transcript.mjs'
 import { subagentsOf, jobsOf } from './read.mjs'
 import { transcriptStats, worktop, filesUnder, treeOf } from './read.mjs'
@@ -778,7 +779,7 @@ export function makeServer(root) {
           .catch(() => json(res, 200, { tabs: [], why: 'no headed Chrome answering on port ' + row.port + ' right now' }))
       }
       // the office-wide task queue: the lead's list, read-only, from the same fold (lib/tasks.mjs)
-      if (url.pathname === '/api/tasks') return json(res, 200, queueView(root))
+      if (url.pathname === '/api/tasks') return json(res, 200, { ...queueView(root), ownerWords: ownerWordsView(root) })
       if (url.pathname === '/api/task-evidence') return json(res, 200, evidenceOf(root, url.searchParams.get('id') ?? '', url.searchParams.get('n') ?? ''))
       if (url.pathname === '/api/timeline') {
         // every desk-to-desk message in the office, both ends merged, with the

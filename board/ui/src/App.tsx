@@ -339,7 +339,7 @@ function OfficeTimeline({ onPick }: { onPick: (desk: string) => void }) {
 }
 
 type TaskRow = { id: string; title: string; said: string; state: string; assigned: string; due: string | null; age: string; idle: string; overdue: boolean; stale: boolean; notes: { at: number; by: string; text: string }[]; evidence: { evidence: string; proof: string; at: number }[]; reason?: string }
-type QueueData = { totals: { open: number; working: number; waiting: number; done: number; overdue: number; stale: number }; assignees: { name: string; counts: Record<string, number>; overdue: number; stale: number; tasks: TaskRow[] }[]; closed: TaskRow[] }
+type QueueData = { totals: { open: number; working: number; waiting: number; done: number; overdue: number; stale: number }; assignees: { name: string; counts: Record<string, number>; overdue: number; stale: number; tasks: TaskRow[] }[]; closed: TaskRow[]; ownerWords?: { open: number; alarms: number; sessions: { session: string; open: number; alarms: number; oldest: string }[] } }
 type Evidence = { kind: string; content?: string; url?: string; why?: string; path?: string }
 // the office-wide queue: the lead's task list, read-only, from the same fold the lead uses
 function TasksView() {
@@ -389,6 +389,8 @@ function TasksView() {
             <Badge variant="secondary">{q.totals.open} open</Badge><Badge variant="secondary">{q.totals.working} working</Badge><Badge variant="secondary">{q.totals.waiting} waiting</Badge><Badge variant="secondary">{q.totals.done} done, not verified</Badge>
             {q.totals.overdue > 0 && <Badge className="bg-destructive text-white">{q.totals.overdue} overdue</Badge>}
             {q.totals.stale > 0 && <Badge className="bg-amber-500 text-black">{q.totals.stale} quiet 24h+</Badge>}
+            {q.ownerWords && q.ownerWords.open > 0 && <Badge variant="secondary" title={q.ownerWords.sessions.map((s) => s.session + ': ' + s.open + ' open, oldest ' + s.oldest).join('\n')}>{q.ownerWords.open} owner words open</Badge>}
+            {q.ownerWords && q.ownerWords.alarms > 0 && <Badge className="bg-destructive text-white">{q.ownerWords.alarms} owner words open 24h+</Badge>}
           </div>
         )}
         {q && q.assignees.length === 0 && <div className="py-6 text-center text-sm text-muted-foreground">Nothing open. The lead puts the owner’s requests here.</div>}

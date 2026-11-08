@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.28.0
+
+- OWNER WORDS ARE RECORDED NATIVELY (owner, 2026-11-08: "you should have record what I said better ... we are missing many things during discussion"). Asks lived only in long chats and a compaction lost them. A `UserPromptSubmit` hook (`hooks/owner-words.mjs`, beside `typed-prompt.mjs`, whose approval rules are untouched) appends every genuine typed prompt of an owner-facing session to `.office/owner-words.jsonl`: id `W-YYMMDD-n`, time, session, the text verbatim, state open. Not recorded: the office's own typed text, system traffic (task notices, hook feedback, peer envelopes, compaction summaries), approval phrases, bare acks, slash commands, and anything shaped like a credential (the `no-secrets` patterns).
+- A message typed MID-TURN fires no `UserPromptSubmit` (Claude Code queues it and writes a `queued_command` attachment, origin human). No hook sees it when it is typed, so the same hook reads the transcript tail on the next prompt and records the queued human messages it has not seen (each by its own uuid, once). Late, not lost.
+- `SessionStart` (start, resume, clear, compact), `hooks/owner-words-boot.mjs`: the session is shown its own still-open words, newest first, five at most, next to the open-tasks block; any open more than 24 h adds an ALARM line.
+- `node lib/owner-words.mjs list|done W-… --note|task W-… [--title]|no-action W-… --why`: a session closes only its own words. `task` makes a real task in `tasks.jsonl` whose `said` is the owner's text. The board's `/api/tasks` carries `ownerWords` (open and 24 h+ counts per session) and the Tasks page shows two badges (the built `board/ui/dist` is not rebuilt in this change).
+- The credential patterns moved unchanged from the no-secrets gate to `lib/secrets.mjs` (the gate re-exports them), because `lib/` must not import `hooks/`.
+- A lead whose `wall.lead.bash` is an allow-list adds `"^node {plugin}/lib/owner-words\\.mjs (list|done|task|no-action)( ARG)*$"` to run the CLI, as for `tasks.mjs`.
+
 ## 0.27.1
 
 - Security-scan fixes to who may grant (follow-up to 0.27.0): the registry's home folder is the account's own (from the password database), never `$HOME`, and `HOME` joins the variables a tool call may not set. The `claude` ancestor is trusted only when its executable (read from the process itself) is the installed Claude Code, and only shells or node may sit between it and the caller: a program that merely calls itself `claude`, or a `claude`, python or other process in between, grants nothing. A tool call that empties its environment (`env -i`, `env -`, `exec -c`) is refused.
