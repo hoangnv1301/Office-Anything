@@ -6,7 +6,7 @@
 browser, a live board, and limits that are enforced, not suggested.
 
 <a href="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml"><img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg"></a>
-<img alt="tests" src="https://img.shields.io/badge/tests-713%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-723%20passing-3fb950">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <a href="https://github.com/hoangnv1301/Office-Anything/releases"><img alt="version" src="https://img.shields.io/github/package-json/v/hoangnv1301/Office-Anything?filename=.claude-plugin%2Fplugin.json&label=version&color=8957e5"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
@@ -648,6 +648,10 @@ node lib/tasks.mjs list [--all] [--json]
 - **A context reset can not lose it.** A SessionStart hook (`hooks/tasks-boot.mjs`: start, resume, clear
   and compact) prints the open tasks into the lead's context: id, age, state, assigned, the first 60
   characters of the title, `OVERDUE` past a due date, and the command shapes. `/desk-recover` shows the same.
+- **Owner words are recorded too (0.28.0).** `hooks/owner-words.mjs` keeps what the owner types, verbatim, in
+  `.office/owner-words.jsonl`; `hooks/owner-words-boot.mjs` shows a session its own still-open words at start and
+  after a compact (an ALARM line past 24 h); `node lib/owner-words.mjs done|task|no-action W-…` closes them,
+  only in the session that heard them. Credentials, system traffic and approval phrases are never recorded.
 - **The lead writes no file itself.** The script does. Put one entry in `wall.lead.bash`:
   `"^node {plugin}/lib/tasks\\.mjs (add|update|verify|drop|list)( ARG)*$"` (ARG as in the lead.bash
   example above). `{plugin}` is the one placeholder the wall knows: it expands to the running

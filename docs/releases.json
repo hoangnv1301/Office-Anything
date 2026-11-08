@@ -405,5 +405,11 @@
     "new": [
       "Granting an approval is checked harder: only the installed Claude Code counts as a session, and a tool call cannot change the home folder."
     ]
+  },
+  "0.28.0": {
+    "date": "2026-11-08",
+    "new": [
+      "Your own words are kept as you typed them and shown back at the start of every session, with a warning when one stays open for a day."
+    ]
   }
 }
