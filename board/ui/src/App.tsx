@@ -555,6 +555,8 @@ export default function App() {
   // the tree fires onSelect for FOLDER rows too; a folder click must toggle
   // the folder, never open the detail dialog
   const paneRef = useRef<Pane | null>(null)
+  // which desk the pane on screen belongs to (its label can differ from the row's)
+  const paneKeyRef = useRef<string | null>(null)
   const isFileIn = (n: WsNode | null | undefined, p: string): boolean => {
     if (!n) return true // no tree yet: let the fetch decide
     const parts = p.split('/')
@@ -595,7 +597,7 @@ export default function App() {
     if (text === lastPayload.current) return
     lastPayload.current = text
     const p = JSON.parse(text)
-    setPane(p); paneRef.current = p
+    setPane(p); paneRef.current = p; paneKeyRef.current = sel
     // an echo leaves the outbox the moment the transcript itself shows it
     const norm = (t: string) => t.replace(/\s+/g, ' ').trim().slice(0, 80)
     const recent = (p?.messages ?? []).slice(-12).filter((m: Msg) => m.role === 'user' || (m.role === 'peer' && m.from === 'office board')).map((m: Msg) => norm(m.text))
@@ -646,7 +648,7 @@ export default function App() {
   // switching desks must not leave the LAST desk's pixels or words on
   // screen — a few seconds of the wrong desk reads as the wrong truth
   useEffect(() => {
-    setPane(null); paneRef.current = null
+    setPane(null); paneRef.current = null; paneKeyRef.current = null
     setOutbox([]); setNote('') // a toast belongs to the desk that earned it
     setScreen((old) => { if (old.src) URL.revokeObjectURL(old.src); return { src: null, url: '', why: 'connecting to this desk’s computer…' } })
   }, [sel])
@@ -731,11 +733,10 @@ export default function App() {
   // mark this desk read up to its newest message, while the tab is in view
   useEffect(() => {
     if (!sel || !pane) return
-    const d = desks.find((x) => x.key === sel)
-    if (!d || pane.label !== d.label || document.visibilityState !== 'visible') return
+    if (paneKeyRef.current !== sel || document.visibilityState !== 'visible') return
     const last = pane.messages.reduce((a, m) => Math.max(a, m.at ? Date.parse(m.at) || 0 : 0), 0)
     if (last) try { localStorage.setItem('office-seen-' + sel, String(last)) } catch { /* a convenience */ }
-  }, [sel, pane, desks])
+  }, [sel, pane])
   // ONE SIDEBAR, TWO HOMES: the desktop column and the phone's slide-over.
   // Each desk is a row: its blob with a state dot, its name, and ALWAYS one
   // line of what it is doing; teammates and background jobs fold under it.
@@ -802,7 +803,8 @@ export default function App() {
   const [dark, setDark] = useState(isDark)
   const sidebar = (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between px-4 pb-2 pt-4">
+      {/* on a phone the slide-over's own close button sits top right: leave it room */}
+      <div className={'flex items-center justify-between pb-2 pl-4 pt-4 ' + (isDesktop ? 'pr-4' : 'pr-12')}>
         <h1 className="text-[17px] font-semibold tracking-tight">The office</h1>
         <Button variant="ghost" size="sm" className="size-8 p-0 text-muted-foreground" title="Hire a desk" onClick={() => { setDrawerOpen(false); setHireOpen(true) }}><Plus className="size-4" /></Button>
       </div>
@@ -1067,8 +1069,8 @@ export default function App() {
         <Button variant="ghost" size="sm" className="size-7 flex-none p-0 text-muted-foreground" title="Close" onClick={() => setDrawer(null)}><X className="size-4" /></Button>
       </div>
       <Tabs value={drawerTabs.some(([v]) => v === drawerTab) ? drawerTab : drawerTabs[0][0]} onValueChange={(v) => setDrawerTab(String(v))} className="flex min-h-0 flex-1 flex-col gap-0">
-        <TabsList variant="line" className="mx-2 my-1 h-auto flex-wrap justify-start">
-          {drawerTabs.map(([v]) => <TabsTrigger key={v} value={v} className="flex-none px-2 text-[13px] capitalize">{v}</TabsTrigger>)}
+        <TabsList variant="line" className="mx-2 my-1 w-[calc(100%-1rem)] justify-between gap-0 overflow-x-auto">
+          {drawerTabs.map(([v]) => <TabsTrigger key={v} value={v} className="flex-none px-1 text-[13px] capitalize">{v}</TabsTrigger>)}
         </TabsList>
         {drawerTabs.map(([v, body]) => tabPanel(v, body))}
       </Tabs>
@@ -1310,7 +1312,7 @@ export default function App() {
                   ⇧⇥</button>
                 {pane.mode && <span className="whitespace-nowrap" title="permission mode, as recorded (⇧⇥ cycles it)">mode · {modeWord(pane.mode)}</span>}
                 <DropdownMenu>
-                  <DropdownMenuTrigger render={<button type="button" className="ml-2 rounded px-1 py-0.5 hover:text-foreground">/ commands</button>} />
+                  <DropdownMenuTrigger render={<button type="button" className="ml-2 flex-none whitespace-nowrap rounded px-1 py-0.5 hover:text-foreground">/ commands</button>} />
                   <DropdownMenuContent className="max-h-72 w-[30rem] max-w-[92vw] overflow-y-auto">
                     {commands.map((c) => (
                       <DropdownMenuItem key={c.name} onSelect={() => pickCommand(c.name)}
@@ -1376,7 +1378,7 @@ export default function App() {
         </ResizablePanelGroup>}
       </main>
 
-      {isDesktop && drawer && <aside className="flex w-[340px] flex-none flex-col border-l border-border bg-paper">{drawerBody}</aside>}
+      {isDesktop && drawer && <aside className="flex w-[372px] flex-none flex-col border-l border-border bg-paper">{drawerBody}</aside>}
       {!isDesktop && (
         <Sheet open={!!drawer} onOpenChange={(o) => { if (!o) setDrawer(null) }}>
           <SheetContent side="right" className="w-[90vw] max-w-96 gap-0 bg-paper p-0">

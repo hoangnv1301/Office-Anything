@@ -78,7 +78,8 @@ const chat = await until(`document.querySelectorAll('[class*=is-user],[class*=is
 check('chat renders < ' + THRESH_MS + 'ms', chat.ok, chat.ms + 'ms')
 
 // 2. markdown really renders (a <strong> exists inside a bubble)
-check('markdown renders', !!(await evalJs(`!!document.querySelector('[class*=is-assistant] strong, [class*=is-assistant] code')`)))
+// streamdown renders **bold** as <span data-streamdown="strong">, not <strong>
+check('markdown renders', !!(await evalJs(`!!document.querySelector('[class*=is-assistant] strong, [class*=is-assistant] code, [class*=is-assistant] [data-streamdown=strong]')`)))
 
 // 3. images in chat
 const imgCount = await evalJs(`document.querySelectorAll('#root img').length`)
@@ -169,8 +170,11 @@ for (const tab of ['agents', 'skills', 'plugins', 'hooks']) {
   const rows = await until(`(()=>{const p=[...document.querySelectorAll('[role=tabpanel]')].find(p=>p.offsetParent&&!p.hidden); return p && p.innerText.trim().length > 20})()`, 5000)
   check('rail tab "' + tab + '" renders content', rows.ok, rows.ms + 'ms')
 }
+// the last tab clicked was hooks: wait for ITS panel, not the one it replaced
+await until(`[...document.querySelectorAll('[role=tabpanel]')].some(p=>p.offsetParent&&/SESSIONSTART|PRETOOLUSE|no hooks/i.test(p.innerText))`, 4000)
 const hookOrder = await evalJs(`(()=>{const p=[...document.querySelectorAll('[role=tabpanel]')].find(p=>p.offsetParent&&/SESSIONSTART|PRETOOLUSE/i.test(p.innerText)); const t=(p?.innerText??'').toUpperCase(); return JSON.stringify({start:t.indexOf('SESSIONSTART'),pre:t.indexOf('PRETOOLUSE'),stop:t.indexOf('\\nSTOP')})})()`)
 const ho = JSON.parse(hookOrder || '{}')
+if (!(ho.start >= 0)) console.log('   diag:', await evalJs(`JSON.stringify({desk: document.querySelector('header')?.innerText.split('\\n')[0], panels: [...document.querySelectorAll('[role=tabpanel]')].map(p=>(p.offsetParent?'shown ':'hidden ')+p.innerText.slice(0,80))})`))
 check('hooks listed in lifecycle order', ho.start >= 0 && ho.pre > ho.start && (ho.stop < 0 || ho.stop > ho.pre), hookOrder)
 
 // 12. copy path: a REAL click writes the clipboard and the button says so
@@ -218,6 +222,10 @@ const key = async (k, code = k, vk) => {
 }
 const typeText = async (t) => { for (const ch of t) await call('Input.insertText', { text: ch }) }
 const taValue = () => evalJs(`document.querySelector('textarea')?.value ?? ''`)
+// back to the lead first: the phone step left a desk selected that may have
+// no route, and a desk the board cannot reach has a disabled box
+await mouseClick(`[...document.querySelectorAll('aside button, [data-testid=desk-row]')].find(b=>/team-lead/.test(b.textContent))`)
+await until(`!document.querySelector('textarea')?.disabled`, 4000)
 await mouseClick(`document.querySelector('textarea')`)
 await evalJs(`(()=>{const t=document.querySelector('textarea'); t.value=''; t.dispatchEvent(new Event('input',{bubbles:true})); return true})()`)
 
@@ -241,7 +249,8 @@ const argList = await until(`[...document.querySelectorAll('form button span.fon
 check('/model shows its argument list instead of a blind picker', argList.ok, argList.ms + 'ms')
 await key('Tab', 'Tab', 9)
 const afterTab = await taValue()
-check('Tab completes the argument inline', /^\/model claude-[\w-]+ $/.test(afterTab), JSON.stringify(afterTab))
+// the picker lists aliases first (opus, sonnet…), then full ids
+check('Tab completes the argument inline', /^\/model [\w-]+ $/.test(afterTab), JSON.stringify(afterTab))
 
 // d) Escape closes the menu, text stays
 await evalJs(`(()=>{const t=document.querySelector('textarea'); t.value='/sta'; t.dispatchEvent(new Event('input',{bubbles:true})); return true})()`)

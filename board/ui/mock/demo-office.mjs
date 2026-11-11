@@ -9,15 +9,22 @@
 // the real board server at them (HOME is swapped before serve.mjs loads), and
 // keeps running until Ctrl-C. This process's own pid stands in as the live
 // session of every desk, so the registry reads "alive" without starting one.
-import { mkdtempSync, mkdirSync, writeFileSync, utimesSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, utimesSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const port = Number(process.argv[process.argv.indexOf('--port') + 1]) || 7799
-const base = mkdtempSync(join(tmpdir(), 'oa-demo-'))
+// /tmp, not os.tmpdir(): macOS's per-user temp path carries "__", and the
+// board refuses a project key with an underscore in it ("bad key")
+const base = mkdtempSync(join(existsSync('/tmp') ? '/tmp' : tmpdir(), 'oa-demo-'))
 const root = join(base, 'office')
 const home = join(base, 'home')
 process.env.HOME = home
+// ⛔ the demo must never reach a REAL terminal: with the orca CLI on PATH the
+// board would find this machine's own tabs and route the composer into them.
+// Every PATH entry that holds an `orca` is dropped, so every desk reads
+// "no terminal" and the composer can only reach the fake inboxes.
+process.env.PATH = (process.env.PATH ?? '').split(':').filter((d) => d && !existsSync(join(d, 'orca'))).join(':')
 
 const { slugFor } = await import('../../read.mjs')
 const { makeServer } = await import('../../serve.mjs')
@@ -27,7 +34,7 @@ const now = Date.now()
 const iso = (minAgo) => new Date(now - minAgo * 60000).toISOString()
 
 // ── the office: a lead at the root and five desks ──
-write(join(root, 'desk.json'), JSON.stringify({ name: 'lead', kind: 'lead', port: 9230, heartbeat: "echo 'heartbeat: 9/9 loops up'" }))
+write(join(root, 'desk.json'), JSON.stringify({ name: 'team-lead', kind: 'lead', port: 9230, heartbeat: "echo 'heartbeat: 9/9 loops up'" }))
 write(join(root, 'office.json'), JSON.stringify({ panels: [{ id: 'approvals', title: 'Pending approvals', command: `printf '%s\\n' 'SO-1019 revised quote — waits on freight' 'SO-1031 drawing set — waits on the buyer' 'SO-1040 refund — waits on the owner'` }] }))
 write(join(root, 'CLAUDE.md'), '# The demo office\n\nA made-up office for screenshots. ' + 'Every desk, buyer and number here is invented. '.repeat(8) + '\n')
 write(join(root, 'notes', 'freight.md'), '# Freight\n\nRates for SO-1019 are pending.\n')
@@ -36,15 +43,20 @@ const desks = [
   ['customer-service', 'channel', 9234], ['manufacturing', 'knowledge', 9235],
 ]
 for (const [name, kind, p] of desks) {
-  write(join(root, 'desks', name, 'desk.json'), JSON.stringify({ name, kind, port: p, live: name === 'customer-service' }))
+  write(join(root, 'desks', name, 'desk.json'), JSON.stringify({ name, kind, port: p, live: false }))
   write(join(root, 'desks', name, 'CLAUDE.md'), '# ' + name + '\n\nA demo desk. ' + 'Its notes are invented. '.repeat(10) + '\n')
+  // a few hooks, so the drawer's Hooks tab has a lifecycle to show
+  const hook = (command, matcher = '*') => [{ matcher, hooks: [{ type: 'command', command }] }]
+  write(join(root, 'desks', name, '.claude', 'settings.json'), JSON.stringify({ hooks: {
+    Stop: hook('node hooks/report-done.mjs'), PreToolUse: hook('node hooks/desk-wall.mjs', 'Bash|Write|Edit'), SessionStart: hook('node hooks/boot.mjs'),
+  } }))
 }
 
 // ── transcripts, in Claude Code's own jsonl shape ──
 let n = 0
 const id = () => 'toolu_demo_' + (++n)
 const usage = (i, o, cr) => ({ input_tokens: i, output_tokens: o, cache_read_input_tokens: cr, cache_creation_input_tokens: 2000 })
-const user = (text, min) => ({ type: 'user', permissionMode: 'bypassPermissions', timestamp: iso(min), message: { role: 'user', content: text } })
+const user = (text, min) => ({ type: 'user', permissionMode: 'acceptEdits', timestamp: iso(min), message: { role: 'user', content: text } })
 const peer = (from, text, min) => user(`<cross-session-message from="uds:/tmp/demo/${from}.sock" from-name="${from}">\n${text}\n</cross-session-message>`, min)
 const said = (text, min, extra = {}) => ({ type: 'assistant', timestamp: iso(min), message: { role: 'assistant', model: 'claude-opus-5-5', usage: usage(1200, 900, 61000), content: [...(extra.thinking ? [{ type: 'thinking', thinking: extra.thinking }] : []), { type: 'text', text }] } })
 const tools = (calls, min) => {
@@ -110,14 +122,19 @@ write(join(leadDir, 'aaaaaaaa-0000-4000-8000-000000000002.jsonl'), JSON.stringif
 
 // ── the live registry, one record per desk; all point at this process ──
 const live = [
-  [root, 'lead', 'busy', { detail: 'writing a reply' }],
+  [root, 'lead', 'waiting', { needs: 'your answer' }],
   [join(root, 'desks', 'design'), 'desk-design', 'waiting', { needs: 'plan approval' }],
   [join(root, 'desks', 'design-quotation'), 'desk-design-quotation', 'idle', {}],
   [join(root, 'desks', 'inventory'), 'desk-inventory', 'idle', {}],
   [join(root, 'desks', 'customer-service'), 'desk-customer-service', 'shell', { detail: 'running a command' }],
 ]
+// each desk also gets an inbox address so the composer reads as it does in a
+// real office; the socket does not exist, so a send fails plainly, never lands
+const { createHash } = await import('node:crypto')
 live.forEach(([cwd, name, status, extra], i) => {
-  write(join(home, '.claude', 'sessions', String(1000 + i) + '.json'), JSON.stringify({ pid: process.pid, cwd, name, status, sessionId: ids[cwd], updatedAt: now, version: '2.1.311', ...extra }))
+  const sock = join(base, 'inbox-' + i + '.sock')
+  write(join(home, '.claude', 'sessions', String(1000 + i) + '.json'), JSON.stringify({ pid: process.pid, cwd, name, status, sessionId: ids[cwd], updatedAt: now, version: '2.1.311', messagingSocketPath: sock, ...extra }))
+  write(join(home, '.claude', 'sessions', `${process.pid}.${createHash('sha256').update(sock).digest('hex')}.key`), JSON.stringify({ peerToken: 'demo-token-' + i }))
 })
 
 makeServer(root).listen(port, '127.0.0.1', () => {
