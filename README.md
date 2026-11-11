@@ -6,7 +6,7 @@
 browser, a live board, and limits that are enforced, not suggested.
 
 <a href="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml"><img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg"></a>
-<img alt="tests" src="https://img.shields.io/badge/tests-723%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-729%20passing-3fb950">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <a href="https://github.com/hoangnv1301/Office-Anything/releases"><img alt="version" src="https://img.shields.io/github/package-json/v/hoangnv1301/Office-Anything?filename=.claude-plugin%2Fplugin.json&label=version&color=8957e5"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
@@ -645,6 +645,13 @@ node lib/tasks.mjs list [--all] [--json]
   `verified` and `dropped` are final: a reopened task is one nobody can trust, so add a new one.
 - **Who you are comes from the session, not a flag.** The lead does everything. A desk can `add` (for the
   lead unless it names someone) and work the tasks assigned to it, never `verify` or `drop`.
+- **A desk closes its own task through its wall.** The plugin sits under Claude Code's own folder, which a
+  desk never reads, so the desk wall lets exactly two commands through, written with the plugin's folder
+  in full: `node <plugin>/lib/tasks.mjs update T-… --state working|done [--note "<one line>"]` and
+  `node <plugin>/lib/tasks.mjs answer T-… --text "<one line>"` (an ask put to it), and only for a task the
+  list assigns to that desk. Any other verb, flag, root argument or chained command is refused, and the
+  lead gains nothing: closing another desk's task stays the owner's call. A sandboxed desk (`"sandbox":
+  true`) still cannot: its sandbox reads none of Claude Code's folder and writes only its own.
 - **A context reset can not lose it.** A SessionStart hook (`hooks/tasks-boot.mjs`: start, resume, clear
   and compact) prints the open tasks into the lead's context: id, age, state, assigned, the first 60
   characters of the title, `OVERDUE` past a due date, and the command shapes. `/desk-recover` shows the same.
