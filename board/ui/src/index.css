@@ -1,13 +1,26 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+    /* SYSTEM FONTS ONLY (licence rule: nothing fetched or bundled from the
+       internet). The bundled Geist font went with the minimal board, 2026-11-11. */
     --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    /* the minimal board's own tones (mock: board/ui/mock/minimal-board.html) */
+    --color-paper: var(--paper);
+    --color-bubble: var(--bubble);
+    --color-brand: var(--brand);
+    --color-brand-soft: var(--brand-soft);
+    --color-wait: var(--wait);
+    --color-wait-soft: var(--wait-soft);
+    --color-err: var(--err);
+    --color-err-soft: var(--err-soft);
+    --color-ok: var(--ok);
+    --color-ok-soft: var(--ok-soft);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,72 +62,87 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    /* the calm palette, light: warm paper sidebar, white conversation, one teal accent */
+    --paper: #FAFAF9; --bubble: #F1F1EF;
+    --brand: #1F6F78; --brand-soft: #E3F0F1;
+    --wait: #A86A10; --wait-soft: #FBF1E0;
+    --err: #B4321F; --err-soft: #FBE8E4;
+    --ok: #2F7D4F; --ok-soft: #E4F2E9;
+    --md-link: #1D4ED8; --md-code: #1E40AF; --md-code-bg: rgb(0 0 0 / 5%); --md-rule: rgb(0 0 0 / 12%);
+    --background: #FFFFFF;
+    --foreground: #1C1C1A;
+    --card: #FFFFFF;
+    --card-foreground: #1C1C1A;
+    --popover: #FFFFFF;
+    --popover-foreground: #1C1C1A;
+    --primary: #1C1C1A;
+    --primary-foreground: #FAFAF9;
+    --secondary: #F1F1EF;
+    --secondary-foreground: #1C1C1A;
+    --muted: #F1F1EF;
+    --muted-foreground: #6B6B66;
+    --accent: #F1F1EF;
+    --accent-foreground: #1C1C1A;
+    --destructive: #B4321F;
+    --border: #E7E6E2;
+    --input: #E7E6E2;
+    --ring: #1F6F78;
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
     --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --sidebar: #FAFAF9;
+    --sidebar-foreground: #1C1C1A;
+    --sidebar-primary: #1F6F78;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #F1F1EF;
+    --sidebar-accent-foreground: #1C1C1A;
+    --sidebar-border: #E7E6E2;
+    --sidebar-ring: #1F6F78;
+    color-scheme: light;
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
+    --paper: #16171A; --bubble: #26282D;
+    --brand: #5FB7BF; --brand-soft: #1E3437;
+    --wait: #E0A33A; --wait-soft: #3A2E18;
+    --err: #F0846F; --err-soft: #3A221D;
+    --ok: #6CC08D; --ok-soft: #1D3326;
+    --md-link: #60A5FA; --md-code: #93C5FD; --md-code-bg: rgb(255 255 255 / 8%); --md-rule: rgb(255 255 255 / 15%);
+    --background: #1D1F23;
+    --foreground: #ECEDEE;
+    --card: #1D1F23;
+    --card-foreground: #ECEDEE;
+    --popover: #23252A;
+    --popover-foreground: #ECEDEE;
+    --primary: #ECEDEE;
+    --primary-foreground: #16171A;
+    --secondary: #26282D;
+    --secondary-foreground: #ECEDEE;
+    --muted: #26282D;
+    --muted-foreground: #9A9DA3;
+    --accent: #26282D;
+    --accent-foreground: #ECEDEE;
+    --destructive: #F0846F;
+    --border: #2C2E33;
+    --input: #34363C;
+    --ring: #5FB7BF;
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --sidebar: #16171A;
+    --sidebar-foreground: #ECEDEE;
+    --sidebar-primary: #5FB7BF;
+    --sidebar-primary-foreground: #16171A;
+    --sidebar-accent: #26282D;
+    --sidebar-accent-foreground: #ECEDEE;
+    --sidebar-border: #2C2E33;
+    --sidebar-ring: #5FB7BF;
+    color-scheme: dark;
 }
 
 @layer base {
@@ -132,19 +160,19 @@ html, body, #root { height: 100%; }
 
 /* Markdown readability, owner's ruling 2026-09-03: the rendered markdown was
    riding muted grays and got lost against the dark ground. Lift body text to
-   full foreground and use the SAME blue family as the workspace folder icons
-   (blue-400/500) for structure: headings, links, code, markers. */
+   full foreground and use ONE blue family for structure: headings, links,
+   code, markers. Light and dark each get their own shade (--md-*). */
 .md-blue { color: var(--foreground); }
-.md-blue :is(h1, h2, h3, h4, h5, h6) { color: #60a5fa; font-weight: 600; }
-.md-blue a { color: #60a5fa; text-decoration: underline; text-underline-offset: 2px; }
+.md-blue :is(h1, h2, h3, h4, h5, h6) { color: var(--md-link); font-weight: 600; }
+.md-blue a { color: var(--md-link); text-decoration: underline; text-underline-offset: 2px; }
 .md-blue strong { color: var(--foreground); font-weight: 650; }
-.md-blue code { color: #93c5fd; background: oklch(0.985 0 0 / 8%); border-radius: 0.3rem; padding: 0.1rem 0.3rem; }
-.md-blue pre { background: oklch(0.985 0 0 / 6%); border: 1px solid oklch(0.985 0 0 / 10%); }
+.md-blue code { color: var(--md-code); background: var(--md-code-bg); border-radius: 0.3rem; padding: 0.1rem 0.3rem; }
+.md-blue pre { background: var(--md-code-bg); border: 1px solid var(--md-rule); }
 .md-blue pre code { color: var(--foreground); background: transparent; padding: 0; }
-.md-blue li::marker { color: #60a5fa; }
-.md-blue blockquote { border-left: 2px solid #3b82f6; color: var(--foreground); }
-.md-blue table th { color: #60a5fa; }
-.md-blue hr { border-color: oklch(0.985 0 0 / 15%); }
+.md-blue li::marker { color: var(--md-link); }
+.md-blue blockquote { border-left: 2px solid var(--md-link); color: var(--foreground); }
+.md-blue table th { color: var(--md-link); }
+.md-blue hr { border-color: var(--md-rule); }
 
 /* Phone ergonomics: iOS zooms the page when a focused input is under 16px,
    which yanks the whole board sideways mid-thought — so on small screens
@@ -169,3 +197,7 @@ html, body, #root { height: 100%; }
 .md-blue ol { list-style: decimal; padding-left: 1.25rem; margin: 0.35rem 0; }
 .md-blue li { margin: 0.15rem 0; }
 .md-blue li > ul, .md-blue li > ol { margin: 0.1rem 0; }
+
+/* calm motion: nothing moves for someone who asked the system for less */
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+body { -webkit-font-smoothing: antialiased; }

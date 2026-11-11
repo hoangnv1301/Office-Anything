@@ -1,7 +1,7 @@
 // The pure seams of the board's App, tested by name. Rendering behavior is
 // walked by board/ui/e2e.mjs against the living office; these stay hermetic.
 import { describe, expect, test } from 'vitest'
-import { toBlocks, deskStatusLine, composerHint, type Msg } from './App'
+import { toBlocks, deskStatusLine, composerHint, rowLine, sentIn, type Msg } from './App'
 
 const user = (text: string): Msg => ({ role: 'user', text })
 const asst = (text: string, tools: { name: string; input: unknown }[] = []): Msg => ({ role: 'assistant', text, tools })
@@ -65,5 +65,32 @@ describe('composerHint — the road a message takes, said before typing', () => 
     expect(composerHint({ label: 'pricing', route: 'inbox' })).toMatch(/session inbox/)
     expect(composerHint({ label: 'pricing', route: 'terminal' })).toMatch(/terminal/)
     expect(composerHint({ label: 'pricing', route: null })).toMatch(/Claude app/)
+  })
+})
+
+describe('rowLine — the sidebar always says what a desk is doing', () => {
+  test('a working desk says its detail; waiting wins; nothing known still says something', () => {
+    expect(rowLine({ state: 'working', busy: true, detail: 'writing a reply', activeMin: 0 })).toBe('Writing a reply')
+    expect(rowLine({ state: 'working', busy: true, activeMin: 0 })).toBe('Working')
+    expect(rowLine({ state: 'waiting', waiting: true, detail: 'plan approval', activeMin: 0 })).toBe('Waiting on you · plan approval')
+    expect(rowLine({ state: 'idle', online: true, activeMin: 3 })).toBe('Idle')
+    expect(rowLine({ online: false, activeMin: null })).toBe('Offline')
+    expect(rowLine({ online: null, activeMin: 5 })).toBe('Idle')
+    expect(rowLine({ online: null, activeMin: null })).toBe('No live session')
+  })
+})
+
+describe('sentIn — a hand-off to another desk, lifted out of the tool run', () => {
+  test('each SendMessage with words becomes one hand-off; "Done when" is read from the message', () => {
+    const s = sentIn([
+      { name: 'Read', input: { file_path: 'a' } },
+      { name: 'SendMessage', input: { to: 'design', message: 'Redraw the upper at 32 in.\nDone when: four views are in the folder.' } },
+      { name: 'SendMessage', input: { to: 'pricing', message: 'Reprice SO-1.' } },
+      { name: 'SendMessage', input: { to: 'design' } },
+    ])
+    expect(s).toEqual([
+      { to: 'design', text: 'Redraw the upper at 32 in.\nDone when: four views are in the folder.', doneWhen: 'four views are in the folder.' },
+      { to: 'pricing', text: 'Reprice SO-1.', doneWhen: null },
+    ])
   })
 })

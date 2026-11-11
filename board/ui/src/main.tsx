@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { watchTheme } from './lib/theme'
 
 // ⛔ every writing call carries the board's token and says it is JSON: the
 // server refuses anything else (another site's page cannot read the token
@@ -16,5 +17,5 @@ window.fetch = (input: RequestInfo | URL, init: RequestInit = {}) => {
   return nativeFetch(input, init)
 }
 
-document.documentElement.classList.add('dark')
+watchTheme()
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)
