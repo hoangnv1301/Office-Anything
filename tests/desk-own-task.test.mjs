@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { addTask, addAsk, readTasks } from '../lib/tasks.mjs'
+import { ownTaskCommand, compileWall, isSecret } from '../lib/wall.mjs'
 
 const PLUGIN = join(dirname(fileURLToPath(import.meta.url)), '..')
 const HOOK = join(PLUGIN, 'hooks', 'desk-wall.mjs')
@@ -87,7 +88,17 @@ test('an ask put to the desk is answered the same way; an ask put to another des
   refused(o, 'quotes', `${node} answer ${o.ask} --text "yes"`, /not to this desk/)
 })
 
-test('the lead gains nothing: closing a desk\'s task stays outside its listed commands', () => {
+test('the lead path is unchanged: a lead whose wall.lead.bash does not list tasks.mjs is still refused', () => {
   const o = office()
   refused(o, 'lead', `${node} update ${o.mine} --state done --note "closing it for them"`)
+})
+
+test('the real installed path (~/.claude/plugins/cache/…) passes the allowance and no default secret rule', () => {
+  const o = office()
+  const root = '/Users/someone/.claude/plugins/cache/office-anything/office-anything/0.29.0'
+  const cmd = `node ${root}/lib/tasks.mjs update ${o.mine} --state done --note "replied"`
+  assert.equal(ownTaskCommand(cmd, { kind: 'desk', desk: 'customer' }, o.root, [root]), true)
+  assert.match(ownTaskCommand(cmd, { kind: 'desk', desk: 'quotes' }, o.root, [root]), /not to this desk/)
+  assert.equal(ownTaskCommand(cmd, { kind: 'desk', desk: 'customer' }, o.root, ['/elsewhere']), null, 'another folder is not this plugin: judged like any command')
+  assert.equal(isSecret(compileWall({}), cmd), false, 'the secrets floor does not catch the plugin cache path')
 })
