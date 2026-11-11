@@ -7,9 +7,7 @@ import {
   Conversation, ConversationContent, ConversationEmptyState, ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message'
-import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning'
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
-import { Task, TaskTrigger, TaskContent } from '@/components/ai-elements/task'
 import { FileTree, FileTreeFolder, FileTreeFile } from '@/components/ai-elements/file-tree'
 import { Image as AIImage } from '@/components/ai-elements/image'
 import {
@@ -19,10 +17,9 @@ import {
   usePromptInputAttachments,
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
-import { WebPreview, WebPreviewNavigation, WebPreviewUrl, WebPreviewBody } from '@/components/ai-elements/web-preview'
-import { Building2, Monitor, Plus, Menu, ImageIcon, Flag, DollarSign, CircleHelp, Users, Clock, ArrowUpCircle, Wrench, CornerDownRight, RefreshCw, ChevronDown, XCircle, ExternalLink, MessagesSquare, LayoutList } from 'lucide-react'
+import { WebPreview, WebPreviewNavigation, WebPreviewUrl } from '@/components/ai-elements/web-preview'
+import { Monitor, Plus, Menu, ImageIcon, Flag, CircleHelp, Clock, ArrowUpCircle, ChevronRight, ChevronDown, XCircle, ExternalLink, ArrowLeftRight, ListTodo, LayoutList, PanelRight, X, Moon, Sun, Brain, CheckCircle2, MinusCircle, Building2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -31,15 +28,15 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Spinner } from '@/components/ui/spinner'
 import { Shimmer } from '@/components/ai-elements/shimmer'
-import { QueueList, QueueItem, QueueItemIndicator, QueueItemContent, QueueItemDescription } from '@/components/ai-elements/queue'
-import { Context, ContextTrigger, ContextContent, ContextContentHeader, ContextContentBody, ContextContentFooter, ContextInputUsage, ContextOutputUsage, ContextCacheUsage } from '@/components/ai-elements/context'
-import { Confirmation, ConfirmationTitle, ConfirmationRequest } from '@/components/ai-elements/confirmation'
 import { Sources, SourcesTrigger, SourcesContent, Source } from '@/components/ai-elements/sources'
+import { chooseTheme, isDark } from '@/lib/theme'
 
 type Desk = { key: string; label: string; sub: string; activeMin: number | null; online?: boolean | null; busy?: boolean | null; status?: string | null; state?: string | null; detail?: string | null; remoteUrl?: string | null; route?: 'inbox' | 'terminal' | null; mode?: string | null; sessionName?: string | null; waiting?: boolean; agents?: { kind?: string; label: string; activeMin: number; turns: number }[]; jobs?: { id: string; ageSec: number; size: number; label?: string }[] }
 type Img = { kind: 'b64'; mediaType: string; data: string } | { kind: 'path'; path: string } | { kind: 'marker'; label: string }
@@ -70,12 +67,14 @@ const BLOBS = [
   '38% 62% 47% 53% / 63% 37% 63% 37%',
   '58% 42% 38% 62% / 45% 63% 37% 55%',
 ]
-function DeskAvatar({ name, busy, size = 20 }: { name: string; busy?: boolean | null; size?: number }) {
+function DeskAvatar({ name, busy, size = 20, dot }: { name: string; busy?: boolean | null; size?: number; dot?: 'on' | 'off' | 'wait' | null }) {
   const blob = BLOBS[deskHue(name) % BLOBS.length]
   return (
-    <span className={'flex flex-none items-center justify-center font-semibold text-black ' + (busy ? 'animate-pulse' : '')}
-      style={{ width: size, height: size, borderRadius: blob, background: deskColor(name), fontSize: size * 0.5 }}>
+    <span className={'relative flex flex-none items-center justify-center font-semibold text-black ' + (busy ? 'animate-pulse' : '')}
+      style={{ width: size, height: size, borderRadius: blob, background: deskColor(name), fontSize: size * 0.45 }}>
       {name[0]?.toUpperCase() ?? '?'}
+      {/* the state dot: green online, amber waiting on you, grey offline */}
+      {dot && <span data-dot={dot} className={'absolute -bottom-0.5 -right-0.5 size-[11px] rounded-full border-2 border-sidebar ' + (dot === 'on' ? 'bg-ok' : dot === 'wait' ? 'bg-wait' : 'bg-border')} />}
     </span>
   )
 }
@@ -105,42 +104,55 @@ const PICKERS: Record<string, string[]> = {
 const kb = (n: number) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'
 const age = (m: number) => (m < 60 ? `${m}m` : `${Math.round(m / 60)}h`) + ' ago'
 
-const MsgBlock = memo(function MsgBlock({ m, rich }: { m: Msg; rich: boolean }) {
+// ONE QUIET SHAPE FOR EVERYTHING THAT IS NOT A MESSAGE: reasoning, a tool run,
+// a system event, a hand-off. A pill that says what happened in one line and
+// opens to the whole of it. Errors are the only loud ones.
+function Chip({ icon, label, tone, under, children, testid }: { icon?: React.ReactNode; label: React.ReactNode; tone?: 'err'; under?: React.ReactNode; children?: React.ReactNode; testid?: string }) {
+  return (
+    <Collapsible className="max-w-full self-start" data-testid={testid}>
+      <CollapsibleTrigger className={'inline-flex max-w-full cursor-pointer items-center gap-2 rounded-full border py-1 pl-2 pr-3 text-[13px] transition-colors [&[data-panel-open]_.chev]:rotate-90 '
+        + (tone === 'err' ? 'border-err/70 bg-err-soft text-err hover:border-err' : 'border-border bg-background text-muted-foreground hover:border-muted-foreground/60 hover:text-foreground')}>
+        {icon}<span className="min-w-0 truncate text-left">{label}</span>
+        <ChevronRight className="chev size-3.5 flex-none transition-transform" />
+      </CollapsibleTrigger>
+      {under && <div className="ml-3 mt-1 max-w-[min(560px,78vw)] truncate text-[12.5px] text-muted-foreground">{under}</div>}
+      {children && <CollapsibleContent className="mt-2 border-l-2 border-border py-1 pl-3.5 text-[13.5px]">{children}</CollapsibleContent>}
+    </Collapsible>
+  )
+}
+
+const MsgBlock = memo(function MsgBlock({ m, rich, replied }: { m: Msg; rich: boolean; replied?: boolean }) {
   if (m.role === 'system') {
     const isErr = /error/i.test(m.label ?? '')
     return (
-      <Task defaultOpen={false} className={'my-0.5 ' + (isErr ? 'rounded-md border-l-2 border-red-500 bg-red-950/20 py-0.5 pl-2 [&_p]:text-red-400' : 'opacity-75')}>
-        <TaskTrigger title={(isErr ? '⛔ ' : '⚑ ') + (m.label ?? 'system')} icon={<Flag className={'size-3.5 ' + (isErr ? 'text-red-400' : '')} />} />
-        <TaskContent><pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs">{m.text}</pre></TaskContent>
-      </Task>
+      <Chip tone={isErr ? 'err' : undefined} icon={isErr ? <XCircle className="size-3.5 flex-none" /> : <Flag className="size-3.5 flex-none" />} label={m.label ?? 'system'}>
+        <pre className="max-h-80 overflow-auto whitespace-pre-wrap text-xs">{m.text}</pre>
+      </Chip>
     )
   }
   if (m.role === 'peer') {
-    // a message from another desk reads like a message from a colleague:
-    // attributed, left-aligned, no envelope, no harness boilerplate
+    // a message from another desk is a HAND-OFF: who, one line of what, and
+    // the whole of it one click away. "replied" only when this desk wrote to
+    // that one first, otherwise it is somebody else's opening ask.
+    const from = m.from ?? '?'
     return (
-      <div className="max-w-[85%]">
-        <div className="mb-0.5 flex items-center gap-1.5 text-[11px]" style={{ color: deskColor(m.from ?? '') }}><DeskAvatar name={m.from ?? '?'} size={16} /> from {m.from}</div>
-        <Message from="assistant">
-          <MessageContent className="rounded-lg border-l-2 bg-muted/40 px-3 py-2" style={{ borderColor: deskColor(m.from ?? '') }}>
-            {rich ? <MessageResponse>{m.text}</MessageResponse> : <span className="whitespace-pre-wrap break-words">{m.text}</span>}
-          </MessageContent>
-        </Message>
-      </div>
+      <Chip testid="handoff" icon={<DeskAvatar name={from} size={18} />} label={from + (replied ? ' replied' : ' wrote')} under={m.text.replace(/\s+/g, ' ').trim().slice(0, 180)}>
+        {rich ? <MessageResponse>{m.text}</MessageResponse> : <span className="whitespace-pre-wrap break-words">{m.text}</span>}
+      </Chip>
     )
   }
   return (
-    <div>
+    <div className="flex flex-col gap-1.5">
       {m.reasoning && (
-        <Reasoning className="mb-0.5" isStreaming={false} defaultOpen={false}>
-          <ReasoningTrigger /><ReasoningContent>{m.reasoning}</ReasoningContent>
-        </Reasoning>
+        <Chip icon={<Brain className="size-3.5 flex-none" />} label="Thinking">
+          <div className="whitespace-pre-wrap text-[13px] text-muted-foreground">{m.reasoning}</div>
+        </Chip>
       )}
       {/* ⛔ boolean, not number: `text || images?.length` leaked a literal
           0 into the chat for every empty-text, empty-images turn */}
       {(m.text !== '' || (m.images?.length ?? 0) > 0) && (
-        <Message from={m.role}>
-          <MessageContent>
+        <Message from={m.role} className="max-w-[88%]">
+          <MessageContent className="rounded-2xl bg-bubble px-4 py-2.5 text-[15px] leading-relaxed group-[.is-user]:rounded-2xl group-[.is-user]:bg-brand-soft group-[.is-user]:px-4 group-[.is-user]:py-2.5">
             {m.text && (rich ? <MessageResponse>{m.text}</MessageResponse> : <span className="whitespace-pre-wrap break-words">{m.text}</span>)}
             <Pictures images={m.images} />
           </MessageContent>
@@ -148,7 +160,7 @@ const MsgBlock = memo(function MsgBlock({ m, rich }: { m: Msg; rich: boolean }) 
       )}
     </div>
   )
-}, (a, b) => a.m.text === b.m.text && a.rich === b.rich && a.m.reasoning === b.m.reasoning && (a.m.images?.length ?? 0) === (b.m.images?.length ?? 0))
+}, (a, b) => a.m.text === b.m.text && a.rich === b.rich && a.replied === b.replied && a.m.reasoning === b.m.reasoning && (a.m.images?.length ?? 0) === (b.m.images?.length ?? 0))
 
 type ToolRow = { name: string; input: unknown; output?: string | null; isError?: boolean }
 
@@ -175,39 +187,50 @@ const EditDiff = ({ input }: { input: Record<string, unknown> }) => (
   <div className="space-y-1 p-2 text-xs">
     {typeof input.file_path === 'string' && <div className="font-mono text-muted-foreground">{input.file_path}</div>}
     {typeof input.old_string === 'string' && (
-      <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border-l-2 border-red-500 bg-red-950/30 p-2 text-red-200">{input.old_string.slice(0, 1500)}</pre>
+      <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border-l-2 border-err bg-err-soft p-2 font-mono text-foreground">{input.old_string.slice(0, 1500)}</pre>
     )}
     {typeof input.new_string === 'string' && (
-      <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border-l-2 border-emerald-500 bg-emerald-950/30 p-2 text-emerald-200">{input.new_string.slice(0, 1500)}</pre>
+      <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border-l-2 border-ok bg-ok-soft p-2 font-mono text-foreground">{input.new_string.slice(0, 1500)}</pre>
     )}
     {typeof input.content === 'string' && (
-      <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border-l-2 border-emerald-500 bg-emerald-950/30 p-2 text-emerald-200">{input.content.slice(0, 1500)}</pre>
+      <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border-l-2 border-ok bg-ok-soft p-2 font-mono text-foreground">{input.content.slice(0, 1500)}</pre>
     )}
   </div>
 )
 
+// the desks a run of tool calls wrote to, with what each was asked and when it
+// counts as done ("Done when: …", if the message says so)
+export type Sent = { to: string; text: string; doneWhen: string | null }
+export function sentIn(tools: { name: string; input: unknown }[]): Sent[] {
+  const out: Sent[] = []
+  for (const t of tools) {
+    if (t.name !== 'SendMessage' || typeof t.input !== 'object' || t.input === null) continue
+    const inp = t.input as Record<string, unknown>
+    if (typeof inp.to !== 'string' || typeof inp.message !== 'string' || !inp.message.trim()) continue
+    const done = /\bdone when:?\s*([^\n]+)/i.exec(inp.message)?.[1]?.trim() ?? null
+    out.push({ to: inp.to, text: inp.message, doneWhen: done })
+  }
+  return out
+}
+// a cross-session address (uds:/…, bridge:…) is not a desk name: say so plainly
+const toName = (to: string) => /^[a-z]+:/i.test(to) ? 'another session' : to
+
 const ToolsBlock = memo(function ToolsBlock({ tools }: { tools: ToolRow[] }) {
   const failed = tools.filter((t) => t.isError).length
+  const names = [...new Set(tools.map((t) => {
+    const to = t.name === 'SendMessage' && typeof t.input === 'object' && t.input !== null ? (t.input as Record<string, unknown>).to : null
+    return typeof to === 'string' ? 'SendMessage → ' + toName(to) : t.name
+  }))].join(', ')
   return (
-    <Task defaultOpen={false} className="my-0.5">
-      <TaskTrigger title="tools">
-        <div className="flex w-full cursor-pointer items-center justify-start gap-2 text-left text-sm text-muted-foreground transition-colors hover:text-foreground">
-          <Wrench className="size-3.5 flex-none" />
-          <span className="text-left">{tools.length + ' tool call' + (tools.length > 1 ? 's' : '') + ' — ' + [...new Set(tools.map((t) => {
-            const to = t.name === 'SendMessage' && typeof t.input === 'object' && t.input !== null ? (t.input as Record<string, unknown>).to : null
-            return typeof to === 'string' ? 'SendMessage → ' + to : t.name
-          }))].join(', ')}</span>
-          {failed > 0 && <Badge variant="destructive" className="h-4 gap-1 px-1.5 text-[10px]"><XCircle className="size-3" />{failed} failed</Badge>}
-          <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
-        </div>
-      </TaskTrigger>
-      <TaskContent>
+    <Chip tone={failed ? 'err' : undefined} icon={failed ? <XCircle className="size-3.5 flex-none" /> : undefined}
+      label={tools.length + ' tool call' + (tools.length > 1 ? 's' : '') + ' — ' + names + (failed ? ' · ' + failed + ' failed' : '')}>
+      <div className="flex flex-col gap-1">
         {tools.map((t, k) => {
           const isDiff = (t.name === 'Edit' || t.name === 'Write') && typeof t.input === 'object' && t.input !== null
           return (
-            <Tool key={k} className="my-0.5">
-              <ToolHeader type="dynamic-tool" state={t.isError ? 'output-error' : t.output ? 'output-available' : 'input-available'} toolName={t.name} />
-              <ToolContent>
+            <Tool key={k} className="mb-0 rounded-lg border-border/70">
+              <ToolHeader className="p-2" type="dynamic-tool" state={t.isError ? 'output-error' : t.output ? 'output-available' : 'input-available'} toolName={t.name} />
+              <ToolContent className="space-y-2 p-2">
                 {isDiff ? <EditDiff input={t.input as Record<string, unknown>} /> : <ToolInput input={t.input} />}
                 {(t.name === 'WebSearch' || t.name === 'WebFetch') && t.output && (() => {
                   const urls = [...new Set((t.output.match(/https?:\/\/[^\s)\]"'<>]+/g) ?? []))].slice(0, 12)
@@ -223,11 +246,27 @@ const ToolsBlock = memo(function ToolsBlock({ tools }: { tools: ToolRow[] }) {
             </Tool>
           )
         })}
-      </TaskContent>
-    </Task>
+      </div>
+    </Chip>
   )
 }, (a, b) => a.tools.length === b.tools.length && a.tools[0]?.name === b.tools[0]?.name
   && a.tools.map((t) => (t.output ? 1 : 0) + (t.isError ? 2 : 0)).join() === b.tools.map((t) => (t.output ? 1 : 0) + (t.isError ? 2 : 0)).join())
+
+// a message this desk sent to another one, surfaced beside the tool list: the
+// hand-off is the thing the owner wants to see, not the tool that carried it
+const SentChip = ({ s }: { s: Sent }) => (
+  <Chip testid="sent" icon={<DeskAvatar name={toName(s.to)} size={18} />} label={'Sent to ' + toName(s.to)} under={s.doneWhen ? 'Done when: ' + s.doneWhen : undefined}>
+    <div className="whitespace-pre-wrap break-words">{s.text}</div>
+  </Chip>
+)
+
+// the line under a desk's name: what it is doing, always, in the CLI's words.
+// A working desk with a detail says the detail ("Writing a reply").
+export function rowLine(d: Pick<Desk, 'state' | 'detail' | 'online' | 'busy' | 'waiting' | 'activeMin'>): string {
+  const working = (d.state === 'working' || d.busy) && !(d.state === 'waiting' || d.waiting)
+  const s = working && d.detail ? d.detail : deskStatusLine(d) || (d.online === true || (d.online == null && d.activeMin != null && d.activeMin < 30) ? 'idle' : d.online === false ? 'offline' : 'no live session')
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
 
 // ⛔ THE RAIL MUST NOT REBUILD BECAUSE THE CHAT MOVED. The lead's transcript
 // grows every few seconds; every poll re-rendered the pane and the tree was
@@ -314,7 +353,7 @@ function OfficeTimeline({ onPick }: { onPick: (desk: string) => void }) {
   const shown = (items ?? []).filter((x) => !openOnly || x.unanswered)
   return (
     <ScrollArea className="min-h-0 flex-1">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-4 py-3">
+      <div className="mx-auto flex w-full max-w-[680px] flex-col gap-2 px-4 py-3">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>{items === null ? '…' : items.length + ' desk-to-desk messages · newest first · from each desk’s recent record'}</span>
           <Button variant={openOnly ? 'secondary' : 'ghost'} size="sm" className="ml-auto h-6 px-2 text-[11px]" onClick={() => setOpenOnly((v) => !v)}>
@@ -322,13 +361,13 @@ function OfficeTimeline({ onPick }: { onPick: (desk: string) => void }) {
         </div>
         {items !== null && shown.length === 0 && <div className="py-6 text-center text-sm text-muted-foreground">{openOnly ? 'No open asks between desks.' : 'No desk-to-desk messages yet.'}</div>}
         {shown.slice().reverse().map((x, i) => (
-          <div key={i} className={'rounded-lg border px-3 py-2 ' + (x.unanswered ? 'border-amber-500/50 bg-amber-500/5' : 'border-border/50')}>
+          <div key={i} className={'rounded-lg border px-3 py-2 ' + (x.unanswered ? 'border-wait/50 bg-wait-soft/50' : 'border-border/50')}>
             <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[11px]">
               <button type="button" className="flex items-center gap-1 hover:underline" onClick={() => onPick(x.from)}><DeskAvatar name={x.from} size={14} />{x.from}</button>
               <span className="text-muted-foreground">→</span>
               <button type="button" className="flex items-center gap-1 hover:underline" onClick={() => onPick(x.to)}><DeskAvatar name={x.to} size={14} />{x.to}</button>
               <span className="ml-auto text-muted-foreground">{when(x.at)}</span>
-              {x.unanswered && <Badge className="h-4 bg-amber-500 px-1 text-[9px] text-black">no reply yet</Badge>}
+              {x.unanswered && <Badge className="h-4 bg-wait-soft px-1 text-[9px] text-wait">no reply yet</Badge>}
             </div>
             <div className="line-clamp-4 whitespace-pre-wrap break-words text-sm" title={x.text}>{x.text}</div>
           </div>
@@ -353,14 +392,14 @@ function TasksView() {
     return () => { alive = false; clearInterval(t) }
   }, [])
   const showEvidence = (id: string, n: number) => fetch('api/task-evidence?id=' + encodeURIComponent(id) + '&n=' + n).then((r) => r.json()).then((j) => setEv((m) => ({ ...m, [id + ':' + n]: j }))).catch(() => {})
-  const stateTone = (t: TaskRow) => t.overdue ? 'border-destructive/60 bg-destructive/5' : t.stale ? 'border-amber-500/50 bg-amber-500/5' : 'border-border/50'
+  const stateTone = (t: TaskRow) => t.overdue ? 'border-destructive/60 bg-destructive/5' : t.stale ? 'border-wait/50 bg-wait-soft/50' : 'border-border/50'
   const Row = ({ t }: { t: TaskRow }) => (
     <div className={'rounded-lg border px-3 py-2 ' + stateTone(t)} data-testid="task-row">
       <button type="button" className="flex w-full flex-wrap items-center gap-1.5 text-left text-sm" onClick={() => setOpen(open === t.id ? null : t.id)} aria-expanded={open === t.id}>
         <span className="font-mono text-[11px] text-muted-foreground">{t.id}</span>
         <Badge variant="secondary" className="h-4 px-1 text-[9px]">{t.state}</Badge>
         {t.overdue && <Badge className="h-4 bg-destructive px-1 text-[9px] text-white">OVERDUE</Badge>}
-        {t.stale && !t.overdue && <Badge className="h-4 bg-amber-500 px-1 text-[9px] text-black">quiet {t.idle}</Badge>}
+        {t.stale && !t.overdue && <Badge className="h-4 bg-wait-soft px-1 text-[9px] text-wait">quiet {t.idle}</Badge>}
         <span className="min-w-0 flex-1 truncate font-medium">{t.title}</span>
         <span className="flex-none text-[11px] text-muted-foreground">{t.age}{t.due ? ' · due ' + t.due : ''}</span>
       </button>
@@ -382,13 +421,13 @@ function TasksView() {
   )
   return (
     <ScrollArea className="min-h-0 flex-1">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 py-3">
+      <div className="mx-auto flex w-full max-w-[680px] flex-col gap-3 px-4 py-3">
         {q === null && <Skeleton className="h-10 w-2/3" />}
         {q && (
           <div className="flex flex-wrap gap-1.5 text-xs" aria-live="polite">
             <Badge variant="secondary">{q.totals.open} open</Badge><Badge variant="secondary">{q.totals.working} working</Badge><Badge variant="secondary">{q.totals.waiting} waiting</Badge><Badge variant="secondary">{q.totals.done} done, not verified</Badge>
             {q.totals.overdue > 0 && <Badge className="bg-destructive text-white">{q.totals.overdue} overdue</Badge>}
-            {q.totals.stale > 0 && <Badge className="bg-amber-500 text-black">{q.totals.stale} quiet 24h+</Badge>}
+            {q.totals.stale > 0 && <Badge className="bg-wait-soft text-wait">{q.totals.stale} quiet 24h+</Badge>}
             {q.ownerWords && q.ownerWords.open > 0 && <Badge variant="secondary" title={q.ownerWords.sessions.map((s) => s.session + ': ' + s.open + ' open, oldest ' + s.oldest).join('\n')}>{q.ownerWords.open} owner words open</Badge>}
             {q.ownerWords && q.ownerWords.alarms > 0 && <Badge className="bg-destructive text-white">{q.ownerWords.alarms} owner words open 24h+</Badge>}
           </div>
@@ -422,7 +461,7 @@ function PanelView({ id }: { id: string }) {
   }, [id])
   return (
     <ScrollArea className="min-h-0 flex-1">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-4 py-3">
+      <div className="mx-auto flex w-full max-w-[680px] flex-col gap-2 px-4 py-3">
         {d === null && <Skeleton className="h-10 w-2/3" />}
         {d && (d.note || d.why || d.ok === false) && <div className={'text-xs ' + (d.ok === false ? 'text-destructive' : 'text-muted-foreground')}>{d.ok === false ? '⛔ ' : ''}{d.note ?? d.why ?? 'the panel command failed'}</div>}
         {d?.items?.length === 0 && <div className="py-6 text-center text-sm text-muted-foreground">Nothing here right now.</div>}
@@ -466,7 +505,6 @@ export default function App() {
   // the phone drawer is CONTROLLED so choosing anything inside it dismisses
   // it — a drawer that stays over the thing you just chose is a wall
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [fabOpen, setFabOpen] = useState(false)
   useEffect(() => {
     const h = (e: Event) => { const d = (e as CustomEvent).detail; setFile({ path: d.name ?? 'image', kind: 'imageurl', content: d.src }) }
     window.addEventListener('office-lightbox', h)
@@ -489,47 +527,6 @@ export default function App() {
     document.addEventListener('input', h, true)
     return () => document.removeEventListener('input', h, true)
   }, [])
-  // the CLI shows mode and context at the prompt, so the board does too:
-  // top right of the composer, never in the header
-  const composerStatus = pane ? (
-    <div className="mb-1 flex items-center justify-end gap-1.5" data-testid="composer-status">
-      {pane?.mode && <Badge variant="outline" className="inline-flex h-5 flex-none gap-1 whitespace-nowrap px-1.5 font-mono text-[10px]" title="permission mode, from the session record (⇧⇥ in the composer cycles it)">mode · {pane.mode === 'bypassPermissions' ? 'bypass' : pane.mode === 'acceptEdits' ? 'accept edits' : pane.mode}</Badge>}
-      {pane?.model && (
-        <Context usedTokens={pane.usage?.ctxUsed ?? 0} maxTokens={pane.usage?.ctxMax ?? 200000} modelId={pane.model ?? undefined}
-          usage={{ inputTokens: pane.usage?.input ?? 0, outputTokens: pane.usage?.output ?? 0, totalTokens: (pane.usage?.input ?? 0) + (pane.usage?.output ?? 0), cachedInputTokens: pane.usage?.cacheRead ?? 0 } as never}
-          openDelay={100}>
-          <ContextTrigger><Badge variant="secondary" className="inline-flex h-5 cursor-default gap-1 whitespace-nowrap px-1.5 text-[10px]" title="context window used · hover for tokens and cost">
-            <DollarSign className="size-3" />{pane.model}<span className="text-muted-foreground">· {Math.round(((pane.usage?.ctxUsed ?? 0) / (pane.usage?.ctxMax ?? 200000)) * 100)}% ctx</span></Badge></ContextTrigger>
-          <ContextContent className="w-80 text-xs">
-            <ContextContentHeader />
-            <ContextContentBody><ContextInputUsage /><ContextOutputUsage /><ContextCacheUsage /></ContextContentBody>
-            <ContextContentFooter />
-            {/* a dollar always carries its date */}
-            <div className="px-3 pb-2 text-[10px] text-muted-foreground" data-testid="rates-asof">{pane.usage?.cost ? 'est. $' + pane.usage.cost.total.toFixed(2) + ' this session · ' : 'no rate for this model · '}rates as of {pane.usage?.cost?.asOf ?? pane.ratesAsOf ?? '—'}</div>
-          <HoverCardContent className="hidden">
-            {pane.usage ? (() => {
-              const u = pane.usage!
-              const k = (n: number) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
-              const $ = (n: number) => '$' + (n >= 100 ? n.toFixed(0) : n >= 1 ? n.toFixed(2) : n.toFixed(3))
-              const row = (label: string, tok: number, cost?: number) => (
-                <div className="flex justify-between py-0.5"><span className="text-muted-foreground">{label}</span><span>{k(tok)} tok{cost != null ? ' · ' + $(cost) : ''}</span></div>
-              )
-              return (<div>
-                <div className="mb-1 font-medium">{u.turns} turns · this session</div>
-                {row('input (fresh)', u.input, u.cost?.input)}
-                {row('output', u.output, u.cost?.output)}
-                {row('cache read', u.cacheRead, u.cost?.cacheRead)}
-                {row('cache write', u.cacheWrite, u.cost?.cacheWrite)}
-                <div className="mt-1 flex justify-between border-t pt-1 font-medium"><span>estimated total</span><span>{u.cost ? $(u.cost.total) : 'no rate for this model'}</span></div>
-                <div className="mt-1 text-[10px] text-muted-foreground">{u.cost ? 'rates as of ' + u.cost.asOf + ' · cache read 0.1×, write 1.25× input rate' : 'tokens only — an unknown model gets no dollars, never a guess'}</div>
-              </div>)
-            })() : <span className="text-muted-foreground">no session yet</span>}
-          </HoverCardContent>
-          </ContextContent>
-        </Context>
-      )}
-    </div>
-  ) : null
 
   const pickCommand = useCallback((c: string) => {
     const ta = document.querySelector('textarea')
@@ -568,7 +565,9 @@ export default function App() {
   const openFile = useCallback(async (path: string) => {
     if (!sel) return
     if (!isFileIn(paneRef.current?.workspace, path)) return
-    setDrawerOpen(false) // a file chosen from the phone drawer should be visible, not behind it
+    // a file chosen on a phone should be visible, not behind a slide-over
+    setDrawerOpen(false)
+    if (!window.matchMedia('(min-width: 768px)').matches) setDrawer(null)
     setFile({ path, kind: 'loading' }) // the dialog opens NOW; content follows
     const q = 'api/wsfile?key=' + encodeURIComponent(sel) + '&path=' + encodeURIComponent(path)
     const r = await fetch(q)
@@ -663,6 +662,38 @@ export default function App() {
   const [skills, setSkills] = useState<{ name: string; description: string; kind?: string; source: string }[] | null>(null)
   const [plugins, setPlugins] = useState<{ name: string; version: string; marketplace: string; description: string; agents: number; skills: number; commands: number; hooks: number }[] | null>(null)
   useEffect(() => { fetch('api/plugins').then((r) => r.json()).then((j) => setPlugins(j.items ?? [])).catch(() => setPlugins([])) }, [])
+  // the office's own checks (checks/run.mjs, live): fetched for the footer and
+  // the drawer's Checks tab. A slow walk, so every five minutes, not per poll.
+  useEffect(() => {
+    const go = () => fetch('api/checks').then((r) => r.json()).then(setChecks).catch(() => {})
+    go(); const t = setInterval(go, 300000); return () => clearInterval(t)
+  }, [])
+  // the Tasks count in the sidebar: what is not done yet
+  const [taskCount, setTaskCount] = useState<{ n: number; title: string } | null>(null)
+  useEffect(() => {
+    const go = () => fetch('api/tasks').then((r) => r.json()).then((j: QueueData) => {
+      const t = j?.totals
+      if (t) setTaskCount({ n: t.open + t.working + t.waiting, title: t.open + ' open · ' + t.working + ' working · ' + t.waiting + ' waiting' + (t.overdue ? ' · ' + t.overdue + ' overdue' : '') })
+    }).catch(() => {})
+    go(); const t = setInterval(go, 60000); return () => clearInterval(t)
+  }, [])
+  // THE DETAILS DRAWER, closed by default: one drawer, two modes. "desk" reads
+  // the selected desk (usage, workspace, agents, skills, plugins, hooks);
+  // "office" reads the office (loops, checks, updates).
+  const [drawer, setDrawer] = useState<null | 'desk' | 'office'>(null)
+  const [drawerTab, setDrawerTab] = useState<string>('workspace')
+  const openDrawer = useCallback((mode: 'desk' | 'office', tab?: string) => {
+    setDrawer(mode); setDrawerTab(tab ?? (mode === 'desk' ? 'workspace' : 'loops'))
+  }, [])
+  // NEW: the first message since you last looked at this desk, kept per desk
+  // in this browser. Read once per desk switch; written as you read.
+  const [newSince, setNewSince] = useState<number | null>(null)
+  useEffect(() => {
+    if (!sel) return
+    let v: number | null = null
+    try { const s = localStorage.getItem('office-seen-' + sel); v = s ? Number(s) : null } catch { v = null }
+    setNewSince(v != null && Number.isFinite(v) ? v : null)
+  }, [sel])
   const [hooks, setHooks] = useState<{ source: string; event: string; matcher: string; command: string }[] | null>(null)
   useEffect(() => {
     if (!sel) return
@@ -695,69 +726,105 @@ export default function App() {
 
   const blocks = useMemo(() => toBlocks(pane?.messages ?? []), [pane])
 
-  const deskList = desks.map((d) => (
-    <Button key={d.key} variant={sel === d.key && !view ? 'secondary' : 'ghost'} onClick={() => { setSel(d.key); setView(null); setDrawerOpen(false) }}
-      title={d.sub} className="h-auto w-full justify-start rounded-none px-3 py-2.5 md:py-1.5">
-      <span className="flex w-full flex-col items-start gap-0.5 overflow-hidden">
-        <span className="flex w-full items-center gap-2 text-[13px] font-medium">
-          {/* the shape IS the desk (colour + form from its name); status is
-              carried by the NAME now — grayed when offline, shimmering when
-              handling something — so the green dot is gone. */}
-          {(() => {
-            const online = d.online ?? (d.activeMin != null && d.activeMin < 30)
-            return <>
-              <DeskAvatar name={d.label} busy={d.busy} />
-              {d.busy
-                ? <Shimmer className="truncate">{d.label}</Shimmer>
-                : <span className={'truncate ' + (online ? '' : 'text-muted-foreground/50')}>{d.label}</span>}
-            </>
-          })()}
-          {d.sub.includes('LIVE') && <Badge className="h-4 flex-none px-1 text-[9px]">LIVE</Badge>}
-          {(d.agents?.length ?? 0) > 0 && <Badge variant="secondary" className="h-4 flex-none px-1 text-[9px]">◇ {d.agents!.length}</Badge>}
-          {d.waiting && <Badge className="h-4 flex-none gap-0.5 bg-amber-500 px-1 text-[9px] text-black"><CircleHelp className="size-2.5" /> waiting</Badge>}
-        </span>
-        {(d.state === 'waiting' || d.state === 'shell' || (d.state && !['working', 'idle'].includes(d.state))) && (
-          <span className={'w-full truncate pl-7 text-[11px] font-normal ' + (d.state === 'waiting' ? 'text-amber-400' : 'text-muted-foreground')}>{deskStatusLine(d)}</span>
-        )}
-        {d.agents?.map((a, i) => (
-          <span key={i} title={(a.kind === 'session' ? 'teammate session: ' : 'subagent: ') + a.label} className="mt-1 flex w-full items-center gap-2 overflow-hidden pl-7 text-[11px] font-normal text-muted-foreground">
-            {a.kind === 'session'
-              ? <Users className={'size-3 flex-none ' + (a.activeMin < 2 ? 'text-sky-400' : 'opacity-70')} />
-              : <CornerDownRight className={'size-3 flex-none ' + (a.activeMin < 2 ? 'text-amber-300' : 'opacity-60')} />}
-            <span className="truncate">{a.label}</span>
-          </span>
-        ))}
-        {d.jobs?.map((j) => (
-          <span key={j.id} title={'background job ' + j.id + ' · output ' + j.size + 'B'} className="mt-1 flex w-full items-center gap-2 overflow-hidden pl-7 text-[11px] font-normal text-muted-foreground">
-            <Clock className={'size-3 flex-none ' + (j.ageSec < 60 ? 'animate-pulse text-amber-400' : 'opacity-70')} />
-            <span className="truncate">{j.label || 'background · ' + j.id} · {j.ageSec < 60 ? 'running' : Math.round(j.ageSec / 60) + 'm ago'}</span>
-          </span>
-        ))}
-      </span>
-    </Button>
-  ))
-
-  const officeList = (
-    <div className="border-t border-border/40 py-1">
-      <Button variant={view === 'timeline' ? 'secondary' : 'ghost'} className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 text-[13px] md:py-1.5"
-        onClick={() => { setView('timeline'); setDrawerOpen(false) }} title="every desk-to-desk message, open asks marked">
-        <MessagesSquare className="size-4 flex-none text-muted-foreground" /><span className="truncate">between desks</span>
-        {openAsks > 0 && <Badge className="ml-auto h-4 flex-none bg-amber-500 px-1 text-[9px] text-black">{openAsks} open</Badge>}
-      </Button>
-      <Button variant={view === 'tasks' ? 'secondary' : 'ghost'} className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 text-[13px] md:py-1.5"
-        onClick={() => { setView('tasks'); setDrawerOpen(false) }} title="the office-wide task queue: who is working on what, what is overdue">
-        <LayoutList className="size-4 flex-none text-muted-foreground" /><span className="truncate">tasks</span>
-      </Button>
-      {panels.map((p) => (
-        <Button key={p.id} variant={view === 'panel:' + p.id ? 'secondary' : 'ghost'} className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 text-[13px] md:py-1.5"
-          onClick={() => { setView('panel:' + p.id); setDrawerOpen(false) }}>
-          <LayoutList className="size-4 flex-none text-muted-foreground" /><span className="truncate">{p.title}</span>
-        </Button>
-      ))}
-    </div>
-  )
   const pickDesk = (label: string) => { const d = desks.find((x) => x.label === label); if (d) { setSel(d.key); setView(null) } }
   const selDesk = desks.find((d) => d.key === sel)
+  // mark this desk read up to its newest message, while the tab is in view
+  useEffect(() => {
+    if (!sel || !pane) return
+    const d = desks.find((x) => x.key === sel)
+    if (!d || pane.label !== d.label || document.visibilityState !== 'visible') return
+    const last = pane.messages.reduce((a, m) => Math.max(a, m.at ? Date.parse(m.at) || 0 : 0), 0)
+    if (last) try { localStorage.setItem('office-seen-' + sel, String(last)) } catch { /* a convenience */ }
+  }, [sel, pane, desks])
+  // ONE SIDEBAR, TWO HOMES: the desktop column and the phone's slide-over.
+  // Each desk is a row: its blob with a state dot, its name, and ALWAYS one
+  // line of what it is doing; teammates and background jobs fold under it.
+  const deskRow = (d: Desk) => {
+    const online = d.online ?? (d.activeMin != null && d.activeMin < 30)
+    const waiting = !!(d.waiting || d.state === 'waiting')
+    const crew = (d.agents?.length ?? 0) + (d.jobs?.length ?? 0)
+    const crewActive = (d.agents ?? []).some((a) => a.activeMin < 2) || (d.jobs ?? []).some((j) => j.ageSec < 60)
+    return (
+      <div key={d.key}>
+        <button type="button" onClick={() => { setSel(d.key); setView(null); setDrawerOpen(false) }} title={d.sub}
+          aria-current={sel === d.key && !view ? 'true' : undefined} data-testid="desk-row"
+          className="grid w-full grid-cols-[34px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-xl p-2 text-left transition-colors hover:bg-bubble aria-[current=true]:bg-bubble">
+          <DeskAvatar name={d.label} size={34} dot={waiting ? 'wait' : online ? 'on' : 'off'} />
+          <span className="min-w-0">
+            <span className={'block truncate text-sm font-semibold ' + (online ? '' : 'text-muted-foreground')}>{d.label}</span>
+            <span className={'block truncate text-[12.5px] ' + (waiting ? 'text-wait' : 'text-muted-foreground')}>{rowLine(d)}</span>
+          </span>
+          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            {d.sub.includes('LIVE') && <Badge variant="outline" className="h-4 px-1 text-[9px]">LIVE</Badge>}
+            {(d.jobs?.length ?? 0) > 0 && <span className="flex items-center gap-0.5" title={d.jobs!.length + ' background job(s)'}><Clock className="size-3" />{d.jobs!.length}</span>}
+            {waiting && <span className="rounded-full bg-wait-soft px-1.5 font-semibold text-wait" title="waiting on your answer">1</span>}
+            {d.busy && <Spinner className="size-3.5 text-brand" />}
+          </span>
+        </button>
+        {crew > 0 && (
+          <details open={crewActive} className="mb-1 ml-[52px] mr-2 text-xs text-muted-foreground">
+            <summary className="cursor-pointer list-none py-0.5 hover:text-foreground [&::-webkit-details-marker]:hidden">
+              {crew} {crew === 1 ? 'teammate' : 'teammates'}{crewActive ? ' working' : ''}
+            </summary>
+            <ul className="mt-0.5 space-y-1">
+              {d.agents?.map((a, i) => (
+                <li key={'a' + i} className="flex items-center gap-1.5" title={(a.kind === 'session' ? 'teammate session: ' : 'subagent: ') + a.label}>
+                  <DeskAvatar name={a.label} size={16} />
+                  <span className="truncate">{a.label} · {a.kind === 'session' ? 'teammate' : 'subagent'}, {a.activeMin < 2 ? 'now' : age(a.activeMin)}</span>
+                </li>
+              ))}
+              {d.jobs?.map((j) => (
+                <li key={j.id} className="flex items-center gap-1.5" title={'background job ' + j.id + ' · output ' + j.size + 'B'}>
+                  <Clock className={'size-3.5 flex-none ' + (j.ageSec < 60 ? 'animate-pulse text-wait' : '')} />
+                  <span className="truncate">{j.label || 'background · ' + j.id} · {j.ageSec < 60 ? 'running' : Math.round(j.ageSec / 60) + 'm ago'}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
+    )
+  }
+  const officeItem = (id: string, icon: React.ReactNode, label: string, count?: React.ReactNode, title?: string) => (
+    <button key={id} type="button" title={title} aria-current={view === id ? 'true' : undefined}
+      onClick={() => { setView(id); setDrawerOpen(false) }}
+      className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-bubble aria-[current=true]:bg-bubble">
+      <span className="flex w-5 justify-center text-muted-foreground">{icon}</span><span className="min-w-0 flex-1 truncate">{label}</span>{count}
+    </button>
+  )
+  const checkPass = checks ? checks.rows.filter((r) => r.applicable && r.code === 0).length : 0
+  const checkApplies = checks ? checks.rows.filter((r) => r.applicable).length : 0
+  const loopsLine = beat?.declared ? (() => {
+    const m = /(\d+)\s*\/\s*(\d+)/.exec(beat.last ?? '')
+    return m ? m[1] + '/' + m[2] + ' loops' + (beat.ok ? '' : ' — attention') : (beat.ok ? 'office up' : 'office needs attention')
+  })() : null
+  const health: 'ok' | 'wait' | 'err' = (beat?.declared && !beat.ok) || checks?.code === 4 ? 'err' : checks?.code === 7 ? 'wait' : 'ok'
+  const [dark, setDark] = useState(isDark)
+  const sidebar = (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex items-center justify-between px-4 pb-2 pt-4">
+        <h1 className="text-[17px] font-semibold tracking-tight">The office</h1>
+        <Button variant="ghost" size="sm" className="size-8 p-0 text-muted-foreground" title="Hire a desk" onClick={() => { setDrawerOpen(false); setHireOpen(true) }}><Plus className="size-4" /></Button>
+      </div>
+      <ScrollArea className="min-h-0 flex-1"><div className="px-2 pb-3">{desks.map(deskRow)}</div></ScrollArea>
+      <div className="border-t border-border p-2">
+        {officeItem('timeline', <ArrowLeftRight className="size-4" />, 'Between desks', openAsks > 0 ? <span className="rounded-full bg-wait-soft px-2 text-[11px] font-semibold text-wait">{openAsks} open</span> : undefined, 'every desk-to-desk message, open asks marked')}
+        {officeItem('tasks', <ListTodo className="size-4" />, 'Tasks', taskCount ? <span className="rounded-full bg-bubble px-2 text-[11px] text-muted-foreground" title={taskCount.title}>{taskCount.n}</span> : undefined, 'the office-wide task queue: who is working on what, what is overdue')}
+        {panels.map((p) => officeItem('panel:' + p.id, <LayoutList className="size-4" />, p.title))}
+      </div>
+      <div className="flex items-center gap-2 border-t border-border px-4 py-2.5 text-[12.5px] text-muted-foreground">
+        <span className={'size-2 flex-none rounded-full ' + (health === 'ok' ? 'bg-ok' : health === 'wait' ? 'bg-wait' : 'bg-err')} />
+        <button type="button" className={'min-w-0 truncate text-left hover:text-foreground ' + (health === 'err' ? 'text-err' : '')} data-testid="health"
+          title={(beat?.lines?.join('\n') || beat?.last || '') + (checks ? '\n' + checkPass + ' of ' + checkApplies + ' checks pass' : '')}
+          onClick={() => openDrawer('office', loopsLine ? 'loops' : 'checks')}>
+          {[loopsLine, checks ? checkPass + '/' + checkApplies + ' checks' : null].filter(Boolean).join(' · ') || 'office'}
+        </button>
+        <button type="button" className="ml-auto flex-none hover:text-foreground" title={dark ? 'Light mode' : 'Dark mode'} onClick={() => { chooseTheme(!dark); setDark(!dark) }}>
+          {dark ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}</button>
+        <button type="button" className="flex-none hover:text-foreground" onClick={() => { setDrawerOpen(false); openDrawer('office', 'loops') }}>Office</button>
+      </div>
+    </div>
+  )
 
   // shell-style history: ArrowUp in an EMPTY box recalls, per desk, surviving
   // reloads via localStorage. Not full CLI parity — that is written down as
@@ -865,417 +932,459 @@ export default function App() {
     }
   }, [canSend, sel, poll, desks])
 
-  // one rail, two homes: the desktop side panel and the phone's drawer. Every
-  // tab is a READ of the desk's .claude: its files, its agents, its skills and
-  // commands, its hooks. Nothing here is invented; the files are the truth.
+  // one drawer body, two homes: the desktop column and the phone's slide-over.
+  // Every tab is a READ: the desk's .claude, its usage, the office's checks.
   const bySource = <T extends { source: string }>(xs: T[]) => [...new Set(xs.map((x) => x.source))].map((src) => [src, xs.filter((x) => x.source === src)] as const)
-  const railTabs = (
-    <Tabs defaultValue="workspace" className="flex h-full flex-col gap-0">
-      <TabsList className="m-2">
-        <TabsTrigger value="workspace" className="text-xs">workspace</TabsTrigger>
-        <TabsTrigger value="agents" className="text-xs">agents</TabsTrigger>
-        <TabsTrigger value="skills" className="text-xs">skills</TabsTrigger>
-        <TabsTrigger value="plugins" className="text-xs">plugins</TabsTrigger>
-        <TabsTrigger value="hooks" className="text-xs">hooks</TabsTrigger>
-      </TabsList>
-      <TabsContent value="plugins" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-        <ScrollArea className="h-full px-2 pb-2">
-          {plugins === null
-            ? <div className="px-2 py-2 text-xs text-muted-foreground">…</div>
-            : plugins.length === 0
-              ? <div className="px-2 py-2 text-xs text-muted-foreground">no plugins installed</div>
-              : plugins.map((pl) => (
-                  <div key={pl.marketplace + '/' + pl.name} className="flex items-start gap-2 px-1 py-2" title={pl.description}>
-                    <DeskAvatar name={pl.name} size={18} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline gap-2 text-[12px] font-medium"><span className="truncate">{pl.name}</span><span className="flex-none font-mono text-[10px] text-muted-foreground">{pl.version}</span></div>
-                      {pl.description && <div className="line-clamp-2 text-[11px] text-muted-foreground">{pl.description}</div>}
-                      <div className="mt-0.5 text-[10px] text-muted-foreground">
-                        {[pl.agents && pl.agents + ' agents', pl.skills && pl.skills + ' skills', pl.commands && pl.commands + ' commands', pl.hooks && pl.hooks + ' hooks'].filter(Boolean).join(' · ') || 'no agents, skills, commands or hooks'} · {pl.marketplace}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-        </ScrollArea>
-      </TabsContent>
-      <TabsContent value="agents" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-        <ScrollArea className="h-full px-2 pb-2">
-          {agents === null
-            ? <div className="px-2 py-2 text-xs text-muted-foreground">…</div>
-            : agents.length === 0
-              ? <div className="px-2 py-2 text-xs text-muted-foreground">no agents defined for this desk</div>
-              : bySource(agents).map(([src, xs]) => (
-                  <div key={src} className="mb-3">
-                    <div className="px-1 py-1 text-[10px] font-medium uppercase tracking-wide text-blue-400">{src}</div>
-                    {xs.map((a, i) => (
-                      <div key={i} className="flex items-start gap-2 px-1 py-1.5" title={a.description}>
-                        <DeskAvatar name={a.name} size={18} />
-                        <div className="min-w-0">
-                          <div className="flex items-baseline gap-2 text-[12px] font-medium"><span className="truncate">{a.name}</span>
-                            {a.model && <span className="flex-none font-mono text-[10px] text-muted-foreground">{a.model.replace('claude-', '')}{a.effort ? ' · ' + a.effort : ''}</span>}</div>
-                          <div className="line-clamp-2 text-[11px] text-muted-foreground">{a.description}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-        </ScrollArea>
-      </TabsContent>
-      <TabsContent value="skills" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-        <ScrollArea className="h-full px-2 pb-2">
-          {skills === null
-            ? <div className="px-2 py-2 text-xs text-muted-foreground">…</div>
-            : skills.length === 0
-              ? <div className="px-2 py-2 text-xs text-muted-foreground">no skills or commands for this desk</div>
-              : bySource(skills).map(([src, xs]) => (
-                  <div key={src} className="mb-3">
-                    <div className="px-1 py-1 text-[10px] font-medium uppercase tracking-wide text-blue-400">{src}</div>
-                    {xs.map((k, i) => (
-                      <button key={i} type="button" className="grid w-full grid-cols-[minmax(6rem,max-content)_1fr] items-baseline gap-x-2 rounded-md px-1 py-1 text-left hover:bg-accent" title={k.description + ' — click to type it'}
-                        onClick={() => pickCommand(k.name)}>
-                        <span className="whitespace-nowrap font-mono text-[12px]">{k.name}</span>
-                        <span className="truncate text-[11px] text-muted-foreground">{k.description}</span>
-                      </button>
-                    ))}
-                  </div>
-                ))}
-        </ScrollArea>
-      </TabsContent>
-      <TabsContent value="hooks" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-        <ScrollArea className="h-full px-2 pb-2">
-          {hooks === null
-            ? <div className="px-2 py-2 text-xs text-muted-foreground">…</div>
-            : hooks.length === 0
-              ? <div className="px-2 py-2 text-xs text-muted-foreground">no hooks configured for this desk</div>
-              : [...new Set(hooks.map((h) => h.event))].sort((a, b) => HOOK_ORDER.indexOf(a) - HOOK_ORDER.indexOf(b)).map((event) => (
-                  <div key={event} className="mb-2">
-                    <div className="px-1 py-1 text-[10px] font-medium uppercase tracking-wide text-blue-400">{event}</div>
-                    {hooks.filter((h) => h.event === event).map((h, i) => (
-                      <div key={i} className="px-1 py-0.5 text-[11px]" title={h.command}>
-                        <div className="truncate font-mono">{hookName(h.command)}</div>
-                        <div className="truncate text-muted-foreground">{h.matcher !== '*' ? h.matcher + ' · ' : ''}{h.source}</div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-        </ScrollArea>
-      </TabsContent>
-      <TabsContent value="workspace" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-        <ScrollArea className="h-full px-2 pb-2">
-          {pane?.workspace
-            ? <WorkspaceTree ws={pane.workspace} onOpen={openFile} />
-            : <div className="px-2 py-2 text-xs text-muted-foreground">…</div>}
-        </ScrollArea>
-      </TabsContent>
-    </Tabs>
+  const empty = (t: string) => <div className="px-1 py-2 text-xs text-muted-foreground">{t}</div>
+  const groupHead = (t: string) => <div className="px-1 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t}</div>
+  const tabPanel = (value: string, body: React.ReactNode) => (
+    <TabsContent key={value} value={value} className="min-h-0 flex-1 data-[state=inactive]:hidden">
+      <ScrollArea className="h-full"><div className="px-3 pb-4">{body}</div></ScrollArea>
+    </TabsContent>
+  )
+  const u = pane?.usage ?? null
+  const tok = (n: number) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
+  const usd = (n: number) => '$' + (n >= 100 ? n.toFixed(0) : n >= 1 ? n.toFixed(2) : n.toFixed(3))
+  const ctxPct = Math.round(((u?.ctxUsed ?? 0) / (u?.ctxMax ?? 200000)) * 100)
+  const modeWord = (m: string | null | undefined) => !m ? null : m === 'bypassPermissions' ? 'bypass' : m === 'acceptEdits' ? 'accept edits' : m
+  const usageRow = (label: string, value: React.ReactNode, strong = false) => (
+    <div className={'flex justify-between gap-3 py-1 text-[13px] ' + (strong ? 'font-semibold' : '')}><span className={strong ? '' : 'text-muted-foreground'}>{label}</span><span className="text-right">{value}</span></div>
+  )
+  const deskTabs: [string, React.ReactNode][] = [
+    ['usage', pane ? (<div className="pt-2">
+      <div className="mb-1 text-[13px] font-semibold">This session</div>
+      <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-bubble"><div className="h-full rounded-full bg-brand" style={{ width: Math.min(100, ctxPct) + '%' }} /></div>
+      {usageRow('Model', pane.model ?? '—')}
+      {usageRow('Context', tok(u?.ctxUsed ?? 0) + ' of ' + tok(u?.ctxMax ?? 200000) + ' · ' + ctxPct + '%')}
+      {u && <>
+        {usageRow('Turns', u.turns)}
+        {usageRow('Input (fresh)', tok(u.input) + ' tok' + (u.cost ? ' · ' + usd(u.cost.input) : ''))}
+        {usageRow('Output', tok(u.output) + ' tok' + (u.cost ? ' · ' + usd(u.cost.output) : ''))}
+        {usageRow('Cache read', tok(u.cacheRead) + ' tok' + (u.cost ? ' · ' + usd(u.cost.cacheRead) : ''))}
+        {usageRow('Cache write', tok(u.cacheWrite) + ' tok' + (u.cost ? ' · ' + usd(u.cost.cacheWrite) : ''))}
+        {usageRow('Estimated total', u.cost ? usd(u.cost.total) : 'no rate for this model', true)}
+      </>}
+      {/* a dollar always carries its date */}
+      <div className="mt-2 text-xs leading-relaxed text-muted-foreground" data-testid="rates-asof">
+        {u?.cost ? 'Rates as of ' + u.cost.asOf + ' · cache read 0.1×, write 1.25× the input rate.' : 'Rates as of ' + (pane.ratesAsOf ?? '—') + '.'} An unknown model gets tokens only, never a guessed dollar.</div>
+      {pane.mode && <><div className="mt-4 text-[13px] font-semibold">Permission mode</div><div className="text-[13px]">{modeWord(pane.mode)} (as recorded in the transcript)</div></>}
+    </div>) : empty('no session yet')],
+    ['workspace', pane?.workspace ? <WorkspaceTree ws={pane.workspace} onOpen={openFile} /> : empty('…')],
+    ['agents', agents === null ? empty('…') : agents.length === 0 ? empty('no agents defined for this desk') : bySource(agents).map(([src, xs]) => (
+      <div key={src} className="mb-2">{groupHead(src)}
+        {xs.map((a, i) => (
+          <div key={i} className="flex items-start gap-2 px-1 py-1.5" title={a.description}>
+            <DeskAvatar name={a.name} size={18} />
+            <div className="min-w-0">
+              <div className="flex items-baseline gap-2 text-[13px] font-medium"><span className="truncate">{a.name}</span>
+                {a.model && <span className="flex-none font-mono text-[11px] text-muted-foreground">{a.model.replace('claude-', '')}{a.effort ? ' · ' + a.effort : ''}</span>}</div>
+              <div className="line-clamp-2 text-xs text-muted-foreground">{a.description}</div>
+            </div>
+          </div>
+        ))}
+      </div>))],
+    ['skills', skills === null ? empty('…') : skills.length === 0 ? empty('no skills or commands for this desk') : bySource(skills).map(([src, xs]) => (
+      <div key={src} className="mb-2">{groupHead(src)}
+        {xs.map((k, i) => (
+          <button key={i} type="button" className="grid w-full grid-cols-[minmax(6rem,max-content)_1fr] items-baseline gap-x-2 rounded-md px-1 py-1 text-left hover:bg-bubble" title={k.description + ' — click to type it'}
+            onClick={() => pickCommand(k.name)}>
+            <span className="whitespace-nowrap font-mono text-xs">{k.name}</span>
+            <span className="truncate text-xs text-muted-foreground">{k.description}</span>
+          </button>
+        ))}
+      </div>))],
+    ['plugins', plugins === null ? empty('…') : plugins.length === 0 ? empty('no plugins installed') : plugins.map((pl) => (
+      <div key={pl.marketplace + '/' + pl.name} className="flex items-start gap-2 px-1 py-2" title={pl.description}>
+        <DeskAvatar name={pl.name} size={18} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2 text-[13px] font-medium"><span className="truncate">{pl.name}</span><span className="flex-none font-mono text-[11px] text-muted-foreground">{pl.version}</span></div>
+          {pl.description && <div className="line-clamp-2 text-xs text-muted-foreground">{pl.description}</div>}
+          <div className="mt-0.5 text-[11px] text-muted-foreground">
+            {[pl.agents && pl.agents + ' agents', pl.skills && pl.skills + ' skills', pl.commands && pl.commands + ' commands', pl.hooks && pl.hooks + ' hooks'].filter(Boolean).join(' · ') || 'no agents, skills, commands or hooks'} · {pl.marketplace}
+          </div>
+        </div>
+      </div>))],
+    ['hooks', hooks === null ? empty('…') : hooks.length === 0 ? empty('no hooks configured for this desk')
+      : [...new Set(hooks.map((h) => h.event))].sort((a, b) => HOOK_ORDER.indexOf(a) - HOOK_ORDER.indexOf(b)).map((event) => (
+        <div key={event} className="mb-1">{groupHead(event)}
+          {hooks.filter((h) => h.event === event).map((h, i) => (
+            <div key={i} className="px-1 py-0.5 text-xs" title={h.command}>
+              <div className="truncate font-mono">{hookName(h.command)}</div>
+              <div className="truncate text-muted-foreground">{h.matcher !== '*' ? h.matcher + ' · ' : ''}{h.source}</div>
+            </div>
+          ))}
+        </div>))],
+  ]
+  const checkIcon = (r: { code: number; applicable: boolean }) => !r.applicable ? <MinusCircle className="size-3.5 flex-none text-muted-foreground" />
+    : r.code === 0 ? <CheckCircle2 className="size-3.5 flex-none text-ok" /> : r.code === 7 ? <CircleHelp className="size-3.5 flex-none text-wait" /> : <XCircle className="size-3.5 flex-none text-err" />
+  const officeTabs: [string, React.ReactNode][] = [
+    ['loops', beat === null ? empty('…') : !beat.declared ? empty('This office declares no heartbeat (desk.json "heartbeat" at the root), so the board shows no loop count rather than a green light nobody earned.') : (
+      <div className="pt-2 text-[13px]">
+        <div className={'mb-2 font-semibold ' + (beat.ok ? '' : 'text-err')}>{loopsLine}</div>
+        {(beat.lines?.length ? beat.lines : [beat.last ?? '']).map((l, i) => <div key={i} className="whitespace-pre-wrap break-words py-0.5 font-mono text-xs text-muted-foreground">{l}</div>)}
+      </div>)],
+    ['checks', checks === null ? empty('…') : (
+      <div className="pt-2">
+        <div className="mb-2 text-[13px]">{checkPass} pass · {checks.rows.filter((r) => r.applicable && r.code === 4).length} fail · {checks.rows.filter((r) => r.applicable && r.code === 7).length} unknown · {checks.rows.filter((r) => !r.applicable).length} not applicable</div>
+        {[...checks.rows].sort((a, b) => Number(b.applicable) - Number(a.applicable) || (b.code === 0 ? 0 : 1) - (a.code === 0 ? 0 : 1)).map((r) => (
+          <div key={r.name} className="flex items-start gap-2 py-1 text-xs" data-testid="check-row">
+            <span className="pt-0.5">{checkIcon(r)}</span>
+            <div className="min-w-0"><div className={'font-mono ' + (r.applicable ? '' : 'text-muted-foreground')}>{r.name}</div>{r.why && <div className="text-muted-foreground">{r.why}</div>}</div>
+          </div>
+        ))}
+      </div>)],
+    ['updates', (
+      <div className="flex flex-col gap-2 pt-2 text-[13px]">
+        <p className="text-xs text-muted-foreground">Neither touches a running desk: each keeps its version until it restarts.</p>
+        {/* updates moved here from the floating button: same calls, same confirm */}
+        <Button variant="outline" size="sm" className="justify-start gap-2" title="claude update — running desks keep their version until restarted"
+          onClick={async () => {
+            if (!window.confirm('Run `claude update` on the host?')) return
+            setNote('updating Claude Code…')
+            const r = await (await fetch('api/upgrade', { method: 'POST' })).json()
+            setNote((r.ok ? '✓ ' : '⛔ ') + (r.before === r.after ? 'Claude Code already latest: ' + r.after : r.before + ' → ' + r.after) + ' — ' + r.note)
+          }}><ArrowUpCircle className="size-4" /> Update Claude Code</Button>
+        <Button variant="outline" size="sm" className="justify-start gap-2" title="claude plugin update office-anything — the board picks it up on its next start"
+          onClick={async () => {
+            if (!window.confirm('Run `claude plugin update office-anything`?')) return
+            setNote('updating the office plugin…')
+            const r = await (await fetch('api/upgrade-plugin', { method: 'POST' })).json()
+            setNote((r.ok ? '✓ ' : '⛔ ') + (r.note || r.why || 'done'))
+          }}><Building2 className="size-4" /> Update the office plugin</Button>
+      </div>)],
+  ]
+  const drawerTabs = drawer === 'office' ? officeTabs : deskTabs
+  const drawerBody = drawer && (
+    <div className="flex h-full min-h-0 flex-col" data-rail="files">
+      <div className="flex items-center gap-2 px-4 pb-1 pt-4">
+        <span className="min-w-0 flex-1 truncate font-semibold">{drawer === 'office' ? 'The office' : (selDesk?.label ?? '…') + ' · details'}</span>
+        <div className="flex flex-none rounded-lg bg-bubble p-0.5 text-xs">
+          {(['desk', 'office'] as const).map((mo) => (
+            <button key={mo} type="button" onClick={() => openDrawer(mo)} aria-pressed={drawer === mo}
+              className="rounded-md px-2 py-0.5 text-muted-foreground aria-pressed:bg-background aria-pressed:text-foreground">{mo === 'desk' ? 'Desk' : 'Office'}</button>
+          ))}
+        </div>
+        <Button variant="ghost" size="sm" className="size-7 flex-none p-0 text-muted-foreground" title="Close" onClick={() => setDrawer(null)}><X className="size-4" /></Button>
+      </div>
+      <Tabs value={drawerTabs.some(([v]) => v === drawerTab) ? drawerTab : drawerTabs[0][0]} onValueChange={(v) => setDrawerTab(String(v))} className="flex min-h-0 flex-1 flex-col gap-0">
+        <TabsList variant="line" className="mx-2 my-1 h-auto flex-wrap justify-start">
+          {drawerTabs.map(([v]) => <TabsTrigger key={v} value={v} className="flex-none px-2 text-[13px] capitalize">{v}</TabsTrigger>)}
+        </TabsList>
+        {drawerTabs.map(([v, body]) => tabPanel(v, body))}
+      </Tabs>
+    </div>
   )
 
+  // the conversation's own tail: blocks, the NEW divider, hand-off chips
+  const convo = (() => {
+    const tail = blocks.slice(-60)
+    const out: React.ReactNode[] = []
+    const wroteTo = new Set<string>()
+    let newShown = false
+    tail.forEach((b, i) => {
+      if (b.kind === 'msg') {
+        const at = b.m.at ? Date.parse(b.m.at) : NaN
+        if (!newShown && newSince != null && b.m.role !== 'user' && at > newSince) {
+          out.push(<div key="new" data-testid="new-divider" className="flex items-center gap-3 text-xs font-semibold tracking-wide text-brand before:h-px before:flex-1 before:bg-brand/35 after:h-px after:flex-1 after:bg-brand/35">NEW</div>)
+          newShown = true
+        }
+        out.push(<MsgBlock key={'m' + i} m={b.m} rich replied={b.m.role === 'peer' && wroteTo.has(b.m.from ?? '')} />)
+      } else {
+        out.push(<ToolsBlock key={'t' + i} tools={b.tools} />)
+        sentIn(b.tools).forEach((s, k) => { wroteTo.add(s.to); out.push(<SentChip key={'s' + i + '-' + k} s={s} />) })
+      }
+    })
+    return out
+  })()
+  const crewAgents = selDesk?.agents ?? []
+  const crewJobs = selDesk?.jobs ?? []
+  const crewNow = crewAgents.some((a) => a.activeMin < 2) || crewJobs.some((j) => j.ageSec < 60)
+  const turnLine = pane?.turn?.elapsedSec != null
+    ? (pane.turn.elapsedSec >= 60 ? Math.floor(pane.turn.elapsedSec / 60) + 'm ' + (pane.turn.elapsedSec % 60) + 's' : pane.turn.elapsedSec + 's')
+      + ' · ↓ ' + (pane.turn.output >= 1000 ? (pane.turn.output / 1000).toFixed(1) + 'k' : pane.turn.output) + ' tokens'
+    : ''
+  const outboxState = (via?: string) => via === 'inbox' ? (selDesk?.busy ? 'in its inbox — read at its next step' : 'in its inbox') : selDesk?.status === 'waiting' ? 'queued — the desk is waiting on a prompt in its terminal' : selDesk?.busy ? 'queued' : 'delivering…'
+
   return (
-    <ResizablePanelGroup orientation="horizontal" className="h-screen bg-background text-foreground">
-      {/* item 3+7: panes told apart by TONE, resizable with bounds */}
-      {isDesktop && <ResizablePanel defaultSize="13%" minSize="9%" maxSize="24%" collapsible collapsedSize="0%" className="bg-sidebar">
-        <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between py-2 pl-4 pr-2 font-semibold">
-            <span className="flex items-center gap-1.5 whitespace-nowrap py-1"><Building2 className="size-4 flex-none text-blue-400" /> the office</span>
-            <Button variant="ghost" size="sm" className="px-1.5" title="Hire a desk" onClick={() => setHireOpen(true)}><Plus className="size-4" /></Button>
-          </div>
-          <ScrollArea className="min-h-0 flex-1">{deskList}{officeList}</ScrollArea>
-          {beat?.declared && (
-            <div className="flex items-center gap-2 border-t border-border/40 px-3 py-2" title={beat.lines?.join('\n') || beat.last}>
-              <RefreshCw className={'size-3 flex-none ' + (beat.ok ? 'text-emerald-400/80' : 'text-red-400')} />
-              {(() => {
-                const m = /(\d+)\s*\/\s*(\d+)/.exec(beat.last ?? '')
-                return <span className={'text-[11px] ' + (beat.ok ? 'text-muted-foreground' : 'text-red-400')}>
-                  {m ? <><span className={beat.ok ? 'text-foreground' : ''}>{m[1]}/{m[2]}</span> loops {beat.ok ? 'up' : '— attention'}</> : (beat.ok ? 'office up' : 'office needs attention')}
-                </span>
-              })()}
-            </div>
-          )}
-        </div>
-      </ResizablePanel>}
-      {isDesktop && <ResizableHandle className="w-0 bg-transparent" />}
+    <div className="flex h-dvh bg-background text-foreground">
+      {isDesktop && <aside className="flex w-[248px] flex-none flex-col border-r border-border bg-sidebar">{sidebar}</aside>}
+      {!isDesktop && (
+        <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <SheetContent side="left" className="w-[86vw] max-w-80 gap-0 bg-sidebar p-0">
+            <SheetTitle className="sr-only">The office</SheetTitle>
+            {sidebar}
+          </SheetContent>
+        </Sheet>
+      )}
 
-      <ResizablePanel defaultSize={isDesktop ? '60%' : '100%'} minSize="40%">
-        <div className="flex h-full flex-col">
-          <header className="flex items-center gap-2 px-4 py-2 md:px-6">
-            <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-              <SheetTrigger render={<Button variant="ghost" size="sm" className="md:hidden"><Menu className="size-4" /></Button>} />
-              <SheetContent side="left" className="flex w-72 flex-col p-0">
-                <SheetTitle className="flex items-center gap-1.5 px-4 py-3 text-base"><Building2 className="size-4" /> the office
-                  <Button variant="ghost" size="sm" className="ml-auto mr-7" title="Hire a desk" onClick={() => { setDrawerOpen(false); setHireOpen(true) }}><Plus className="size-4" /></Button>
-                </SheetTitle>
-                <ScrollArea className="min-h-0 flex-[1.1]">{deskList}{officeList}</ScrollArea>
-                {/* the phone gets the same rail, in the drawer */}
-                <div className="min-h-0 flex-1 border-t border-border/50">{railTabs}</div>
-              </SheetContent>
-            </Sheet>
-            {view ? (<>
-              {view === 'timeline' ? <MessagesSquare className="size-4 text-muted-foreground" /> : <LayoutList className="size-4 text-muted-foreground" />}
-              <span className="min-w-0 truncate whitespace-nowrap font-semibold">{view === 'timeline' ? 'between desks' : view === 'tasks' ? 'tasks' : panels.find((p) => 'panel:' + p.id === view)?.title ?? view.slice(6)}</span>
-            </>) : (<>
-              {pane?.label && <DeskAvatar name={pane.label} size={22} />}
-              <span className="min-w-0 truncate whitespace-nowrap font-semibold">{pane?.label ?? '…'}</span>
-              {/* live status, from the CLI's own session registry */}
-              {deskStatusLine(selDesk) && <span className={'truncate whitespace-nowrap text-xs ' + (selDesk?.state === 'waiting' ? 'text-amber-400' : 'text-muted-foreground')} data-testid="desk-status">{deskStatusLine(selDesk)}</span>}
-              <span className="ml-auto" />
-              {selDesk?.remoteUrl && (
-                <a href={selDesk.remoteUrl} target="_blank" rel="noreferrer" title="open this session in the Claude app (Remote Control)"
-                  className={buttonVariants({ variant: 'ghost', size: 'sm' }) + ' h-8 text-xs'} data-testid="open-in-claude"><ExternalLink className="size-3.5 sm:mr-1" /><span className="hidden sm:inline"> Claude app</span></a>
+      <main className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center gap-3 px-3 py-3 md:px-7">
+          {!isDesktop && <Button variant="ghost" size="sm" className="size-8 p-0" title="Desks" onClick={() => setDrawerOpen(true)}><Menu className="size-4" /></Button>}
+          {view ? (<>
+            {view === 'timeline' ? <ArrowLeftRight className="size-4 text-muted-foreground" /> : view === 'tasks' ? <ListTodo className="size-4 text-muted-foreground" /> : <LayoutList className="size-4 text-muted-foreground" />}
+            <span className="min-w-0 truncate whitespace-nowrap text-[17px] font-semibold">{view === 'timeline' ? 'Between desks' : view === 'tasks' ? 'Tasks' : panels.find((p) => 'panel:' + p.id === view)?.title ?? view.slice(6)}</span>
+            <span className="ml-auto" />
+          </>) : (<>
+            {pane?.label && <DeskAvatar name={pane.label} size={22} />}
+            <span className="min-w-0 truncate whitespace-nowrap text-[17px] font-semibold">{pane?.label ?? '…'}</span>
+            {/* live status, in the CLI's own words */}
+            {selDesk && <span className={'hidden truncate whitespace-nowrap text-[13px] sm:inline ' + (selDesk.state === 'waiting' || selDesk.waiting ? 'text-wait' : 'text-muted-foreground')} data-testid="desk-status">{rowLine(selDesk)}</span>}
+            <span className="ml-auto" />
+            {selDesk?.remoteUrl && (
+              <a href={selDesk.remoteUrl} target="_blank" rel="noreferrer" title="open this desk in the Claude app (Remote Control)"
+                className={buttonVariants({ variant: 'ghost', size: 'sm' }) + ' h-8 text-[13px] text-muted-foreground'} data-testid="open-in-claude"><ExternalLink className="size-3.5 sm:mr-1" /><span className="hidden sm:inline">Claude app</span></a>
+            )}
+            <Button variant="ghost" size="sm" aria-pressed={showComputer} className="h-8 text-[13px] text-muted-foreground aria-pressed:bg-bubble aria-pressed:text-foreground"
+              onClick={() => setShowComputer(v => !v)}><Monitor className="size-3.5 sm:mr-1" /><span className="hidden sm:inline">Computer</span></Button>
+          </>)}
+          <Button variant="ghost" size="sm" aria-pressed={!!drawer} className="h-8 text-[13px] text-muted-foreground aria-pressed:bg-bubble aria-pressed:text-foreground" data-testid="open-details"
+            onClick={() => drawer ? setDrawer(null) : openDrawer(view ? 'office' : 'desk')}><PanelRight className="size-3.5 sm:mr-1" /><span className="hidden sm:inline">Details</span></Button>
+        </header>
+        {view === 'timeline' && <OfficeTimeline onPick={pickDesk} />}
+        {view === 'tasks' && <TasksView />}
+        {view?.startsWith('panel:') && <PanelView id={view.slice(6)} />}
+
+        {/* ⛔ SIDE BY SIDE, owner's ruling: the mirror opens NEXT TO the
+            conversation, resizable, never instead of it. On a phone the
+            same pair stacks vertically — still both visible, still resizable. */}
+        {!view && <ResizablePanelGroup orientation={isDesktop ? 'horizontal' : 'vertical'} className="min-h-0 flex-1">
+        <ResizablePanel defaultSize={showComputer ? '55%' : '100%'} minSize="30%" className="flex min-h-0 flex-col">
+          <Conversation key={sel ?? 'none'} className="flex-1">
+            <ConversationContent className="mx-auto w-full max-w-[680px] gap-3.5 px-4 py-5 md:px-7">
+              {!pane && (
+                <div className="flex flex-col gap-3 py-4">
+                  <Skeleton className="h-4 w-2/5" />
+                  <Skeleton className="h-16 w-4/5" />
+                  <Skeleton className="h-4 w-1/3 self-end" />
+                  <Skeleton className="h-10 w-3/5" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
               )}
-              <Button variant={showComputer ? 'secondary' : 'ghost'} size="sm" className="h-8 text-xs"
-                onClick={() => setShowComputer(v => !v)}><Monitor className="size-3.5 sm:mr-1" /><span className="hidden sm:inline"> Computer</span></Button>
-            </>)}
-          </header>
-          {view === 'timeline' && <OfficeTimeline onPick={pickDesk} />}
-          {view === 'tasks' && <TasksView />}
-          {view?.startsWith('panel:') && <PanelView id={view.slice(6)} />}
+              {pane && blocks.length === 0 && <ConversationEmptyState title="Nothing yet" description="This desk has no conversation yet." />}
+              {/* markdown for the WHOLE tail: memoized blocks parse once
+                  per message, so the old last-15 cutoff protected nothing
+                  and left older turns reading as raw asterisks */}
+              {convo}
+              {/* what YOU sent, faded, until the transcript shows it */}
+              {outbox.map((x, i) => (
+                <div key={'ob' + i} className="flex max-w-[88%] items-center justify-end gap-2 self-end text-[13px] text-muted-foreground" data-testid="outbox">
+                  <span className="line-clamp-2 rounded-2xl bg-brand-soft px-3 py-1.5 text-foreground opacity-70">{x.text}</span>
+                  <span className="flex-none">{outboxState(x.via)}</span>
+                </div>
+              ))}
+              {(selDesk?.busy || crewNow) && (
+                <details className="group/crew self-start" data-testid="crew">
+                  <summary className="flex cursor-pointer list-none items-center gap-2.5 py-1 text-[13.5px] text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+                    <span className="flex">
+                      {(crewAgents.length ? crewAgents.slice(0, 3).map((a) => a.label) : [selDesk?.label ?? '?']).map((n, i) => (
+                        <span key={i} className={'rounded-full ring-2 ring-background ' + (i ? '-ml-1.5' : '')}><DeskAvatar name={n} size={18} /></span>))}
+                    </span>
+                    {(() => { const words = (crewAgents.length ? 'Teammates working' : 'Working') + (turnLine ? ' · ' + turnLine : ''); return selDesk?.busy ? <Shimmer>{words}</Shimmer> : <span>{words}</span> })()}
+                    {(crewAgents.length + crewJobs.length) > 0 && <ChevronDown className="size-3.5 transition-transform group-open/crew:rotate-180" />}
+                  </summary>
+                  {(crewAgents.length + crewJobs.length) > 0 && (
+                    <ul className="ml-1 mt-1 space-y-1 text-[13px] text-muted-foreground">
+                      {crewAgents.map((a, i) => (
+                        <li key={'a' + i} className="flex items-center gap-2"><DeskAvatar name={a.label} size={16} /><span className="truncate">{a.label} · {a.kind === 'session' ? 'teammate' : 'subagent'} · {a.activeMin < 2 ? 'active now' : age(a.activeMin)} · {a.turns} turns</span></li>
+                      ))}
+                      {crewJobs.map((j) => (
+                        <li key={j.id} className="flex items-center gap-2"><Clock className={'size-3.5 flex-none ' + (j.ageSec < 60 ? 'animate-pulse text-wait' : '')} /><span className="truncate">{j.label || 'background · ' + j.id} · {j.ageSec < 60 ? 'running' : Math.round(j.ageSec / 60) + 'm ago'} · {kb(j.size)}</span></li>
+                      ))}
+                    </ul>
+                  )}
+                </details>
+              )}
+            </ConversationContent>
+            <ConversationScrollButton />
+          </Conversation>
 
-          {/* ⛔ SIDE BY SIDE, owner's ruling: the mirror opens NEXT TO the
-              conversation, resizable, never instead of it. On a phone the
-              same pair stacks vertically — still both visible, still resizable. */}
-          {!view && <ResizablePanelGroup orientation={isDesktop ? 'horizontal' : 'vertical'} className="min-h-0 flex-1">
-          <ResizablePanel defaultSize={showComputer ? '55%' : '100%'} minSize="30%" className="flex min-h-0 flex-col">
-            <Conversation key={sel ?? 'none'} className="flex-1">
-              <ConversationContent className="mx-auto w-full max-w-3xl gap-2">
-                {!pane && (
-                  <div className="flex flex-col gap-3 py-4">
-                    <Skeleton className="h-4 w-2/5" />
-                    <Skeleton className="h-16 w-4/5" />
-                    <Skeleton className="h-4 w-1/3 self-end" />
-                    <Skeleton className="h-10 w-3/5" />
-                    <Skeleton className="h-4 w-1/2" />
+          {pane?.pending && (
+            <div className="mx-auto w-full max-w-[680px] px-4 pb-2 md:px-7">
+              <div className="max-h-[40vh] overflow-y-auto rounded-2xl border border-wait bg-wait-soft px-4 py-3.5" data-testid="pending-ask">
+                {pane.pending.type === 'question' ? pane.pending.questions.map((q, i) => (
+                  <div key={i} className="mb-1">
+                    <div className="mb-2.5 font-semibold leading-snug">{i === 0 ? 'This desk is waiting on your answer: ' : ''}{q.question}</div>
+                    {pane.pending?.type === 'question' && pane.pending.questions.length === 1 && !q.multiSelect ? (<>
+                      <div className="flex flex-wrap gap-2">
+                        {q.options.map((o, k) => (
+                          <button key={k} type="button" title={o.description} onClick={() => answer(k, o.label)}
+                            className="rounded-full border border-border bg-background px-3 py-1.5 text-[13.5px] transition-colors hover:border-wait">{o.label}</button>
+                        ))}
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground">A click picks that option in the desk's own dialog.</div>
+                    </>) : (
+                      <div className="text-xs text-muted-foreground">
+                        {q.options.map((o) => o.label).join(' · ')}
+                        <div className="mt-1">{q.multiSelect ? 'This one takes several choices' : 'This form has several questions'}, which the board does not drive. {selDesk?.remoteUrl ? <a className="underline" href={selDesk.remoteUrl} target="_blank" rel="noreferrer">Answer it in the Claude app</a> : 'Answer it in the desk\'s terminal'}.</div>
+                      </div>
+                    )}
+                  </div>
+                )) : (
+                  <div>
+                    <div className="mb-2 font-semibold">This desk is waiting for plan approval</div>
+                    <pre className="mb-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-background/60 p-2 text-xs">{pane.pending.plan}</pre>
+                    {/* a plan approval is a dialog of its own; the board does not press its keys */}
+                    <div className="text-xs text-muted-foreground">{selDesk?.remoteUrl ? <a className="underline" href={selDesk.remoteUrl} target="_blank" rel="noreferrer">Approve or hold it in the Claude app</a> : 'Approve or hold it in the desk\'s terminal'}.</div>
                   </div>
                 )}
-                {pane && blocks.length === 0 && <ConversationEmptyState title="Nothing yet" description="This desk has no conversation in its current session." />}
-                {/* markdown for the WHOLE tail: memoized blocks parse once
-                    per message, so the old last-15 cutoff protected nothing
-                    and left older turns reading as raw asterisks */}
-                {(() => { const tail = blocks.slice(-60); return tail.map((b, i) => b.kind === 'msg'
-                  ? <MsgBlock key={'m' + i} m={b.m} rich />
-                  : <ToolsBlock key={'t' + i} tools={b.tools} />) })()}
-                {outbox.length > 0 && (
-                  <QueueList className="ml-auto w-fit max-w-[85%]">
-                    {outbox.map((x, i) => (
-                      <QueueItem key={'ob' + i} className="flex-row items-baseline gap-2">
-                        <QueueItemIndicator className="animate-pulse border-sky-400" />
-                        <QueueItemContent className="line-clamp-2">{x.text}</QueueItemContent>
-                        <QueueItemDescription className="ml-2 flex-none">{(() => { const dk = desks.find((d) => d.key === sel); return x.via === 'inbox' ? (dk?.busy ? 'in its inbox — read at its next step' : 'in its inbox') : dk?.status === 'waiting' ? 'queued — the desk is waiting on a prompt in its terminal' : dk?.busy ? 'queued' : 'delivering…' })()}</QueueItemDescription>
-                      </QueueItem>
-                    ))}
-                  </QueueList>
-                )}
-                {desks.find((d) => d.key === sel)?.busy && (
-                  <div className="py-1 text-sm"><Shimmer>{'✳ working… ' + (pane?.turn?.elapsedSec != null
-                    ? '(' + (pane.turn.elapsedSec >= 60 ? Math.floor(pane.turn.elapsedSec / 60) + 'm ' + (pane.turn.elapsedSec % 60) + 's' : pane.turn.elapsedSec + 's')
-                      + ' · ↓ ' + (pane.turn.output >= 1000 ? (pane.turn.output / 1000).toFixed(1) + 'k' : pane.turn.output) + ' tokens)'
-                    : '')}</Shimmer></div>
-                )}
-              </ConversationContent>
-              <ConversationScrollButton />
-            </Conversation>
-
-            {pane?.pending && (
-              <div className="mx-auto w-full max-w-3xl px-4 pb-2">
-                <Confirmation approval={{ id: 'pending' } as never} state="approval-requested" className="border-amber-500/40 bg-amber-500/5">
-                  <ConfirmationTitle className="flex items-center gap-1.5 text-xs font-medium text-amber-500">
-                    <CircleHelp className="size-3.5" />
-                    {pane.pending.type === 'question' ? 'This desk is waiting on YOUR answer' : 'This desk is waiting for plan approval'}
-                  </ConfirmationTitle>
-                  <ConfirmationRequest>
-                  {pane.pending.type === 'question' ? pane.pending.questions.map((q, i) => (
-                    <div key={i} className="mb-1">
-                      <div className="mb-1.5 text-sm">{q.question}</div>
-                      {pane.pending?.type === 'question' && pane.pending.questions.length === 1 && !q.multiSelect ? (<>
-                        <div className="flex flex-wrap gap-1.5">
-                          {q.options.map((o, k) => (
-                            <Button key={k} size="sm" variant="outline" className="h-7 text-xs" title={o.description}
-                              onClick={() => answer(k, o.label)}>{o.label}</Button>
-                          ))}
-                        </div>
-                        <div className="mt-1 text-[10px] text-muted-foreground">a click picks that option in the desk's own dialog</div>
-                      </>) : (
-                        <div className="text-[11px] text-muted-foreground">
-                          {q.options.map((o) => o.label).join(' · ')}
-                          <div className="mt-1">{q.multiSelect ? 'This one takes several choices' : 'This form has several questions'}, which the board does not drive. {selDesk?.remoteUrl ? <a className="underline" href={selDesk.remoteUrl} target="_blank" rel="noreferrer">Answer it in the Claude app</a> : 'Answer it in the desk\'s terminal'}.</div>
-                        </div>
-                      )}
-                    </div>
-                  )) : (
-                    <div>
-                      <pre className="mb-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-xs">{pane.pending.plan}</pre>
-                      {/* a plan approval is a dialog of its own; the board does not press its keys */}
-                      <div className="text-[11px] text-muted-foreground">{selDesk?.remoteUrl ? <a className="underline" href={selDesk.remoteUrl} target="_blank" rel="noreferrer">Approve or hold it in the Claude app</a> : 'Approve or hold it in the desk\'s terminal'}.</div>
-                    </div>
-                  )}
-                  </ConfirmationRequest>
-                </Confirmation>
               </div>
-            )}
-            {note && <div className="px-6 pb-1 text-xs text-destructive">{note}</div>}
-            <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-              {composerStatus}
-              <PromptInput onSubmit={onSubmit} accept="image/*" multiple globalDrop>
-                <PromptInputBody>
-                  <PromptInputHeader><AttachChips /></PromptInputHeader>
-                  {slashQ && (() => {
-                    const argM = /^(\/[a-z-]+)\s+(\S*)$/i.exec(slashQ)
-                    const bareCmd = slashQ.trim().split(/\s+/)[0]
-                    const isPicker = Object.prototype.hasOwnProperty.call(PICKERS, bareCmd)
-                    if (argM && PICKERS[argM[1]]?.length) {
-                      const args = PICKERS[argM[1]].filter((a) => a.startsWith(argM[2])).slice(0, 12)
-                      return (
-                        <div className="max-h-56 overflow-y-auto px-1 pt-1">
-                          <div className="px-2 py-0.5 text-[10px] text-muted-foreground">{argM[1]} opens a picker in the terminal that the board cannot show — pick the value here instead</div>
-                          {args.map((a, i) => (
-                            <button key={a} type="button" onClick={() => pickCommand(argM[1] + ' ' + a)}
-                              className={'grid w-full grid-cols-[1fr_auto] items-baseline gap-x-3 rounded-md px-2 py-1 text-left text-xs hover:bg-accent ' + (i === slashIdx ? 'bg-accent/50' : '')}>
-                              <span className="whitespace-nowrap text-left font-mono">{a}</span>
-                              <span className="text-[9px] text-muted-foreground">{i === slashIdx ? 'enter' : ''}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )
-                    }
-                    const list = commands.filter((c) => c.name.startsWith(slashQ)).slice(0, 12)
+            </div>
+          )}
+          {note && <div className={'mx-auto w-full max-w-[680px] px-4 pb-1 text-xs md:px-7 ' + (note.startsWith('⛔') ? 'text-err' : 'text-muted-foreground')}>{note}</div>}
+          <div className="mx-auto w-full max-w-[680px] px-4 pb-4 md:px-7">
+            <PromptInput onSubmit={onSubmit} accept="image/*" multiple globalDrop className="[&_[data-slot=input-group]]:rounded-2xl [&_[data-slot=input-group]]:bg-background [&_[data-slot=input-group]]:shadow-sm">
+              <PromptInputBody>
+                <PromptInputHeader><AttachChips /></PromptInputHeader>
+                {slashQ && (() => {
+                  const argM = /^(\/[a-z-]+)\s+(\S*)$/i.exec(slashQ)
+                  const bareCmd = slashQ.trim().split(/\s+/)[0]
+                  const isPicker = Object.prototype.hasOwnProperty.call(PICKERS, bareCmd)
+                  if (argM && PICKERS[argM[1]]?.length) {
+                    const args = PICKERS[argM[1]].filter((a) => a.startsWith(argM[2])).slice(0, 12)
                     return (
                       <div className="max-h-56 overflow-y-auto px-1 pt-1">
-                        {/* two honest columns, CLI-style: the NAME gets the room
-                            it needs and never hides; the description takes the
-                            rest and fades with a truncate, left-aligned */}
-                        {list.map((c, i) => (
-                          <button key={c.name} type="button" onClick={() => pickCommand(c.name)}
-                            className={'grid w-full grid-cols-[minmax(9rem,max-content)_1fr_auto] items-baseline gap-x-3 rounded-md px-2 py-1 text-left text-xs hover:bg-accent ' + (i === slashIdx ? 'bg-accent/50' : '')}>
-                            <span className="whitespace-nowrap text-left font-mono">{c.name}</span>
-                            <span className="truncate text-left text-muted-foreground" title={c.desc}>{c.desc}</span>
-                            <span className="text-[9px] text-muted-foreground">{i === slashIdx ? '↵ / tab' : ''}</span>
+                        <div className="px-2 py-0.5 text-[10px] text-muted-foreground">{argM[1]} opens a picker in the terminal that the board cannot show — pick the value here instead</div>
+                        {args.map((a, i) => (
+                          <button key={a} type="button" onClick={() => pickCommand(argM[1] + ' ' + a)}
+                            className={'grid w-full grid-cols-[1fr_auto] items-baseline gap-x-3 rounded-md px-2 py-1 text-left text-xs hover:bg-accent ' + (i === slashIdx ? 'bg-accent/50' : '')}>
+                            <span className="whitespace-nowrap text-left font-mono">{a}</span>
+                            <span className="text-[9px] text-muted-foreground">{i === slashIdx ? 'enter' : ''}</span>
                           </button>
                         ))}
-                        {list.length === 0 && !isPicker && (
-                          <span className="px-1 text-[11px] text-muted-foreground">no matching command — Enter sends it as typed</span>
-                        )}
-                        {isPicker && list.length <= 1 && (
-                          <div className="px-2 py-1 text-[11px] text-amber-400">{bareCmd} opens an interactive picker in the desk's terminal. The board cannot show it, so give the value inline (e.g. {bareCmd} {PICKERS[bareCmd]?.[0] ?? '<value>'}).</div>
-                        )}
                       </div>
                     )
-                  })()}
-                  <PromptInputTextarea placeholder={canSend ? composerHint(selDesk) : 'Read-only on this host: no desk inbox and no terminal reachable'} disabled={!canSend || !selDesk?.route} />
-                </PromptInputBody>
-                <PromptInputFooter>
-                  <PromptInputTools>
-                    {/* one attach affordance per screen size: the photo
-                        button IS the mobile path, the menu is desktop's */}
-                    <span className="hidden sm:inline-flex">
-                      <PromptInputActionMenu>
-                        <PromptInputActionMenuTrigger />
-                        <PromptInputActionMenuContent>
-                          <PromptInputActionAddAttachments />
-                        </PromptInputActionMenuContent>
-                      </PromptInputActionMenu>
-                    </span>
-                    {/* one tap straight to the native picker — MOBILE ONLY:
-                        with the + menu also visible on desktop this was a
-                        duplicate media button (owner flagged it twice) */}
-                    <Button variant="ghost" size="sm" className="h-8 sm:hidden" title="Add a photo"
-                      onClick={() => (document.querySelector('input[type=file]') as HTMLInputElement | null)?.click()}>
-                      <ImageIcon className="size-4" /></Button>
-                    <Button variant="ghost" size="sm" className="h-8 px-2 font-mono text-xs" title="Shift-Tab into this desk's terminal — the CLI cycles its permission mode there; watch the terminal for the result"
-                      onClick={async () => { const r = await (await fetch('api/key', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: sel, k: 'shift-tab' }) })).json(); setNote(r.ok ? 'Shift-Tab sent · the CLI keeps no live mode file, so the badge reads the recorded mode and refreshes the moment the desk writes' : '⛔ ' + r.why) }}>⇧⇥</Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="h-8 text-xs">/ commands</Button>} />
-                      <DropdownMenuContent className="max-h-72 w-[30rem] max-w-[92vw] overflow-y-auto">
-                        {commands.map((c) => (
-                          <DropdownMenuItem key={c.name} onSelect={() => pickCommand(c.name)}
-                            className="grid grid-cols-[minmax(9rem,max-content)_1fr] items-baseline gap-x-3">
-                            <span className="whitespace-nowrap text-left font-mono">{c.name}</span>
-                            <span className="truncate text-left text-[11px] text-muted-foreground" title={c.desc}>{c.desc}</span>
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </PromptInputTools>
-                  <PromptInputSubmit disabled={!canSend || !selDesk?.route} />
-                </PromptInputFooter>
-              </PromptInput>
-            </div>
-          </ResizablePanel>
-          {showComputer && <ResizableHandle className="w-0 bg-transparent" />}
-          {showComputer && (
-          <ResizablePanel defaultSize="45%" minSize="25%" className="flex min-h-0 flex-col bg-black/20">
-            {screen.src ? (
-              <WebPreview className="min-h-0 flex-1">
-                {tabs.length > 1 && (
-                  <div className="flex gap-1 overflow-x-auto border-b border-border/40 px-1 py-1">
-                    {tabs.map((t, i) => (
-                      <Button key={t.id} variant={(curTab ?? tabs[0]?.id) === t.id ? 'secondary' : 'ghost'} size="sm"
-                        className="h-6 max-w-40 flex-none justify-start truncate px-2 text-[11px]" title={t.url}
-                        onClick={() => setCurTab(t.id)}>{t.title || 'tab ' + (i + 1)}</Button>
+                  }
+                  const list = commands.filter((c) => c.name.startsWith(slashQ)).slice(0, 12)
+                  return (
+                    <div className="max-h-56 overflow-y-auto px-1 pt-1">
+                      {/* two honest columns, CLI-style: the NAME gets the room
+                          it needs and never hides; the description takes the
+                          rest and fades with a truncate, left-aligned */}
+                      {list.map((c, i) => (
+                        <button key={c.name} type="button" onClick={() => pickCommand(c.name)}
+                          className={'grid w-full grid-cols-[minmax(9rem,max-content)_1fr_auto] items-baseline gap-x-3 rounded-md px-2 py-1 text-left text-xs hover:bg-accent ' + (i === slashIdx ? 'bg-accent/50' : '')}>
+                          <span className="whitespace-nowrap text-left font-mono">{c.name}</span>
+                          <span className="truncate text-left text-muted-foreground" title={c.desc}>{c.desc}</span>
+                          <span className="text-[9px] text-muted-foreground">{i === slashIdx ? '↵ / tab' : ''}</span>
+                        </button>
+                      ))}
+                      {list.length === 0 && !isPicker && (
+                        <span className="px-1 text-[11px] text-muted-foreground">no matching command — Enter sends it as typed</span>
+                      )}
+                      {isPicker && list.length <= 1 && (
+                        <div className="px-2 py-1 text-[11px] text-wait">{bareCmd} opens an interactive picker in the desk's terminal. The board cannot show it, so give the value inline (e.g. {bareCmd} {PICKERS[bareCmd]?.[0] ?? '<value>'}).</div>
+                      )}
+                    </div>
+                  )
+                })()}
+                <PromptInputTextarea placeholder={canSend ? composerHint(selDesk) : 'Read-only on this host: no desk inbox and no terminal reachable'} disabled={!canSend || !selDesk?.route} />
+              </PromptInputBody>
+              <PromptInputFooter>
+                <PromptInputTools>
+                  {/* one attach affordance per screen size: the photo
+                      button IS the mobile path, the menu is desktop's */}
+                  <span className="hidden sm:inline-flex">
+                    <PromptInputActionMenu>
+                      <PromptInputActionMenuTrigger />
+                      <PromptInputActionMenuContent>
+                        <PromptInputActionAddAttachments />
+                      </PromptInputActionMenuContent>
+                    </PromptInputActionMenu>
+                  </span>
+                  {/* one tap straight to the native picker — MOBILE ONLY:
+                      with the + menu also visible on desktop this was a
+                      duplicate media button (owner flagged it twice) */}
+                  <Button variant="ghost" size="sm" className="h-8 sm:hidden" title="Add a photo"
+                    onClick={() => (document.querySelector('input[type=file]') as HTMLInputElement | null)?.click()}>
+                    <ImageIcon className="size-4" /></Button>
+                </PromptInputTools>
+                <PromptInputSubmit className="rounded-full" disabled={!canSend || !selDesk?.route} />
+              </PromptInputFooter>
+            </PromptInput>
+            {/* the CLI shows mode and context at the prompt, so the board
+                does too: one quiet line under the box, never in the header */}
+            {pane && (
+              <div className="mt-1.5 flex items-center gap-1 px-1 text-xs text-muted-foreground" data-testid="composer-status">
+                <button type="button" className="rounded px-1 py-0.5 font-mono hover:text-foreground" title="Shift-Tab into this desk's terminal — the CLI cycles its permission mode there; watch the terminal for the result"
+                  onClick={async () => { const r = await (await fetch('api/key', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: sel, k: 'shift-tab' }) })).json(); setNote(r.ok ? 'Shift-Tab sent · the CLI keeps no live mode file, so the line reads the recorded mode and refreshes the moment the desk writes' : '⛔ ' + r.why) }}>
+                  ⇧⇥</button>
+                {pane.mode && <span className="whitespace-nowrap" title="permission mode, as recorded (⇧⇥ cycles it)">mode · {modeWord(pane.mode)}</span>}
+                <DropdownMenu>
+                  <DropdownMenuTrigger render={<button type="button" className="ml-2 rounded px-1 py-0.5 hover:text-foreground">/ commands</button>} />
+                  <DropdownMenuContent className="max-h-72 w-[30rem] max-w-[92vw] overflow-y-auto">
+                    {commands.map((c) => (
+                      <DropdownMenuItem key={c.name} onSelect={() => pickCommand(c.name)}
+                        className="grid grid-cols-[minmax(9rem,max-content)_1fr] items-baseline gap-x-3">
+                        <span className="whitespace-nowrap text-left font-mono">{c.name}</span>
+                        <span className="truncate text-left text-[11px] text-muted-foreground" title={c.desc}>{c.desc}</span>
+                      </DropdownMenuItem>
                     ))}
-                  </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {pane.model && (
+                  <button type="button" className="ml-auto min-w-0 truncate rounded px-1 py-0.5 text-right hover:text-foreground" title="tokens, cost and the rates' date: Details → Usage"
+                    onClick={() => openDrawer('desk', 'usage')}>
+                    {pane.model} · {ctxPct}% context{u?.cost ? <span className="hidden sm:inline"> · est. {usd(u.cost.total)} (rates {u.cost.asOf})</span> : null}
+                  </button>
                 )}
-                <WebPreviewNavigation>
-                  <WebPreviewUrl readOnly value={screen.url} />
-                </WebPreviewNavigation>
-                {/* ⛔ WebPreviewBody IS an iframe; handing it a render prop
-                    left an empty frame where the mirror belonged while the
-                    screen endpoint served frames nobody displayed. The nav is
-                    the element's; the pixels get a plain container. */}
-                <div className="flex min-h-0 flex-1 items-start justify-center overflow-auto bg-black/40 p-2">
-                  <img src={screen.src} alt="desk browser display" className="h-auto max-w-full rounded-md" />
-                </div>
-              </WebPreview>
-            ) : (
-              <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">{screen.why}</div>
-            )}
-            {(desks.find((d) => d.key === sel)?.jobs?.length ?? 0) > 0 && (
-              <div className="border-t border-border/40 px-3 py-2">
-                <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">background</div>
-                {desks.find((d) => d.key === sel)!.jobs!.map((j) => (
-                  <div key={j.id} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <Clock className={'size-3 flex-none ' + (j.ageSec < 60 ? 'animate-pulse text-amber-400' : '')} />
-                    <span className="truncate" title={j.id}>{j.label || j.id}</span>
-                    <span className="ml-auto flex-none">{j.ageSec < 60 ? 'running' : Math.round(j.ageSec / 60) + 'm ago'} · {kb(j.size)}</span>
-                  </div>
-                ))}
               </div>
             )}
-          </ResizablePanel>
-          )}
-          </ResizablePanelGroup>}
-        </div>
-      </ResizablePanel>
-      {isDesktop && <ResizableHandle className="w-0 bg-transparent" />}
-
-      {/* item 4: one rail, a menu to switch what it shows */}
-      {isDesktop && <ResizablePanel data-rail="files" defaultSize="22%" minSize="14%" maxSize="34%" collapsible collapsedSize="0%" className="bg-card">
-        {railTabs}
-      </ResizablePanel>}
-      {/* updates live in one corner, folded until wanted: the host's Claude
-          Code, and this plugin. Neither touches a running session. */}
-      {/* on the phone the rail is gone, so the FAB would land on the send button; lift it above the composer */}
-      <div className="fixed bottom-44 right-4 z-40 flex flex-col items-end gap-2 sm:bottom-4">
-        {fabOpen && (
-          <div className="flex flex-col gap-1 rounded-lg border border-border/60 bg-card p-1.5 shadow-lg">
-            <Button variant="ghost" size="sm" className="justify-start gap-2 text-xs" title="claude update — running sessions keep their version until restarted"
-              onClick={async () => {
-                if (!window.confirm('Run `claude update` on the host?')) return
-                setNote('updating Claude Code…'); setFabOpen(false)
-                const r = await (await fetch('api/upgrade', { method: 'POST' })).json()
-                setNote((r.ok ? '✓ ' : '⛔ ') + (r.before === r.after ? 'Claude Code already latest: ' + r.after : r.before + ' → ' + r.after) + ' — ' + r.note)
-              }}><ArrowUpCircle className="size-4" /> update Claude Code</Button>
-            <Button variant="ghost" size="sm" className="justify-start gap-2 text-xs" title="claude plugin update office-anything — the board picks it up on its next start"
-              onClick={async () => {
-                if (!window.confirm('Run `claude plugin update office-anything`?')) return
-                setNote('updating the office plugin…'); setFabOpen(false)
-                const r = await (await fetch('api/upgrade-plugin', { method: 'POST' })).json()
-                setNote((r.ok ? '✓ ' : '⛔ ') + (r.note || r.why || 'done'))
-              }}><Building2 className="size-4" /> update the office plugin</Button>
           </div>
+        </ResizablePanel>
+        {showComputer && <ResizableHandle className="w-px bg-border" />}
+        {showComputer && (
+        <ResizablePanel defaultSize="45%" minSize="25%" className="flex min-h-0 flex-col bg-paper">
+          {screen.src ? (
+            <WebPreview className="min-h-0 flex-1 rounded-none border-0">
+              {tabs.length > 1 && (
+                <div className="flex gap-1 overflow-x-auto border-b border-border px-1 py-1">
+                  {tabs.map((t, i) => (
+                    <Button key={t.id} variant={(curTab ?? tabs[0]?.id) === t.id ? 'secondary' : 'ghost'} size="sm"
+                      className="h-6 max-w-40 flex-none justify-start truncate px-2 text-[11px]" title={t.url}
+                      onClick={() => setCurTab(t.id)}>{t.title || 'tab ' + (i + 1)}</Button>
+                  ))}
+                </div>
+              )}
+              <WebPreviewNavigation>
+                <WebPreviewUrl readOnly value={screen.url} />
+              </WebPreviewNavigation>
+              {/* ⛔ WebPreviewBody IS an iframe; handing it a render prop
+                  left an empty frame where the mirror belonged while the
+                  screen endpoint served frames nobody displayed. The nav is
+                  the element's; the pixels get a plain container. */}
+              <div className="flex min-h-0 flex-1 items-start justify-center overflow-auto bg-bubble p-2">
+                <img src={screen.src} alt="desk browser display" className="h-auto max-w-full rounded-md" />
+              </div>
+            </WebPreview>
+          ) : (
+            <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">{screen.why}</div>
+          )}
+          {crewJobs.length > 0 && (
+            <div className="border-t border-border px-3 py-2">
+              <div className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">background</div>
+              {crewJobs.map((j) => (
+                <div key={j.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Clock className={'size-3 flex-none ' + (j.ageSec < 60 ? 'animate-pulse text-wait' : '')} />
+                  <span className="truncate" title={j.id}>{j.label || j.id}</span>
+                  <span className="ml-auto flex-none">{j.ageSec < 60 ? 'running' : Math.round(j.ageSec / 60) + 'm ago'} · {kb(j.size)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </ResizablePanel>
         )}
-        <Button variant={fabOpen ? 'secondary' : 'outline'} size="sm" className="h-9 w-9 rounded-full p-0 shadow-md" title="updates" onClick={() => setFabOpen((v) => !v)}>
-          <ArrowUpCircle className="size-4" />
-        </Button>
-      </div>
+        </ResizablePanelGroup>}
+      </main>
+
+      {isDesktop && drawer && <aside className="flex w-[340px] flex-none flex-col border-l border-border bg-paper">{drawerBody}</aside>}
+      {!isDesktop && (
+        <Sheet open={!!drawer} onOpenChange={(o) => { if (!o) setDrawer(null) }}>
+          <SheetContent side="right" className="w-[90vw] max-w-96 gap-0 bg-paper p-0">
+            <SheetTitle className="sr-only">Details</SheetTitle>
+            {drawerBody}
+          </SheetContent>
+        </Sheet>
+      )}
       <Dialog open={hireOpen} onOpenChange={setHireOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>Hire a desk</DialogTitle></DialogHeader>
@@ -1299,7 +1408,7 @@ export default function App() {
         </DialogContent>
       </Dialog>
       <Dialog open={!!file} onOpenChange={(o) => !o && setFile(null)}>
-        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">
+        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-[680px]">
           <DialogHeader>
             <DialogTitle className="flex min-w-0 items-center gap-2 pr-6">
               <span className="truncate font-mono text-sm select-all" title="long-press or triple-click selects the whole path">{file?.path}</span>
@@ -1340,6 +1449,6 @@ export default function App() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
-    </ResizablePanelGroup>
+    </div>
   )
 }
