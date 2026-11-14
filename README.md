@@ -680,7 +680,7 @@ node lib/tasks.mjs list [--all] [--json]
   for 6 h. `health --heal` (the watchdog) writes a task to `.office/alerts.log` for the lead once, on the pass it
   goes stale (remembered in `.office/heal-state.json`, forgotten when it stops being stale), and the still-stale
   list as one line a day: `stale tasks: N still stale; oldest: …` with the five oldest. An unchanged list rings
-  nothing between those lines; the first pass after an upgrade writes only the daily line.
+  nothing between those lines; the first pass after an upgrade writes the daily line, not a line per task.
 - **An ask between sessions is a case with a due time (0.23.0).** With `office.json` `"asks": { "track": true }` (off by default), a question sent with `SendMessage` to a
   known lead, desk, case session or registered session is recorded by a hook (`hooks/ask-track.mjs`; no model has to remember): a task of kind `ask`, from the
   sender, assigned to the recipient, due in 30 minutes. A question is a `?` in the sender's own words (not in a URL, quoted text or code). The recipient's answer back to the asker, or

@@ -63,7 +63,7 @@ test('the still-stale list is one digest line a day: the count and the five olde
   assert.equal(count(root, /stale tasks:/), 1, 'one a day, not every pass')
 })
 
-test('the first pass after the upgrade learns the list quietly: one digest line, not a burst', () => {
+test('the first pass after the upgrade learns the list quietly: one digest line instead of a line per task; nudges keep their daily rule', () => {
   const root = office()
   for (let i = 0; i < 40; i++) add(root, `Old ${i}`, 'construction', NOW - (48 + i) * HOUR)
   // heal-state as the old code left it: per-task keys, no "stale" list
@@ -72,6 +72,7 @@ test('the first pass after the upgrade learns the list quietly: one digest line,
   run(root, NOW)
   assert.equal(count(root, /→ lead: task T-/), 0, 'no line per old stale task')
   assert.equal(count(root, /stale tasks: 40 still stale/), 1)
+  assert.equal(count(root, /NUDGE construction/), 40, 'a quiet task not nudged in the last day is nudged on this ringing pass, as it would have been before')
   const st = JSON.parse(readFileSync(join(root, '.office', 'heal-state.json'), 'utf8'))
   assert.equal(Object.keys(st.stale).length, 40)
   assert.ok(!('task:T-261114-1' in st.notified), 'the old per-task keys are dropped')
