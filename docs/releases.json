@@ -411,5 +411,11 @@
     "new": [
       "Your own words are kept as you typed them and shown back at the start of every session, with a warning when one stays open for a day."
     ]
+  },
+  "0.28.1": {
+    "date": "2026-11-14",
+    "fixed": [
+      "A stale task rings the lead once when it goes stale, then once a day in one short summary, not every fifteen minutes."
+    ]
   }
 }

@@ -6,7 +6,7 @@
 browser, a live board, and limits that are enforced, not suggested.
 
 <a href="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml"><img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg"></a>
-<img alt="tests" src="https://img.shields.io/badge/tests-723%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-728%20passing-3fb950">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <a href="https://github.com/hoangnv1301/Office-Anything/releases"><img alt="version" src="https://img.shields.io/github/package-json/v/hoangnv1301/Office-Anything?filename=.claude-plugin%2Fplugin.json&label=version&color=8957e5"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
@@ -674,10 +674,13 @@ node lib/tasks.mjs list [--all] [--json]
 - **On the board.** A **Tasks panel** in the board's left list (read-only, from the same fold): open, working, waiting and done by assignee, with age, due, `OVERDUE` and `quiet 24h+` marks; click a task for the owner's words, notes and evidence, and click an evidence entry to see a file inside the office (never a secret, `runtime/` or anything outside it), a link, or the note.
 - **Staleness is said, and the quiet one is nudged.** An open task its assignee has not touched
   for 24 h also leaves `NUDGE <assignee> <id> "<title>" has not been updated in 30h: …` in
-  `.office/alerts.log`, once a day, ready for the lead's sweep to send. The lead's own tasks are not nudged.
-- **Staleness is said.** Health is red for a task open with no update for 24 h, or `done` but not verified
-  for 6 h, and `health --heal` (the watchdog) writes it to `.office/alerts.log` for the lead (once per
-  15 minutes per task).
+  `.office/alerts.log`, at most once a day, ready for the lead's sweep to send, and only on a pass that
+  already rings (below). The lead's own tasks are not nudged.
+- **Staleness is said once (0.28.1).** Health is red for a task open with no update for 24 h, or `done` but not verified
+  for 6 h. `health --heal` (the watchdog) writes a task to `.office/alerts.log` for the lead once, on the pass it
+  goes stale (remembered in `.office/heal-state.json`, forgotten when it stops being stale), and the still-stale
+  list as one line a day: `stale tasks: N still stale; oldest: …` with the five oldest. An unchanged list rings
+  nothing between those lines; the first pass after an upgrade writes the daily line, not a line per task.
 - **An ask between sessions is a case with a due time (0.23.0).** With `office.json` `"asks": { "track": true }` (off by default), a question sent with `SendMessage` to a
   known lead, desk, case session or registered session is recorded by a hook (`hooks/ask-track.mjs`; no model has to remember): a task of kind `ask`, from the
   sender, assigned to the recipient, due in 30 minutes. A question is a `?` in the sender's own words (not in a URL, quoted text or code). The recipient's answer back to the asker, or
