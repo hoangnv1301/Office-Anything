@@ -417,5 +417,12 @@
     "fixed": [
       "A stale task rings the lead once when it goes stale, then once a day in one short summary, not every fifteen minutes."
     ]
+  },
+  "0.29.0": {
+    "date": "2026-11-14",
+    "new": [
+      "A desk can hand a task to a person outside the office: it waits for them with no reminders, and is raised once if they never answer.",
+      "That person's reply, picked up by the office, answers the task in their words and tells the desk that asked."
+    ]
   }
 }
