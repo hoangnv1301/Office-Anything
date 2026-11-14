@@ -6,7 +6,7 @@
 browser, a live board, and limits that are enforced, not suggested.
 
 <a href="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml"><img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg"></a>
-<img alt="tests" src="https://img.shields.io/badge/tests-728%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-735%20passing-3fb950">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <a href="https://github.com/hoangnv1301/Office-Anything/releases"><img alt="version" src="https://img.shields.io/github/package-json/v/hoangnv1301/Office-Anything?filename=.claude-plugin%2Fplugin.json&label=version&color=8957e5"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
@@ -690,6 +690,11 @@ node lib/tasks.mjs list [--all] [--json]
   (raised to the lead), then one plain `ASK-OWNER` line 90 minutes past due. Each step is an event in
   `tasks.jsonl`, so a restart never rings twice. `office.json` `"followThrough": { "reringMinutes": 15,
   "reringTimes": 2, "ownerAfterMinutes": 90 }` tunes it; the bell hears the three types whatever `lead.bell.types` lists.
+- **A case only a person outside the office can close waits on that person (0.29.0).** `node lib/tasks.mjs handoff T-… --to "<person>" --via "<channel>" [--ref <post id>] [--days 3]`
+  (the assignee or the lead) records who it went to, how, and the post it went in. While it waits nobody is nudged (no `ASK-DUE`, no stale line); past its days it is said once to the lead
+  as `BLOCKED`. `node lib/tasks.mjs relay (T-…|--ref <post id>) --who "<person>" --text "<their words>"` is the answer path for that person's captured reply (the office's own process,
+  no session, or the lead; a desk is refused): the person must be the one it was handed to; an ask is answered in their words, a task is done (the lead still verifies), and an
+  `ASK-ANSWERED` alert wakes the one who asked (the bell hears it whatever `lead.bell.types` lists).
   The plugin cannot type into another session, so the re-ring is a line the lead sends, like a stale-task nudge.
 - **A release is a job with steps (0.24.0).** `node lib/release-job.mjs start <version>` puts down one case per step, each
   with an owner and a due time: `note` (post the release note), `notify:<name>` for each person `release.notify` names, and
