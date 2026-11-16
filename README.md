@@ -6,7 +6,7 @@
 browser, a live board, and limits that are enforced, not suggested.
 
 <a href="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml"><img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg"></a>
-<img alt="tests" src="https://img.shields.io/badge/tests-728%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-737%20passing-3fb950">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <a href="https://github.com/hoangnv1301/Office-Anything/releases"><img alt="version" src="https://img.shields.io/github/package-json/v/hoangnv1301/Office-Anything?filename=.claude-plugin%2Fplugin.json&label=version&color=8957e5"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
@@ -597,7 +597,9 @@ never killed. `/desk-recover` is the order after a crash: the lead first, then e
 
 `office.json` `launch` sets how sessions start: `{ "terminal": "orca", "flags":
 ["--dangerously-skip-permissions"], "model": "sonnet", "lead": { "flags": ["--remote-control"],
-"resume": false }, "waitSec": 120 }`. A desk's `desk.json` `"model"` overrides it. Flags and
+"resume": false }, "waitSec": 120 }`. A desk's own session runs on its `desk.json` `"mainModel"`, else its
+`"model"`, else `launch.model`; `"model"` is also what its per-case sessions run on, so a desk can run
+on Opus while its case runs stay on Sonnet (`"mainModel": "opus", "model": "sonnet"`, 0.28.2). Flags and
 models are checked to be plain words, never shell. Native primitives: the session registry
 (`~/.claude/sessions`), `claude --resume <id>` and `--name`.
 
@@ -1079,7 +1081,15 @@ from a LaunchAgent; nothing is installed until you run it.
 `office.json` `"watchdog": true` (or `"watchdog": { "install": true }`) says this office wants the
 watchdog. `/desk-start lead`, `everything`, `/desk-recover` and `health --heal` then install it, or
 verify it is loaded, and leave it alone when it is (idempotent; a LaunchAgent every 120 s, macOS
-only). Plain `health` only reads: with the watchdog asked for and missing it reports
+only).
+
+⛔ **The watchdog is per machine, and a desks-only start does not install it.** A coworker's Mac
+that starts only desks (by name or `all`) has none until someone installs it there, so nothing
+restarts a desk whose claude exited on that Mac, and nothing closes the tab it left. It restarts
+every desk that reads dead on its machine, and with no `.office/local.json` every desk is on: so on
+a coworker's Mac, first say which desks run there (`node <plugin>/lib/desks.mjs default off`, then
+`node <plugin>/lib/desks.mjs on <desk>` for each one it runs, and `lib/desks.mjs departments set <id>`
+if the office has departments), check with `/desk-health`, then run `node <plugin>/lib/health.mjs <office root> --install-watchdog`. Plain `health` only reads: with the watchdog asked for and missing it reports
 `watchdog not installed` as a finding, red, with the one command to run. The older object form
 (`{ "maxHealsPerHour": 3, "notify": "lead" }`) only tunes a watchdog and installs nothing.
 
@@ -1099,6 +1109,11 @@ Each run of the watchdog:
   goes after `--`, because a flag with an optional value (`--remote-control [name]`) takes the word
   after it, and start says "given its first message" only once it saw the session work on it;
 - runs the `heal` of every failing `health` check;
+- closes a desk's tab left at a shell prompt (0.28.2): no session and no launching `claude` under its
+  names, the terminal says no agent runs in it, and it has printed nothing for 2 minutes; looked at
+  again before the close, and never within 5 minutes of a start. Orca's "orphaned" tabs count: they
+  still show, and the closers used to skip them. A dead desk is then restarted in a fresh tab as
+  above; an idled one stays closed. Health says it (`is not running · its tab … is at a shell prompt`);
 - writes every act to `.office/heal.log` and what needs a person to `.office/alerts.log`, where the lead reads it.
 
 A desk that stays down is red in health with how long (`is not running · down 7m`), and once it has
@@ -1160,8 +1175,8 @@ each listed desk and the watchdog acts on that judgement:
 - **Closed** when the desk is idle (or parked in its own doorbell) past its minutes, has made no tool
   call in the last 5 minutes, and nothing is waiting for it. Waiting work is an `openWork` line
   naming `desk-<name>`, or an open task in the lead's task list assigned to it. The watchdog checks
-  again on a fresh look, stops that pid only, closes its tab, and records the close in
-  `.office/idled.json`. Health then shows the desk as `idled`, not dead: the office is not red,
+  again on a fresh look, stops that pid only, closes its tab (an Orca "orphaned" tab too), and records
+  the close in `.office/idled.json`; its `heal.log` line says what became of the tab (`tab`). Health then shows the desk as `idled`, not dead: the office is not red,
   nothing restarts it, desk-watch does not call it DESK-DEAD, and `/desk-start all` and
   `/desk-recover` leave it closed. Start it by name to open it now.
 - **Woken** as soon as an `openWork` line names it. The watchdog's own restart brings it back,
