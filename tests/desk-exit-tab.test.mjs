@@ -9,14 +9,12 @@
 //   - every closer looks at orphaned tabs too, and heal.log says what became of the tab
 //   - health lists a desk's tab left at a shell prompt; heal closes it on a fresh look
 //   - a desk's own session runs on desk.json "mainModel" ("model" is its case runs')
-//   - every start makes sure this machine's watchdog is there
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { spawnSync } from 'node:child_process'
 import { officeHealth } from '../lib/health.mjs'
 import { heal } from '../lib/heal.mjs'
 import { strayTabs, STRAY_QUIET_MS } from '../lib/procs.mjs'
@@ -210,11 +208,4 @@ test('⛔ a desk\'s own session launches on desk.json "mainModel"; "model" stays
   const bad = office({ desks: { quotes: { mainModel: 'opus; rm -rf ~' } } })
   const bcfg = JSON.parse(readFileSync(join(bad.root, 'office.json'), 'utf8'))
   assert.throws(() => launchCommand({ cfg: bcfg, target: targetsOf(bad.root, bcfg, 'quotes')[0] }), /not a model name/)
-})
-
-test('⛔ a start of desks only (by name or all) also makes sure this machine\'s watchdog is there', () => {
-  const o = office({ cfg: { watchdog: true }, desks: { inventory: { autostart: false } } })
-  const r = spawnSync(process.execPath, [join(PLUGIN, 'lib', 'start.mjs'), o.root, 'all'], { encoding: 'utf8', env: { ...process.env, OFFICE_NO_LAUNCH: '1', HOME: o.home } })
-  // a temp office is refused an install (it disappears), and a non-Mac has no launchd: either way it was asked
-  assert.match(r.stdout, /^watchdog\t(failed|unsupported|installed|ok|refreshed)\t/m, r.stdout + r.stderr)
 })

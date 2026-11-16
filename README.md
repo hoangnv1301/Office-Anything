@@ -6,7 +6,7 @@
 browser, a live board, and limits that are enforced, not suggested.
 
 <a href="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml"><img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg"></a>
-<img alt="tests" src="https://img.shields.io/badge/tests-738%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-737%20passing-3fb950">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <a href="https://github.com/hoangnv1301/Office-Anything/releases"><img alt="version" src="https://img.shields.io/github/package-json/v/hoangnv1301/Office-Anything?filename=.claude-plugin%2Fplugin.json&label=version&color=8957e5"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
@@ -1079,13 +1079,17 @@ from a LaunchAgent; nothing is installed until you run it.
 ### Self-healing, unattended
 
 `office.json` `"watchdog": true` (or `"watchdog": { "install": true }`) says this office wants the
-watchdog. Every `/desk-start` (a desk by name, `all`, `lead`, `everything`), `/desk-recover` and
-`health --heal` then install it, or verify it is loaded, and leave it alone when it is (idempotent; a
-LaunchAgent every 120 s, macOS only). It is per machine: a coworker's Mac that runs desks needs its
-own, and before 0.28.2 only a lead start installed it, so a Mac that started desks only had none.
-On such a Mac, start a desk once with `/desk-start <desk>`, or run
-`node <plugin>/lib/health.mjs <office root> --install-watchdog`; `/desk-health` then says
-`watchdog not installed` no more. Plain `health` only reads: with the watchdog asked for and missing it reports
+watchdog. `/desk-start lead`, `everything`, `/desk-recover` and `health --heal` then install it, or
+verify it is loaded, and leave it alone when it is (idempotent; a LaunchAgent every 120 s, macOS
+only).
+
+⛔ **The watchdog is per machine, and a desks-only start does not install it.** A coworker's Mac
+that starts only desks (by name or `all`) has none until someone installs it there, so nothing
+restarts a desk whose claude exited on that Mac, and nothing closes the tab it left. It restarts
+every desk that reads dead on its machine, and with no `.office/local.json` every desk is on: so on
+a coworker's Mac, first say which desks run there (`node <plugin>/lib/desks.mjs default off`, then
+`node <plugin>/lib/desks.mjs on <desk>` for each one it runs, and `lib/desks.mjs departments set <id>`
+if the office has departments), check with `/desk-health`, then run `node <plugin>/lib/health.mjs <office root> --install-watchdog`. Plain `health` only reads: with the watchdog asked for and missing it reports
 `watchdog not installed` as a finding, red, with the one command to run. The older object form
 (`{ "maxHealsPerHour": 3, "notify": "lead" }`) only tunes a watchdog and installs nothing.
 

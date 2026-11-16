@@ -423,7 +423,7 @@
     "fixed": [
       "A desk closed when idle no longer leaves its terminal tab sitting at a shell prompt, and the watchdog closes any such tab it finds.",
       "A desk restarted by the watchdog comes back on its own model (desk.json mainModel), not its case runs' model.",
-      "Starting desks on any machine now installs that machine's watchdog, so a coworker's Mac restarts its own desks."
+      "The README says how to give a coworker's Mac its own watchdog, so desks there are restarted too."
     ]
   }
 }
