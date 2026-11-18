@@ -449,5 +449,11 @@
       "A tidy command lists leftover case tabs and idle case sessions and closes them on request, never one mid-turn.",
       "An office can cap the case sessions one machine runs across all desks."
     ]
+  },
+  "0.30.1": {
+    "date": "2026-11-18",
+    "fixed": [
+      "Desks can run the plugin's own scripts again, so they can update and close their own tasks; the rest of Claude Code's folder stays closed to them."
+    ]
   }
 }
