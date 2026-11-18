@@ -6,7 +6,7 @@
 browser, a live board, and limits that are enforced, not suggested.
 
 <a href="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml"><img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg"></a>
-<img alt="tests" src="https://img.shields.io/badge/tests-749%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-754%20passing-3fb950">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <a href="https://github.com/hoangnv1301/Office-Anything/releases"><img alt="version" src="https://img.shields.io/github/package-json/v/hoangnv1301/Office-Anything?filename=.claude-plugin%2Fplugin.json&label=version&color=8957e5"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
@@ -1233,6 +1233,11 @@ The same holds for every other name the office owns: a desk (`desk-<name>`), a c
   With departments, each lead hears only its own department's lines and the office's. A file is
   the department of the desk whose folder holds it; a file or ask may also say `"department": "<id>"`.
   A department that is not declared is no department: the line is the office's, heard by every lead.
+- **Case sessions close cleanly and come back (0.30.0):** a closed case takes its whole tab with it, and every
+  sweep closes a case tab left with no claude in it. The next wake resumes the case's own conversation (kept in
+  `.office/cases.json`); one over `office.json` `cases.freshOverKB` (4096) starts fresh with a digest of the old one
+  in its brief. `node lib/cases.mjs tidy [--apply]` lists and closes the leftovers, never a session mid-turn;
+  `cases.maxLive` caps the case sessions one machine runs.
 - **A doorbell that costs nothing while idle (0.29.0):** `office.json` `boot.wakeMode` `"wait"` arms each
   doorbell as a one-shot background Bash (`node {plugin}/lib/bell-wait.mjs wait -- <wake>`, timeout a day;
   `start` sets `BASH_MAX_TIMEOUT_MS`). It ends at the first line, the session acts and arms it again, so a
