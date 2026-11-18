@@ -223,7 +223,7 @@ export async function decide(raw, env = process.env, here = process.cwd()) {
     const reach = who.kind === 'desk' ? leadsOfDesk(cfg, who.desk) : allLeads(cfg)
     const names = reach.flatMap((l) => l.names)
     const wallCfg = myLead?.bash ? { ...cfg.wall, lead: { ...(cfg.wall?.lead ?? {}), bash: myLead.bash } } : cfg.wall
-    try { W = compileWall({ ...wallCfg, ...(aliasBroken ? { aliasNames: [] } : {}), root, scope: deskScope(root, cfg, roster), roleEnv: cfg.roleEnv, leadSession: names[0] ?? cfg.lead?.session, leadAliases: names.slice(1), leadWake: myLead?.wake ?? cfg.lead?.wake }) }
+    try { W = compileWall({ ...wallCfg, ...(aliasBroken ? { aliasNames: [] } : {}), root, scope: deskScope(root, cfg, roster), roleEnv: cfg.roleEnv, leadSession: names[0] ?? cfg.lead?.session, leadAliases: names.slice(1), leadWake: myLead?.wake ?? cfg.lead?.wake, leadWakeAlso: myLead?.department ? cfg.departments?.[myLead.department]?.wakeAlso : cfg.lead?.wakeAlso }) }
     catch (e) { return failClosed ? say('the wall broke while judging (' + e.message + '), and this office\'s wall fails closed') : { code: 0 } }
     if (cfg.wall.module) module()
     if (modErr && who.kind === 'desk') return failClosed ? refuseDesk(modErr) : { code: 0 }

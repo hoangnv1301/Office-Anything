@@ -6,7 +6,7 @@
 browser, a live board, and limits that are enforced, not suggested.
 
 <a href="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml"><img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg"></a>
-<img alt="tests" src="https://img.shields.io/badge/tests-737%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-748%20passing-3fb950">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <a href="https://github.com/hoangnv1301/Office-Anything/releases"><img alt="version" src="https://img.shields.io/github/package-json/v/hoangnv1301/Office-Anything?filename=.claude-plugin%2Fplugin.json&label=version&color=8957e5"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
@@ -1233,6 +1233,14 @@ The same holds for every other name the office owns: a desk (`desk-<name>`), a c
   With departments, each lead hears only its own department's lines and the office's. A file is
   the department of the desk whose folder holds it; a file or ask may also say `"department": "<id>"`.
   A department that is not declared is no department: the line is the office's, heard by every lead.
+- **A doorbell that costs nothing while idle (0.29.0):** `office.json` `boot.wakeMode` `"wait"` arms each
+  doorbell as a one-shot background Bash (`node {plugin}/lib/bell-wait.mjs wait -- <wake>`, timeout a day;
+  `start` sets `BASH_MAX_TIMEOUT_MS`). It ends at the first line, the session acts and arms it again, so a
+  session with nothing to do takes no turns (under Monitor: one every 30 minutes). `"tee"` keeps the Monitor
+  and runs a logging shadow beside it; `node lib/bell-wait.mjs compare` must show zero missed lines before an
+  office switches. `bell-wait.mjs nudge <session> <line>` wakes an idle wait-mode session from any process.
+  A failing doorbell prints `BELL-FALLBACK` and the session goes back to the Monitor form.
+  `lead.bell.repeat` (`[120, 360, 1440]`) and `lead.bell.quiet` put the lead's re-rings on a ladder and out of the night.
 - **Monitor is walled.** The Monitor tool runs a shell command, and it was outside the wall: a desk
   or the lead could run anything through it. A session's own doorbell (desk.json `wake`,
   `lead.wake`) always runs. Any other Monitor command is judged as the Bash it is, and for the lead

@@ -39,6 +39,7 @@ import { profilesOf, rolesHere } from '../lib/role.mjs'
 import { readJobs, runHint, pluginGate, fileGate } from '../lib/schedule.mjs'
 import { refreshShim } from '../lib/watchdog.mjs'
 import { spawnSync } from 'node:child_process'
+import { wakeModeOf, wrapWake, WAIT_TIMEOUT_MS } from '../lib/bell-wait.mjs'
 
 const DEFAULT = {
   memory: ['^facts\\.md$', '^(REPORT|RULE|BRIEF|REPLY)-.*\\.md$'],
@@ -55,6 +56,10 @@ const DEFAULT = {
     more: '- …and {n} older ones under {deskRel}/',
     roster: '- The other desks, by the names to message them under now: {roster}.',
     outro: 'Then carry on. If you are unsure where you left off, ask the lead.',
+    // office.json boot.wakeMode "wait" (0.29.0, lib/bell-wait.mjs): the doorbell is a one-shot background Bash, so
+    // a session with nothing to do costs nothing; it wakes once per trigger and is armed again at the end of that turn
+    waitWake: '- First thing, on every start or resume: arm your doorbell with Bash, run_in_background true, timeout {timeout}: `{wake}` (run in {where}).',
+    waitNote: '  It ends at the first wake-up: read its output file and act on every line, then arm it again before you end your turn (one at a time, never a Monitor beside it, no polling of your own). If it prints BELL-FALLBACK or exits non-zero, run `{monitorWake}` with Monitor, timeout_ms 1800000, as before, and tell the lead.',
   },
 }
 
@@ -64,6 +69,15 @@ const DEFAULT_CASE = '- You are the case session for {key}. Your brief: {brief} 
 // the relative path from a folder up to the office root, ending in / ('' at the root)
 const upTo = (root, from) => { const r = relative(resolve(from), resolve(root)); return r ? r + '/' : '' }
 const fill = (s, v) => String(s ?? '').replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m))
+// the doorbell lines for the office's wake mode: monitor (the wake as is), tee (the Monitor form, logged for the shadow), wait (one-shot Bash).
+// also: more doorbells the one wait runs (wait only: under Monitor they are armed as their own monitors)
+export function wakeLines(cfg, T, wake, v, also = []) {
+  const mode = wakeModeOf(cfg)
+  const vals = { ...v, wake: wrapWake(wake, mode, { also: mode === 'wait' ? also : [] }), monitorWake: wake, timeout: WAIT_TIMEOUT_MS }
+  const pair = mode === 'wait' ? [T.waitWake, T.waitNote] : [T.wake, T.wakeNote]
+  return pair.filter(Boolean).map((t) => fill(t, vals))
+}
+const alsoOf = (x) => (Array.isArray(x) ? x.filter((a) => typeof a === 'string' && a.trim()).map((a) => a.trim()) : [])
 
 export function bootLines(root, who, cfg, cwd) {
   const b = cfg.boot ?? {}
@@ -81,7 +95,7 @@ export function bootLines(root, who, cfg, cwd) {
     }
     // office.json lead.wake: the lead's own doorbell, armed like a desk's
     const wake = wakeCommand(L?.wake ?? cfg.lead?.wake)
-    if (wake) { const T = { ...DEFAULT.text, ...(b.text ?? {}) }; out.push(fill(T.wake, { wake, where: 'the office root' })); if (T.wakeNote) out.push(fill(T.wakeNote, {})) }
+    if (wake) { const T = { ...DEFAULT.text, ...(b.text ?? {}) }; out.push(...wakeLines(cfg, T, wake, { where: 'the office root' }, alsoOf(L?.department ? cfg.departments?.[L.department]?.wakeAlso : cfg.lead?.wakeAlso))) }
     return out
   }
   if (who.kind !== 'desk') return []
@@ -113,13 +127,13 @@ export function bootLines(root, who, cfg, cwd) {
   const out = [fill(T.intro, v)]
   // a case session (desk-<desk>--<key>): its case and its brief come first
   if (who.caseKey) out.push(fill(T.caseLine ?? DEFAULT_CASE, { ...v, key: who.caseKey, brief: rel(join(root, '.office', 'cases', `${who.desk}--${who.caseKey}.md`)) }))
-  let wake = ''
-  try { wake = String(JSON.parse(readFileSync(join(deskDir, 'desk.json'), 'utf8')).wake ?? '').trim() } catch {}
+  let wake = '', wakeAlso = []
+  try { const dj = JSON.parse(readFileSync(join(deskDir, 'desk.json'), 'utf8')); wake = String(dj.wake ?? '').trim(); wakeAlso = alsoOf(dj.wakeAlso) } catch {}
   // off on this machine (lib/desks.mjs): no doorbell, no new cases. The
   // session is told instead of refused: it may hold work it has to hand over
   const sw = readSwitch(root)
   if (sw.error || !deskOn(sw, who.desk).on) out.push(fill(T.off ?? DEFAULT_OFF, v))
-  else if (wake) { out.push(fill(T.wake, { ...v, wake })); if (T.wakeNote) out.push(fill(T.wakeNote, v)) }
+  else if (wake) out.push(...wakeLines(cfg, T, wake, v, wakeAlso))
   let sandboxed = false
   try { sandboxed = JSON.parse(readFileSync(join(deskDir, 'desk.json'), 'utf8')).sandbox === true } catch {}
   if (sandboxed) out.push(fill(T.sandbox ?? DEFAULT_SANDBOX, v))
