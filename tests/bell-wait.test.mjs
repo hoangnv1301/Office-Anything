@@ -124,20 +124,35 @@ test('compare: every line the Monitor printed must be among the shadow\'s wakes 
   assert.equal(r.extra.length, 1)
   assert.equal(r.rearms, 2, 'each tee start is a re-arm: the expiry turns the wait form saves')
   assert.equal(r.shadowWakes, 2)
+  assert.deepEqual(r.unteed, [])
+  // a session with a shadow but no tee lines (not restarted into the tee form yet) is named: no live lines is not zero misses
+  const v = compare([{ at: at(1), session: 'desk-b', mode: 'shadow', event: 'woke', lines: ['BUYER BT-261118-009 msg=1'] }])
+  assert.deepEqual(v.unteed, ['desk-b'])
+  assert.equal(v.missed.length, 0)
 })
 
 test('shadowPass: in tee mode one shadow per live session, kept while it lives, stopped when the office leaves tee mode', () => {
   const root = office()
   const spawned = []
   const fake = (cmd, args) => { const c = new EventEmitter(); c.pid = 9000 + spawned.length; c.unref = () => {}; spawned.push(args); return c }
-  const alive = (p) => p >= 9000
+  const alive = (p, session) => p >= 9000 && session === 'desk-a'
   const t = [{ session: 'desk-a', pid: 111, cwd: root, cmds: ['node w.mjs'] }]
-  assert.deepEqual(shadowPass(root, { boot: { wakeMode: 'tee' } }, t, { spawnFn: fake, alive, kill: () => {} }), [{ session: 'desk-a', act: 'started' }])
+  const envs = []
+  const fakeEnv = (cmd, args, o) => { envs.push(o.env); return fake(cmd, args) }
+  assert.deepEqual(shadowPass(root, { roleEnv: 'OFFICE_ROLE', boot: { wakeMode: 'tee' } }, t, { spawnFn: fakeEnv, alive, kill: () => {} }), [{ session: 'desk-a', act: 'started' }])
   assert.ok(spawned[0].includes('shadow') && spawned[0].includes('--pid') && spawned[0].at(-1) === 'node w.mjs')
+  assert.equal(envs[0].OFFICE_ROLE, 'desk-a', 'the shadow carries the session\'s role, so its doorbell asks as the same desk')
+  assert.equal(envs[0].OFFICE_BELL_SHADOW, '1')
   assert.deepEqual(shadowPass(root, { boot: { wakeMode: 'tee' } }, t, { spawnFn: fake, alive, kill: () => {} }), [{ session: 'desk-a', act: 'kept' }])
   const killed = []
   assert.deepEqual(shadowPass(root, { boot: { wakeMode: 'wait' } }, t, { spawnFn: fake, alive, kill: (p) => killed.push(p) }), [{ session: 'desk-a', act: 'stopped' }])
   assert.deepEqual(killed, [9000])
+  // a remembered pid that is not this session's shadow any more (reused) is neither kept nor signalled
+  const root2 = office(), k2 = []
+  shadowPass(root2, { boot: { wakeMode: 'tee' } }, t, { spawnFn: fake, alive, kill: () => {} })
+  const r2 = shadowPass(root2, { boot: { wakeMode: 'tee' } }, t, { spawnFn: fake, alive: () => false, kill: (p) => k2.push(p) })
+  assert.deepEqual(r2, [{ session: 'desk-a', act: 'started' }])
+  assert.deepEqual(k2, [], 'never a signal to a process that is not ours')
 })
 
 test('lead-bell ladder: an unchanged held item rings at once, then 2 h, 6 h, then daily; a re-ring waits out quiet hours, a first ring never does', () => {
