@@ -431,7 +431,7 @@
     "new": [
       "An idle desk or lead can cost nothing: in wait mode its doorbell wakes it once per real trigger, any hour, not every 30 minutes.",
       "Tee mode keeps the Monitor and runs a shadow beside it; a comparison lists any line the shadow missed before you switch.",
-      "Any process can wake an idle session in wait mode with one line (bell-wait nudge); nothing is typed into it.",
+      "The office's own processes can wake an idle session in wait mode with a pointer it checks at the source; sessions cannot.",
       "The lead's bell can re-ring an unchanged item at 2 h, 6 h, then daily, and keep re-rings out of the night."
     ],
     "fixed": [

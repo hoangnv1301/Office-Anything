@@ -6,7 +6,7 @@
 browser, a live board, and limits that are enforced, not suggested.
 
 <a href="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml"><img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg"></a>
-<img alt="tests" src="https://img.shields.io/badge/tests-748%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-749%20passing-3fb950">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <a href="https://github.com/hoangnv1301/Office-Anything/releases"><img alt="version" src="https://img.shields.io/github/package-json/v/hoangnv1301/Office-Anything?filename=.claude-plugin%2Fplugin.json&label=version&color=8957e5"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
@@ -1238,7 +1238,7 @@ The same holds for every other name the office owns: a desk (`desk-<name>`), a c
   `start` sets `BASH_MAX_TIMEOUT_MS`). It ends at the first line, the session acts and arms it again, so a
   session with nothing to do takes no turns (under Monitor: one every 30 minutes). `"tee"` keeps the Monitor
   and runs a logging shadow beside it; `node lib/bell-wait.mjs compare` must show zero missed lines before an
-  office switches. `bell-wait.mjs nudge <session> <line>` wakes an idle wait-mode session from any process.
+  office switches. `bell-wait.mjs nudge <session> --from <process> <source> <id>` lets the office's own processes (never a session: the wall refuses it) wake an idle wait-mode session with a pointer the session checks at its source.
   A failing doorbell prints `BELL-FALLBACK` and the session goes back to the Monitor form.
   `lead.bell.repeat` (`[120, 360, 1440]`) and `lead.bell.quiet` put the lead's re-rings on a ladder and out of the night.
 - **Monitor is walled.** The Monitor tool runs a shell command, and it was outside the wall: a desk

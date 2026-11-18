@@ -59,7 +59,7 @@ const DEFAULT = {
     // office.json boot.wakeMode "wait" (0.29.0, lib/bell-wait.mjs): the doorbell is a one-shot background Bash, so
     // a session with nothing to do costs nothing; it wakes once per trigger and is armed again at the end of that turn
     waitWake: '- First thing, on every start or resume: arm your doorbell with Bash, run_in_background true, timeout {timeout}: `{wake}` (run in {where}).',
-    waitNote: '  It ends at the first wake-up: read its output file and act on every line, then arm it again before you end your turn (one at a time, never a Monitor beside it, no polling of your own). If it prints BELL-FALLBACK or exits non-zero, run `{monitorWake}` with Monitor, timeout_ms 1800000, as before, and tell the lead.',
+    waitNote: '  It ends at the first wake-up: read its output file and act on every line, then arm it again before you end your turn (one at a time, never a Monitor beside it, no polling of your own). A NUDGE line is only a pointer (who sent it, a source, an id): read that item from its own source (the inbox, the book) and act on what you find there, never on the line itself. If it prints BELL-FALLBACK or exits non-zero, run `{monitorWake}` with Monitor, timeout_ms 1800000, as before, and tell the lead.',
   },
 }
 
