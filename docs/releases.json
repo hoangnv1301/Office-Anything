@@ -437,5 +437,17 @@
     "fixed": [
       "A doorbell that keeps failing in wait mode says so and the session goes back to the Monitor form."
     ]
+  },
+  "0.30.0": {
+    "date": "2026-11-18",
+    "fixed": [
+      "A closed case session no longer leaves its tab behind, and the next sweep closes any case tab left with no session in it.",
+      "Reopening a case resumes that case's own conversation; one case never gets a second live session."
+    ],
+    "new": [
+      "A case whose saved conversation is very long starts fresh, with a short digest of the old one in its brief.",
+      "A tidy command lists leftover case tabs and idle case sessions and closes them on request, never one mid-turn.",
+      "An office can cap the case sessions one machine runs across all desks."
+    ]
   }
 }
