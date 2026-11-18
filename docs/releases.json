@@ -425,5 +425,17 @@
       "A desk restarted by the watchdog comes back on its own model (desk.json mainModel), not its case runs' model.",
       "The README says how to give a coworker's Mac its own watchdog, so desks there are restarted too."
     ]
+  },
+  "0.29.0": {
+    "date": "2026-11-18",
+    "new": [
+      "An idle desk or lead can cost nothing: in wait mode its doorbell wakes it once per real trigger, any hour, not every 30 minutes.",
+      "Tee mode keeps the Monitor and runs a shadow beside it; a comparison lists any line the shadow missed before you switch.",
+      "The office's own processes can wake an idle session in wait mode with a pointer it checks at the source; sessions cannot.",
+      "The lead's bell can re-ring an unchanged item at 2 h, 6 h, then daily, and keep re-rings out of the night."
+    ],
+    "fixed": [
+      "A doorbell that keeps failing in wait mode says so and the session goes back to the Monitor form."
+    ]
   }
 }
