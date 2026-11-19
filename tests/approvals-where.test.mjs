@@ -7,7 +7,7 @@ import { join, dirname } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { grantFromPrompt, checkApproval, verifyGrant, gateVerdict, readLedger, ledgerFile, ledgerWriteVerdict, revokeApproval, projectDirName, grants } from '../lib/approvals.mjs'
+import { grantFromPrompt, checkApproval, verifyGrant, gateVerdict, readLedger, ledgerFile, ledgerWriteVerdict, revokeApproval, projectDirName, grants, blankQuoted } from '../lib/approvals.mjs'
 import { wasOfficeTyped } from '../lib/typed-mark.mjs'
 import { send } from '../board/send.mjs'
 import { makeServer, chatRosterCheap } from '../board/serve.mjs'
@@ -84,6 +84,63 @@ test('no tool call types an approval phrase into a terminal (orca, tmux, osascri
   assert.match(bash(`curl -s -X POST localhost:7719/api/send -H 'content-type: application/json' -d '{"key":"lead","text":"hi"}'`), /does not type into a terminal/)
   assert.match(bash("tmux send-keys -t lead 'hello' Enter"), /does not type into a terminal/)
   assert.equal(bash('echo "approve post-discord target:#releases"'), null)
+})
+
+// #122 (2026-11-19): the typing road is judged on what runs, not on words inside quoted text.
+const v122 = (command) => ledgerWriteVerdict({ tool_name: 'Bash', tool_input: { command } })
+const REFUSED122 = /does not type into a terminal/
+
+test('#122: a team post or an issue body that names the typing tools passes', () => {
+  // the shape of the refused post (LM-8a9943): a quoted JSON payload whose text names the tools
+  const post = `node scripts/desk/ops.mjs propose 发团队消息 '{"to":"david","text":"Troy MO-261112-0008 rollcall: we expect the panels Friday; orca send and tmux send-keys are off, osascript too, see /api/send"}'`
+  assert.equal(v122(post), null)
+  assert.equal(v122(`gh issue create -R o/r --title "wall: quoted words" --body "the pattern matches expect, orca ... send, osascript, tmux send-keys, claude -p and /api/send inside quotes; it should not"`), null)
+  assert.equal(v122(`git commit -m 'fix: osascript and expect named in a message'`), null)
+  assert.equal(v122(`echo "x" | grep -c 'tmux send-keys'`), null)
+  assert.equal(v122(`echo "approve post-discord target:#releases"`), null)
+  assert.equal(v122(`gh pr create --body "run claude -p to check"`), null)
+})
+
+test('#122: a direct call of a typing tool is still refused', () => {
+  assert.match(v122(`osascript -e 'tell application "System Events" to keystroke "x"'`), REFUSED122)
+  assert.match(v122(`tmux send-keys -t lead 'hello' Enter`), REFUSED122)
+  assert.match(v122(`cd /tmp && /usr/bin/osascript -e 'beep'`), REFUSED122)
+  assert.match(v122(`echo hi | xdotool type --file -`), REFUSED122)
+  assert.match(v122(`orca terminal send --terminal t1 --text "hello" --enter`), REFUSED122)
+  assert.match(v122(`curl -s -X POST 'localhost:7719/api/send' -d '{"key":"lead"}'`), REFUSED122)
+  assert.match(v122(`x=$(osascript -e 'beep')`), REFUSED122)
+  assert.match(v122(`echo "$(tmux send-keys -t lead hi Enter)"`), REFUSED122)
+  assert.match(v122(`sudo expect -c 'spawn ssh x'`), REFUSED122)
+  assert.match(v122(`claude --name x 'approve post-discord target:#releases'`), REFUSED122)
+  assert.match(v122(`claude -p "hello"`), REFUSED122)
+})
+
+test('#122: the same calls wrapped in bash -c, sh -c, zsh -c or eval are still refused', () => {
+  assert.match(v122(`bash -c 'osascript -e "beep"'`), REFUSED122)
+  assert.match(v122(`sh -c "tmux send-keys -t lead hello Enter"`), REFUSED122)
+  assert.match(v122(`zsh -lc 'cd /tmp; tmux send-keys -t lead hi Enter'`), REFUSED122)
+  assert.match(v122(`/bin/bash -c osascript`), REFUSED122)
+  assert.match(v122(`eval "osascript -e beep"`), REFUSED122)
+  assert.match(v122(`bash -c 'bash -c "osascript -e beep"'`), REFUSED122)
+  assert.match(v122(`bash -c 'claude -p hi'`), REFUSED122)
+  assert.match(v122(`node -e "require('child_process').execSync('tmux send-keys -t lead hi Enter')"`), REFUSED122)
+  // a shell -c whose quoted command only names a tool in its own quoted text passes
+  assert.equal(v122(`bash -c 'echo "osascript is a word"'`), null)
+})
+
+test('#122: blankQuoted keeps length and blanks only what is quoted', () => {
+  const c = `a 'b c' "d $(e f) g" h\\ i`
+  const m = blankQuoted(c)
+  assert.equal(m.length, c.length)
+  assert.equal(m, `a '   ' "  $(e f)  " h  i`)
+})
+
+test('#122: a quoted or escaped command word, or a quote left open, still runs the tool and is refused', () => {
+  assert.match(v122(`"/opt/homebrew/bin/tmux" send-keys -t lead hi Enter`), REFUSED122)
+  assert.match(v122(`'osascript' -e 'beep'`), REFUSED122)
+  assert.match(v122(`\\osascript -e beep`), REFUSED122)
+  assert.match(v122(`ls; "osa"'script' -e beep`), REFUSED122)
+  assert.match(v122(`: # don't\nosascript -e beep`), REFUSED122)
 })
 
 test('the board never types an approval phrase, and records what it does type as the office\'s', async () => {

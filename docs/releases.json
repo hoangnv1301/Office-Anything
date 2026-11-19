@@ -450,6 +450,12 @@
       "An office can cap the case sessions one machine runs across all desks."
     ]
   },
+  "0.30.2": {
+    "date": "2026-11-19",
+    "fixed": [
+      "The desk wall no longer refuses a command because a quoted message or issue text names a terminal-typing tool; real and wrapped calls are still refused."
+    ]
+  },
   "0.30.1": {
     "date": "2026-11-18",
     "fixed": [
