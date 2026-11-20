@@ -475,5 +475,11 @@
     "fixed": [
       "A lead's bell no longer wakes it for a brief book timeout: a failing ask is retried, and only three failed polls in a row ring, as one line."
     ]
+  },
+  "0.31.2": {
+    "date": "2026-11-20",
+    "fixed": [
+      "A due task that nudges a desk no longer wakes the lead, and the same task alert rings again only after 2 h, 6 h, then daily."
+    ]
   }
 }

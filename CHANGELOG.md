@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.31.2
+
+- A NUDGE TO A DESK IS NOT THE LEAD'S (T-261120-97, 2026-11-20: an ASK-DUE nudging desk-alibaba-customer-service woke the AICS lead at 48 and 64 min). An ASK-DUE / ASK-LATE whose text is `NUDGE <someone else>` is quiet for the lead and rides its next real wake; one that nudges the lead still rings at once. The same alert (type, case, subject) re-rings only on `lead.bell.alertRepeat` (default 2 h / 6 h / daily), however often its writer repeats it.
+
 ## 0.31.1
 
 - A BLIP IS NOT A WAKE (owner, 2026-11-20: the inbox and held asks exited 2 three times in one night, each a lead wake, each fine when re-run). A failing ask is retried once at once; only `lead.bell.failAfter` (3) polls failing in a row ring, as one `bell: can't reach the <ask> ask since HH:MMZ` line.

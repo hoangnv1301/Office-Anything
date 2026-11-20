@@ -100,8 +100,10 @@ test('the lead\'s bell hears the follow-through alerts even when the office list
   addAsk(root, { to: 'desk-aics', question: 'Can you post it?' }, { by: FULL, now: T0 })
   followThrough(root, cfg, { now: T0 + 31 * MIN })
   const r = poll(root, cfg, { now: T0 + 32 * MIN, state: r0.state })
-  assert.equal(r.lines.length, 1, JSON.stringify(r.lines))
-  assert.match(r.lines[0], /^alert ASK-DUE T-\d+-1 desk-aics: NUDGE desk-aics/)
+  // 0.31.2: a nudge to a desk is heard, not rung: it rides the lead's next real wake as the quiet count
+  assert.deepEqual(r.lines, [], JSON.stringify(r.lines))
+  assert.equal(r.state.quietN, 1)
+  assert.deepEqual(r.state.quietIds, [r.state.quietIds.find((x) => /^T-\d+-1$/.test(x))])
 })
 
 test('heal runs the follow-through, so one writer per office rings it', () => {

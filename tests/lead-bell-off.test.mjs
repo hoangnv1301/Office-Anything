@@ -85,3 +85,25 @@ test('lead.bell.wakeMode moves only the lead', () => {
   const { root, cfg: c2 } = office({ bell: { wakeMode: 'wait' } }, { boot: { wakeMode: 'tee' } })
   assert.match(bootLines(root, { kind: 'lead', role: 'lead' }, c2, root).join('\n'), /bell-wait\.mjs wait/)
 })
+
+// T-261120-97 (2026-11-20): an ASK-DUE nudging a DESK woke the AICS lead at 48 and 64 min
+import { appendFileSync } from 'node:fs'
+test('an ASK-DUE that nudges a desk is quiet for the lead; one that nudges the lead rings; the same task never re-rings before the ladder', () => {
+  const { root, cfg } = office({ bell: { asks: [] } })
+  const log = join(root, '.office', 'alerts.log'); writeFileSync(log, '')
+  const due = (min, to) => appendFileSync(log, `2026-11-20T08:${String(min).padStart(2, '0')}:00.000Z ASK-DUE T-261120-97 ${to} NUDGE ${to} T-261120-97: desk-design-quotation asked you "Michael SO-260927-062: the total is now $8,988.86 … 批报价 c3d0152d" ${min} minutes ago and has no answer.\n`)
+  let r = poll(root, cfg, { now: T0, state: null })
+  due(32, 'desk-alibaba-customer-service')
+  r = poll(root, cfg, { now: T0 + 60_000, state: r.state })
+  assert.deepEqual(r.lines, [], 'a nudge to a desk does not wake the lead')
+  due(33, 'lead')
+  r = poll(root, cfg, { now: T0 + 120_000, state: r.state })
+  assert.equal(r.lines.length, 2, 'the lead is due: rings, and the quiet one rides along')
+  assert.match(r.lines[0], /NUDGE lead/); assert.match(r.lines[1], /^quiet: 1 /)
+  due(48, 'lead'); due(55, 'lead')
+  r = poll(root, cfg, { now: T0 + 16 * 60_000, state: r.state })
+  assert.deepEqual(r.lines, [], 'same task, no change: no re-ring at 48 min')
+  due(59, 'lead')
+  r = poll(root, cfg, { now: T0 + 125 * 60_000, state: r.state })
+  assert.equal(r.lines.length, 1, '2 h later it may ring again')
+})
