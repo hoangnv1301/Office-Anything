@@ -481,5 +481,18 @@
     "fixed": [
       "A due task that nudges a desk no longer wakes the lead, and the same task alert rings again only after 2 h, 6 h, then daily."
     ]
+  },
+  "0.32.0": {
+    "date": "2026-11-20",
+    "new": [
+      "Health has an amber level: stale tasks are one amber line and done tasks are never stale, so red means a desk or session is not right.",
+      "Health is red for a launch that exited at once, a lead or desk running outside its folder, and one running as a background job with no tab.",
+      "A role can carry its own launch flags and a first message for a resumed session, so a lead keeps remote control and its boot lines."
+    ],
+    "fixed": [
+      "An old desk tab left at a shell prompt beside the running desk is now seen, and heal closes it.",
+      "A start never opens a second session on a conversation a live process already holds.",
+      "start and heal open a department lead in its own folder with its role settings, as /role does, and say when its newest conversation is elsewhere."
+    ]
   }
 }

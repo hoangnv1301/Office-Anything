@@ -6,7 +6,7 @@
 browser, a live board, and limits that are enforced, not suggested.
 
 <a href="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml"><img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg"></a>
-<img alt="tests" src="https://img.shields.io/badge/tests-769%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-787%20passing-3fb950">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <a href="https://github.com/hoangnv1301/Office-Anything/releases"><img alt="version" src="https://img.shields.io/github/package-json/v/hoangnv1301/Office-Anything?filename=.claude-plugin%2Fplugin.json&label=version&color=8957e5"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
@@ -527,6 +527,12 @@ node lib/role.mjs install   # put `office` on this machine's PATH (never sudo: ~
   relative to that generated file, so `/x`, `//x` and `~/x` are refused; write `./x` or `**/x`.
 - **Never two sessions under one name.** A role already running (the CLI's registry: its name and
   folder) is brought forward ("AICS is already open: Orca tab …") instead of opened again.
+- **A role's own flags and its first message on a resume (0.32.0).** `"flags": ["--remote-control"]` is added to
+  its launch (plain `--flag`s only; `--bg` / `--background` makes the profile a problem, never a launch).
+  `"resumePrompt": "<one line>"`, or `"resumePromptCommand": "<read-only command printing it>"` (run at the office
+  root), is typed as the first message when the role RESUMES its conversation, marked as the office's own text:
+  the SessionStart boot text reaches a new session, not a `--resume`. `start` and heal open a department lead
+  that has a role exactly as `/role` does, with these.
 - New sessions open as Orca tabs titled with the session name, else a tmux window, else a
   Terminal window. A desk may not open a role.
 - A session at the root with no role is told so at start: `dev/construction session; /role to
@@ -678,8 +684,9 @@ node lib/tasks.mjs list [--all] [--json]
   for 24 h also leaves `NUDGE <assignee> <id> "<title>" has not been updated in 30h: …` in
   `.office/alerts.log`, at most once a day, ready for the lead's sweep to send, and only on a pass that
   already rings (below). The lead's own tasks are not nudged.
-- **Staleness is said once (0.28.1).** Health is red for a task open with no update for 24 h, or `done` but not verified
-  for 6 h. `health --heal` (the watchdog) writes a task to `.office/alerts.log` for the lead once, on the pass it
+- **Staleness is said once (0.28.1), in amber (0.32.0).** A task is not a session, so it never makes health red.
+  Open tasks with no update for 24 h are ONE amber line, `tasks N tasks stale, oldest T-… (785h)`, and a `done`
+  task is never stale in health (heal's daily line below still asks for it to be verified after 6 h). `health --heal` (the watchdog) writes a task to `.office/alerts.log` for the lead once, on the pass it
   goes stale (remembered in `.office/heal-state.json`, forgotten when it stops being stale), and the still-stale
   list as one line a day: `stale tasks: N still stale; oldest: …` with the five oldest. An unchanged list rings
   nothing between those lines; the first pass after an upgrade writes the daily line, not a line per task.
@@ -1069,6 +1076,31 @@ office's own checks from `office.json` `health`, and lists orphan doorbells whos
 session is gone. A desk with `autostart: false` reads "off" unless its `desk.json`
 says `"watch": true`. Exit 0 green, 4 red, 7 unknown. It is also the `desk-health`
 check, so it sits on the board with every other check.
+
+**Red means a desk or a session is not right; amber is everything else (0.32.0).** The line starts
+`office: RED`, `office: amber` or `office: green`, and the JSON says `level`. Amber exits 0 and is listed in
+`warnings`, never `findings`: stale tasks (one line) and an old tab left at a shell prompt beside a desk that runs
+in another tab (heal closes it). Red, besides a dead desk or an unarmed doorbell:
+
+- **a launch that exited at once.** `start` (and so heal) records every launch whose claude was gone before
+  it registered or within 30 s of its tab opening, with the screen's last lines and, when one holds it,
+  `conversation already open in pid N`, in `.office/launch-failures.json`. A tab with no agent before its
+  claude was ever seen is a slow shell, not an exit, until 15 polls and three looks in a row. Health is red for
+  that name while it is expected to run and nothing answers to any of its names; once a session does (any
+  launcher), heal drops the record. A start never opens a second session on a conversation a live
+  process holds: the registry's sessionId and any `claude … --resume <id>` command line are both asked first.
+- **a lead or desk running outside its folder.** A department lead's folder is where its role opens it
+  (`profiles.<role>.department`); a desk's is its `desk.json` folder. Its CLAUDE.md, settings and wall are then
+  not its own, and its conversation lands under another project, which the line says, because reopening it in its
+  folder starts from older context. `start` and heal open a lead with a profile exactly as `/role` does (its
+  folder, its generated `--settings`), and say so when the lead's newest own conversation is under the root
+  instead of quietly resuming an older one.
+- **a lead or desk running as a background job** (no terminal tab). Health asks the CLI (`claude agents --json`,
+  read only: a job has no pid in the registry) and the registry (kind `bg`). The plugin never starts one
+  (`--bg` / `--background` in `launch.flags` is refused). If Claude Code made it one, bring it back to a tab: in a
+  terminal at its folder run `claude attach <job id>`, or `claude stop <job id>` and open it again with
+  `/role <role>` (a lead) or `start <desk>`, which resumes its own conversation. A job beside a live tab under
+  the same name is a second holder: keep the tab, `claude stop` the job (its conversation is kept).
 
 `--heal` acts only within what the office grants: kill proven orphans, restart a
 dead desk through `office.json` `start` (3 per hour per desk at most), run a
