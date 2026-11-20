@@ -461,5 +461,13 @@
     "fixed": [
       "Desks can run the plugin's own scripts again, so they can update and close their own tasks; the rest of Claude Code's folder stays closed to them."
     ]
+  },
+  "0.31.0": {
+    "date": "2026-11-20",
+    "new": [
+      "A lead's doorbell can now be switched off in office.json: no boot line, no unarmed warning, no re-arm, and the bell refuses to start.",
+      "The lead's bell can run as a one-shot wait of its own, so an idle lead costs nothing while desks keep their own mode.",
+      "Bell lines can be sorted into now, batch and quiet in office.json, so only what needs the lead wakes it, in short lines."
+    ]
   }
 }
