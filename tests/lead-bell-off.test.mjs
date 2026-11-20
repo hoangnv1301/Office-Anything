@@ -107,3 +107,20 @@ test('an ASK-DUE that nudges a desk is quiet for the lead; one that nudges the l
   r = poll(root, cfg, { now: T0 + 125 * 60_000, state: r.state })
   assert.equal(r.lines.length, 1, '2 h later it may ring again')
 })
+
+// BT-261120-715 (2026-11-20): one HUMAN line woke AICS twice, from the alert follower and from lead-bell's "buyers:" copy
+import { admitSeen, seenKey, loadSeen, saveSeen } from '../lib/bell-wait.mjs'
+test('a line delivered once is not delivered again from another source or after a re-arm; the same text re-rings only on the ladder', () => {
+  const { root } = office()
+  const raw = '2026-11-20T10:16:27.003Z HUMAN BT-261120-715 - buyer=Zeeshan Mughal asked for a person (aiOk no): no teammate drafts, the owner answers (mode owner)'
+  assert.equal(seenKey('buyers: ' + raw), seenKey(raw))
+  let seen = loadSeen(root, 'AICS')
+  assert.equal(admitSeen(seen, raw, T0), true); saveSeen(root, 'AICS', seen)
+  seen = loadSeen(root, 'AICS')   // the re-arm: a new wait process
+  assert.equal(admitSeen(seen, 'buyers: ' + raw, T0 + 19_000), false)
+  assert.equal(admitSeen(seen, raw.replace('10:16:27.003Z', '10:40:00.000Z'), T0 + 30 * 60_000), false, 'the writer repeating it: no change, no ring')
+  assert.equal(admitSeen(seen, raw, T0 + 121 * 60_000), true, '2 h later')
+  assert.equal(admitSeen(seen, raw, T0 + 200 * 60_000), false, 'then 6 h')
+  assert.equal(admitSeen(seen, 'NUDGE from=x check inbox LM-1', T0), true)
+  assert.equal(admitSeen(seen, 'NUDGE from=x check inbox LM-1', T0), true, 'a nudge is a pointer, never held')
+})

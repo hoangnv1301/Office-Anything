@@ -494,5 +494,11 @@
       "A start never opens a second session on a conversation a live process already holds.",
       "start and heal open a department lead in its own folder with its role settings, as /role does, and say when its newest conversation is elsewhere."
     ]
+  },
+  "0.32.1": {
+    "date": "2026-11-20",
+    "fixed": [
+      "A lead's one-shot bell delivers a line once, even when two doorbells carry it or the bell is re-armed; the same text re-rings only after 2 h, 6 h, daily."
+    ]
   }
 }
