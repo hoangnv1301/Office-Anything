@@ -500,5 +500,11 @@
     "fixed": [
       "A lead's one-shot bell delivers a line once, even when two doorbells carry it or the bell is re-armed; the same text re-rings only after 2 h, 6 h, daily."
     ]
+  },
+  "0.32.2": {
+    "date": "2026-11-20",
+    "fixed": [
+      "A held draft whose age changed between polls no longer wakes the lead again; ages and counters are not a change."
+    ]
   }
 }
