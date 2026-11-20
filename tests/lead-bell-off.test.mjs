@@ -124,3 +124,17 @@ test('a line delivered once is not delivered again from another source or after 
   assert.equal(admitSeen(seen, 'NUDGE from=x check inbox LM-1', T0), true)
   assert.equal(admitSeen(seen, 'NUDGE from=x check inbox LM-1', T0), true, 'a nudge is a pointer, never held')
 })
+
+// BT-261113-674 (2026-11-20): the held ask's age ("1307m" → "1313m") made each poll a new item
+import { ageless } from '../lib/lead-bell.mjs'
+test('an age or counter in an ask line is not a change: the same hold rings once, and the wait form sees one item', () => {
+  const { root, cfg } = office({ bell: { asks: [{ name: 'held', command: 'x' }] } })
+  const out = { v: 'BT-261113-674 ahmed shaa 1307m gate:4 | owner-only gate 4\n' }
+  let r = poll(root, cfg, { now: T0, state: null, run: runOut(out) })
+  assert.equal(r.lines.length, 1)
+  out.v = 'BT-261113-674 ahmed shaa 1313m gate:4 | owner-only gate 4\n'
+  r = poll(root, cfg, { now: T0 + 6 * 60_000, state: r.state, run: runOut(out) })
+  assert.deepEqual(r.lines, [])
+  assert.equal(seenKey('held: BT-261113-674 ahmed shaa 1307m gate:4'), seenKey('held: BT-261113-674 ahmed shaa 1313m gate:4'))
+  assert.notEqual(ageless('BT-1 gate:4'), ageless('BT-1 gate:10'), 'a different gate is a different item')
+})

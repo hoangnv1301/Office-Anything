@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.32.2
+
+- AN AGE IS NOT A CHANGE (BT-261113-674, 2026-11-20: `held: … 1307m gate:4` then `… 1313m …` woke AICS twice in 6 min). A keyless ask line's key, and the wait form's seen key, drop ages and counters (`1307m`, `2h`, `33 h`, `x3`, `(+4)`); same thread + reason = same item.
+
 ## 0.32.1
 
 - ONE LINE, ONE WAKE (BT-261120-715, 2026-11-20: `HUMAN … 10:16:27Z` woke AICS twice, first from its `wakeAlso` alert follower, then 19 s later, after the re-arm, from lead-bell's `buyers:` copy of the same log line). The wait form keeps what it delivered in `.office/bell-wait/<session>.seen.json`, keyed by the text without its source prefix and timestamp, across re-arms and restarts; the same text again rings only after 2 h, 6 h, then daily (a writer repeating a HUMAN line is no change). NUDGE pointers are never held.
