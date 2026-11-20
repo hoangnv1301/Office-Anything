@@ -469,5 +469,11 @@
       "The lead's bell can run as a one-shot wait of its own, so an idle lead costs nothing while desks keep their own mode.",
       "Bell lines can be sorted into now, batch and quiet in office.json, so only what needs the lead wakes it, in short lines."
     ]
+  },
+  "0.31.1": {
+    "date": "2026-11-20",
+    "fixed": [
+      "A lead's bell no longer wakes it for a brief book timeout: a failing ask is retried, and only three failed polls in a row ring, as one line."
+    ]
   }
 }

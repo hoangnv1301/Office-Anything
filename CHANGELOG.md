@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.31.1
+
+- A BLIP IS NOT A WAKE (owner, 2026-11-20: the inbox and held asks exited 2 three times in one night, each a lead wake, each fine when re-run). A failing ask is retried once at once; only `lead.bell.failAfter` (3) polls failing in a row ring, as one `bell: can't reach the <ask> ask since HH:MMZ` line.
+
 ## 0.31.0
 
 - A LEAD'S DOORBELL CAN BE SWITCHED OFF (owner, 2026-11-20). `office.json` `lead.bell.enabled: false` (or `departments.<id>.bell.enabled`, which wins for that department; default true) makes the lead's wake null in `lib/departments.mjs`, the one place every site reads it: the SessionStart boot text does not tell the lead to start a bell, `start` types no kickoff for it, health reports no unarmed doorbell, heal never re-arms it, and `lib/lead-bell.mjs` exits 2 saying which switch is off. With it off the lead is woken by SendMessage and the zero-token nudges only.

@@ -59,12 +59,24 @@ test('asks: an open item rings when it appears, again after repeatMinutes while 
 test('a failing ask is said once (and its last items stay open), never read as "nothing open"', () => {
   const { root, cfg } = office({ asks })
   let r = poll(root, cfg, { now: T0, state: null, run: fakeRun({ inbox: 'LM-1\tx', held: '' }) })
-  r = poll(root, cfg, { now: T0 + MIN, state: r.state, run: fakeRun({ inbox: new Error('down'), held: '' }) })
-  assert.deepEqual(r.lines, ['bell: the inbox ask is failing (exit 3); its items are not being watched'])
-  r = poll(root, cfg, { now: T0 + 2 * MIN, state: r.state, run: fakeRun({ inbox: new Error('down'), held: '' }) })
+  for (const k of [1, 2]) {
+    r = poll(root, cfg, { now: T0 + k * MIN, state: r.state, run: fakeRun({ inbox: new Error('down'), held: '' }) })
+    assert.deepEqual(r.lines, [], 'a blip (retried once) does not wake the lead')
+  }
+  r = poll(root, cfg, { now: T0 + 3 * MIN, state: r.state, run: fakeRun({ inbox: new Error('down'), held: '' }) })
+  assert.deepEqual(r.lines, ["bell: can't reach the inbox ask since 08:01Z (exit 3, 3 polls); its items are not being watched"])
+  r = poll(root, cfg, { now: T0 + 4 * MIN, state: r.state, run: fakeRun({ inbox: new Error('down'), held: '' }) })
   assert.deepEqual(r.lines, [])
-  r = poll(root, cfg, { now: T0 + 3 * MIN, state: r.state, run: fakeRun({ inbox: 'LM-1\tx', held: '' }) })
+  r = poll(root, cfg, { now: T0 + 5 * MIN, state: r.state, run: fakeRun({ inbox: 'LM-1\tx', held: '' }) })
   assert.deepEqual(r.lines, [], 'LM-1 rang before the failure and is still the same open item')
+})
+
+test('a failing ask is retried once at once: a single blip never counts', () => {
+  const { root, cfg } = office({ asks: [{ name: 'inbox', command: 'ask-inbox' }], failAfter: 1 })
+  let n = 0
+  const flaky = () => (++n === 1 ? { status: 2, stdout: '' } : { status: 0, stdout: 'LM-1\tx' })
+  const r = poll(root, cfg, { now: T0, state: null, run: flaky })
+  assert.deepEqual(r.lines, ['inbox: x'])
 })
 
 test('rate limit: over maxPerMinute, the last free line counts the rest; a full minute carries the count over', () => {
