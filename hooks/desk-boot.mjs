@@ -33,7 +33,7 @@ import { isMain } from '../lib/is-main.mjs'
 import { wakeCommand } from '../lib/wall.mjs'
 import { readSwitch, deskOn } from '../lib/desks.mjs'
 import { rosterSafe, officeRoster } from '../lib/desk.mjs'
-import { allLeads, deskScope, leadsOfDesk } from '../lib/departments.mjs'
+import { allLeads, deskScope, leadsOfDesk, leadBellOn } from '../lib/departments.mjs'
 import { afterLines } from '../lib/compact.mjs'
 import { profilesOf, rolesHere } from '../lib/role.mjs'
 import { readJobs, runHint, pluginGate, fileGate } from '../lib/schedule.mjs'
@@ -71,8 +71,8 @@ const upTo = (root, from) => { const r = relative(resolve(from), resolve(root));
 const fill = (s, v) => String(s ?? '').replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m))
 // the doorbell lines for the office's wake mode: monitor (the wake as is), tee (the Monitor form, logged for the shadow), wait (one-shot Bash).
 // also: more doorbells the one wait runs (wait only: under Monitor they are armed as their own monitors)
-export function wakeLines(cfg, T, wake, v, also = []) {
-  const mode = wakeModeOf(cfg)
+export function wakeLines(cfg, T, wake, v, also = [], { lead = false } = {}) {
+  const mode = wakeModeOf(cfg, { lead })
   const vals = { ...v, wake: wrapWake(wake, mode, { also: mode === 'wait' ? also : [] }), monitorWake: wake, timeout: WAIT_TIMEOUT_MS }
   const pair = mode === 'wait' ? [T.waitWake, T.waitNote] : [T.wake, T.wakeNote]
   return pair.filter(Boolean).map((t) => fill(t, vals))
@@ -94,8 +94,8 @@ export function bootLines(root, who, cfg, cwd) {
       if (L.instructions) out.push(`Read ${L.instructions} before anything else.`)
     }
     // office.json lead.wake: the lead's own doorbell, armed like a desk's
-    const wake = wakeCommand(L?.wake ?? cfg.lead?.wake)
-    if (wake) { const T = { ...DEFAULT.text, ...(b.text ?? {}) }; out.push(...wakeLines(cfg, T, wake, { where: 'the office root' }, alsoOf(L?.department ? cfg.departments?.[L.department]?.wakeAlso : cfg.lead?.wakeAlso))) }
+    const wake = wakeCommand(L ? L.wake : (leadBellOn(cfg) ? cfg.lead?.wake : null))
+    if (wake) { const T = { ...DEFAULT.text, ...(b.text ?? {}) }; out.push(...wakeLines(cfg, T, wake, { where: 'the office root' }, alsoOf(L?.department ? cfg.departments?.[L.department]?.wakeAlso : cfg.lead?.wakeAlso), { lead: true })) }
     return out
   }
   if (who.kind !== 'desk') return []
@@ -203,14 +203,14 @@ if (isMain(import.meta.url)) {
       }
       const afterCompact = p?.source === 'compact' && !!cfg.compact?.after
       const roles = [...roleLines(root, cfg, cwd, process.env, whoIs(root, cfg, { cwd })), ...jobLines(root, cfg, process.env, whoIs(root, cfg, { cwd }))]
-      if ((!cfg.boot || typeof cfg.boot !== 'object') && !(typeof cfg.lead?.wake === 'string' && cfg.lead.wake.trim()) && !afterCompact) { if (roles.length) console.log(roles.join('\n')); process.exit(0) }
+      if ((!cfg.boot || typeof cfg.boot !== 'object') && !(typeof cfg.lead?.wake === 'string' && cfg.lead.wake.trim() && leadBellOn(cfg)) && !afterCompact) { if (roles.length) console.log(roles.join('\n')); process.exit(0) }
       const who = whoIs(root, cfg, { cwd })
       // a case session runs under its parent's role, so its own name says which case it is
       const child = childOf(root, sessionName())
       if (child && who?.kind === 'desk' && who.desk === child.parent) who.caseKey = child.key
       if (!who || (who.kind === 'desk' && !existsSync(join(who.dir, 'desk.json')))) { if (roles.length) console.log(roles.join('\n')); process.exit(0) }
       // exactly the old boot when it would have run; only the after-compact lines when that alone let it in
-      const booted = (cfg.boot && typeof cfg.boot === 'object') || (typeof cfg.lead?.wake === 'string' && cfg.lead.wake.trim())
+      const booted = (cfg.boot && typeof cfg.boot === 'object') || (typeof cfg.lead?.wake === 'string' && cfg.lead.wake.trim() && leadBellOn(cfg))
       const lines = booted ? bootLines(root, who, cfg, cwd) : []
       // ⛔ AFTER A COMPACTION (SessionStart source "compact", documented to add
       // its output to the compacted context): what is open right now, from the
