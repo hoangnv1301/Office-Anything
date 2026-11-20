@@ -153,8 +153,12 @@ test('stale: open with no update for 24 h, done but not verified for 6 h; health
   assert.match(s.find((x) => x.id === old.id).why, /open 30h with no update/)
   assert.match(s.find((x) => x.id === done.id).why, /done 7h ago and not verified/)
   const h = officeHealth(root, { home: mkdtempSync(join(tmpdir(), 'oa-tasks-home-')), procs: new Map(), checks: false, now: NOW })
-  const f = h.findings.filter((x) => x.desk === 'tasks')
-  assert.equal(f.length, 2, JSON.stringify(h.findings)); assert.equal(h.code, 4)
+  // 0.32.0: a task is not a session. Never red; the open quiet ones are ONE amber line,
+  // and a done (not verified) task is not stale in health at all
+  assert.equal(h.findings.filter((x) => x.desk === 'tasks').length, 0, JSON.stringify(h.findings))
+  const w = h.warnings.filter((x) => x.desk === 'tasks')
+  assert.equal(w.length, 1, JSON.stringify(h.warnings))
+  assert.match(w[0].short, new RegExp(`^1 task stale, oldest ${old.id} \\(30h\\)$`))
   const r = heal(root, { code: 4, desks: [], checks: [], orphans: [], lead: null }, { now: NOW, home: mkdtempSync(join(tmpdir(), 'oa-tasks-home-')), kill: () => { throw new Error('no') }, freshProcs: () => new Map(), cwd: () => null })
   const alerts = readFileSync(join(root, '.office', 'alerts.log'), 'utf8')
   assert.match(alerts, /task:T-261017-1|T-261017-1/); assert.match(alerts, /forgotten/)
