@@ -13,7 +13,7 @@ Start desks the way the office expects, from the CLI's own session registry:
    whether it resumed its own conversation), `already`, `degraded` (alive but restored outside
    its folder), `foreign` (alive but running another session's conversation), `clash` (two live
    sessions under one name: nothing was opened), `busy` or `failed`. Exit 0 only when every
-   target is up or already running.
+   target is up, already running, off, idled, restarted or deferred.
 3. `degraded` and `foreign` are reported, never fixed by a plain start. Use `--restart` to fix one.
 4. To restart desks that are already running, for example after a Claude Code update, run
    `node lib/start.mjs <name|all|lead|everything> --restart [--wait <sec>]`. A desk is stopped by

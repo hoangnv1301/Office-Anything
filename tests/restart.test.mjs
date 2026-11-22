@@ -1,5 +1,3 @@
-// RESTART A LIVE DESK (#134). A fake world: a registry the test controls, real
-// transcript files, a terminal adapter and a kill that only edit that world.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
@@ -59,6 +57,23 @@ test('#134 an idle desk is stopped by pid, its tab closed, and it comes back on 
   assert.equal(rows[0].resume, ID(1))
   assert.match(rows[0].why, /stopped pid 300 \(Claude Code 2\.1\.325\)/)
   assert.equal(exitCodeOf(rows), 0)
+})
+
+test('#134 a desk parked in its own doorbell (shell) is idle and is restarted; the same shell with no doorbell is not', async () => {
+  const w = world({ desks: { quotes: { wake: 'node ../../scripts/bell/wake.mjs' } } })
+  mkdirSync(join(w.root, 'scripts', 'bell'), { recursive: true })
+  writeFileSync(join(w.root, 'scripts', 'bell', 'wake.mjs'), '')
+  const p = projectDirOf(w.desk('quotes'), w.dir)
+  mkdirSync(p, { recursive: true })
+  writeFileSync(join(p, ID(1) + '.jsonl'), L({ type: 'custom-title', customTitle: 'desk-quotes' }) + L({ type: 'user', timestamp: new Date(Date.now() - 600_000).toISOString(), message: { content: 'hi' } }))
+  for (const armed of [true, false]) {
+    const live = [{ pid: 320, name: 'desk-quotes', status: 'shell', statusUpdatedAt: quietFor(120), sessionId: ID(1), cwd: w.desk('quotes'), startedAt: Date.now() - 3600_000 }]
+    const f = fakeWorld(live)
+    const procs = () => new Map(live.some((s) => s.pid === 320) ? [[320, { pid: 320, ppid: 1, ageSec: 3600, cmd: 'claude --name desk-quotes' }], ...(armed ? [[321, { pid: 321, ppid: 320, ageSec: 60, cmd: `node ${join(w.root, 'scripts', 'bell', 'wake.mjs')}` }]] : [])] : [])
+    const rows = await restart(w.root, 'quotes', opts(w, live, f, { procs }))
+    assert.equal(rows[0].state, armed ? 'restarted' : 'deferred', `armed ${armed}: ${JSON.stringify(rows)}`)
+    assert.deepEqual(f.killed, armed ? [320] : [])
+  }
 })
 
 test('#134 a desk mid-turn, or idle for only a moment, is never stopped: deferred, nothing opened', async () => {
