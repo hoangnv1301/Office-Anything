@@ -1,15 +1,17 @@
 # The plugin itself has no dependencies. These are the two places that do:
-# the CI actions, and the board's UI build.
+# the CI actions, and the board's UI build. No labels: the repo's only label is critical.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: monthly }
     commit-message: { prefix: ci }
+    labels: []
   - package-ecosystem: npm
     directory: /board/ui
     schedule: { interval: monthly }
     commit-message: { prefix: build }
+    labels: []
     groups:
       board-ui:
         patterns: ["*"]
