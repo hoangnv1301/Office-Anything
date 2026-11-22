@@ -6,7 +6,7 @@
 browser, a live board, and limits that are enforced, not suggested.
 
 <a href="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml"><img alt="ci" src="https://github.com/hoangnv1301/Office-Anything/actions/workflows/test.yml/badge.svg"></a>
-<img alt="tests" src="https://img.shields.io/badge/tests-789%20passing-3fb950">
+<img alt="tests" src="https://img.shields.io/badge/tests-802%20passing-3fb950">
 <img alt="dependencies" src="https://img.shields.io/badge/dependencies-0-3fb950">
 <a href="https://github.com/hoangnv1301/Office-Anything/releases"><img alt="version" src="https://img.shields.io/github/package-json/v/hoangnv1301/Office-Anything?filename=.claude-plugin%2Fplugin.json&label=version&color=8957e5"></a>
 <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
@@ -600,6 +600,22 @@ start never opens a second session under a live name. A desk that is alive but r
 its folder, or running another session's conversation, is reported for the owner to close. It is
 never killed. `/desk-recover` is the order after a crash: the lead first, then every desk with
 `autostart` on.
+
+**Restarting a live desk (0.33.0).** `node lib/start.mjs <name|all|lead|everything> --restart [--wait <sec>]`
+restarts desks that are running. It stops a desk only once it is provably idle: registry `idle` (or
+parked in its own doorbell) for `restart.quietSec` (30 s by default), with the same pid and status
+stamp on a second look right before the stop, and no line of the office's own `restart.busy` command
+naming it. It sends SIGTERM to that pid and waits up to 20 s for the process to exit, then closes the
+desk's own tab and resumes **the conversation it was running, by id**. If that conversation is
+another desk's, or not under its folder, it resumes the desk's own instead and says why. A desk
+that stays busy for `--wait` seconds (120 by default) is `deferred`. It is never stopped mid-turn,
+and the session running the restart never stops itself. `node lib/start.mjs outdated [--restart]`
+lists every live desk and lead whose Claude Code is older than the installed `claude --version`. It
+reads the version from the registry, or else from the process's executable path, and restarts them
+one by one. Health shows them as one amber line. With `office.json` `"restart": { "onUpdate": true }`,
+the watchdog restarts one outdated, idle desk per pass, and never twice for the same installed version.
+`"restart": { "busy": "<read-only command>" }` (or `{ "command", "timeoutSec" }`) is the office's
+busy marker, for example a page lock or a send lock. A non-zero exit counts as busy.
 
 `office.json` `launch` sets how sessions start: `{ "terminal": "orca", "flags":
 ["--dangerously-skip-permissions"], "model": "sonnet", "lead": { "flags": ["--remote-control"],

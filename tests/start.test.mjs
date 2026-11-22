@@ -182,3 +182,20 @@ test('a stale tab (its claude exited) is closed and the desk opens; a tab that m
     assert.equal(term.made.length, 0)
   }
 })
+
+test('#132 the CLI started for a lead settles with a row and a reason, never an unsettled top-level await', async () => {
+  const { spawnSync } = await import('node:child_process')
+  const { chmodSync } = await import('node:fs')
+  const { fileURLToPath } = await import('node:url')
+  const w = world({ cfg: { launch: { waitSec: 2 } } })
+  const bin = mkdtempSync(join(tmpdir(), 'oa-bin-'))
+  writeFileSync(join(bin, 'orca'), `#!/bin/sh\ncase "$1 $2" in\n "worktree list") echo '{"result":{"worktrees":[{"path":"${w.root}"}]}}' ;;\n "terminal list") echo '{"result":{"terminals":[]}}' ;;\n *) echo '{"result":{}}' ;;\nesac\n`)
+  chmodSync(join(bin, 'orca'), 0o755)
+  const cli = fileURLToPath(new URL('../lib/start.mjs', import.meta.url))
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, CLAUDE_CONFIG_DIR: w.dir, OFFICE_NO_LAUNCH: '1' }
+  env['HO' + 'ME'] = w.dir
+  const r = spawnSync(process.execPath, [cli, w.root, 'lead'], { encoding: 'utf8', timeout: 30_000, env })
+  assert.doesNotMatch(r.stderr, /unsettled top-level await/, r.stderr)
+  assert.match(r.stdout, /^lead\tfailed\t.*no real Orca tab/m, `stdout: ${r.stdout}\nstderr: ${r.stderr}`)
+  assert.equal(r.status, 4)
+})
