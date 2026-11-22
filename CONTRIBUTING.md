@@ -72,6 +72,21 @@ A number the docs state about this repo is checked by `stated-numbers`. If you
 add a test, the README badge, CLAUDE.md and the landing page move with it, and
 the suite fails until they do.
 
+## Issues and pull requests
+
+Open an issue first with one of the forms: `[Bug]: `, `[Feature]: ` or `[Other]: `.
+The only label is `critical`, for a fault that cannot wait; everything else
+carries no label.
+
+Fill in every section of [`.github/pull_request_template.md`](.github/pull_request_template.md):
+an ELI5, what changed and why (with the alternatives you considered), the linked
+issue, a before and after for any UI or behavior change (only if there is truly
+no visual or interaction change, write exactly `N/A` and briefly say why), how
+you tested it, its performance impact (one line such as `None, because …` is
+fine when nothing gets slower or heavier), and the risk with its level. Keep
+each PR small and focused on one topic, on a branch named `fix/…`, `feat/…` or
+`chore/…`.
+
 ## Releasing
 
 Two different acts, and mixing them up produced four public releases in one
