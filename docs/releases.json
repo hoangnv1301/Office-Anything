@@ -506,5 +506,16 @@
     "fixed": [
       "A held draft whose age changed between polls no longer wakes the lead again; ages and counters are not a change."
     ]
+  },
+  "0.33.0": {
+    "date": "2026-11-22",
+    "new": [
+      "Restart a live desk or lead with start --restart: it is stopped only once idle and resumes the conversation it was running, by id.",
+      "start outdated lists the desks still running an older Claude Code than the installed one, and --restart restarts them one at a time.",
+      "Health shows one amber line for desks on an old Claude Code, and restart.onUpdate lets the watchdog restart them when idle."
+    ],
+    "fixed": [
+      "Starting a lead from the command line no longer exits silently: every start now ends with a row and a reason."
+    ]
   }
 }

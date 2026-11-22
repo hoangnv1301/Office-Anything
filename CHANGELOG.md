@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.33.0
+
+- START ALWAYS SETTLES (#132, 2026-11-22: after a forced reset, `start.mjs lead` and `start.mjs AICS` printed only `unsettled top-level await at lib/start.mjs:468`). `start()` loads `lib/role.mjs` dynamically for a lead, and `role.mjs` imports `start.mjs` statically. While the CLI's top-level await was still pending, `start.mjs` was not done evaluating, so the dynamic import waited on it, and it waited on the import. Every CLI start with a lead target hit this, reboot or not; desks did not. The CLI has no top-level await now, and a `beforeExit` backstop prints a `failed` row and exits 4 if the run never settles. One target that throws is a `failed` row, not a lost run, and every `orca` call has a 30 s timeout.
+- RESTART A LIVE DESK (#134, 2026-11-22: three desks kept running Claude Code 2.1.325 after the 2.1.330 update, and nothing in the plugin could restart them). `start.mjs <name|all|lead|everything> --restart [--wait <sec>]` stops a desk only once it is provably idle: `idleSince`, quiet for `restart.quietSec`, the same pid and status stamp on a second look, and no line of `restart.busy` naming it. It sends SIGTERM to that pid with a 20 s bounded wait, closes the desk's own tab (`evenWithAgent`), and resumes the conversation it was running, by id. A foreign conversation, or one outside its folder, resumes the desk's own instead (`planStart`). A lead is resumed even when `launch.lead.resume` is off. Busy past `--wait` is `deferred`, and the session running the restart is `refused`.
+- `start.mjs outdated [--restart]` lists the live desks and leads whose Claude Code is older than the installed `claude --version`. It reads the version from the registry's `version`, or else from the executable path (`lsof`). An unknown version is never outdated. Health adds one amber line, `N desks on an old Claude Code (a < b: …)`, and `claude: { installed, outdated }`.
+- `office.json` `restart.onUpdate: true` makes heal restart outdated desks with `--restart --wait 0`: one per pass, a deferred desk retried on the next pass, and a desk recorded per installed version so that one still reading old never loops. `lib/cli-version.mjs` is a leaf module (node built-ins only).
+
 ## 0.32.2
 
 - AN AGE IS NOT A CHANGE (BT-261113-674, 2026-11-20: `held: … 1307m gate:4` then `… 1313m …` woke AICS twice in 6 min). A keyless ask line's key, and the wait form's seen key, drop ages and counters (`1307m`, `2h`, `33 h`, `x3`, `(+4)`); same thread + reason = same item.
