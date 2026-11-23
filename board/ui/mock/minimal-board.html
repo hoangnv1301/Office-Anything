@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The office — minimal board (mock)</title>
+<!-- STATIC MOCK of the Office-Anything board in the calm layout the owner asked for (2026-11-11).
+     Same data shapes as /api/office-chat, /api/transcript, /api/timeline, /api/tasks; every value is FAKE.
+     System fonts only, no external assets. Feature-to-place map: ./feature-map.md -->
+<style>
+:root {
+  --paper: #FAFAF9; --surface: #FFFFFF; --bubble: #F1F1EF; --ink: #1C1C1A; --quiet: #6B6B66; --rule: #E7E6E2;
+  --accent: #1F6F78; --accent-soft: #E3F0F1; --wait: #A86A10; --wait-soft: #FBF1E0; --err: #B4321F; --err-soft: #FBE8E4; --ok: #2F7D4F;
+  --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --r-s: 6px; --r-m: 10px; --r-l: 16px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #16171A; --surface: #1D1F23; --bubble: #26282D; --ink: #ECEDEE; --quiet: #9A9DA3; --rule: #2C2E33;
+  --accent: #5FB7BF; --accent-soft: #1E3437; --wait: #E0A33A; --wait-soft: #3A2E18; --err: #F0846F; --err-soft: #3A221D; --ok: #6CC08D; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #16171A; --surface: #1D1F23; --bubble: #26282D; --ink: #ECEDEE; --quiet: #9A9DA3; --rule: #2C2E33;
+  --accent: #5FB7BF; --accent-soft: #1E3437; --wait: #E0A33A; --wait-soft: #3A2E18; --err: #F0846F; --err-soft: #3A221D; --ok: #6CC08D; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--paper); color: var(--ink); font: 15px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+code, .mono { font-family: var(--mono); font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ── layout ── */
+.app { display: grid; grid-template-columns: 248px minmax(0, 1fr) auto; height: 100vh; }
+.side { background: var(--paper); border-right: 1px solid var(--rule); display: flex; flex-direction: column; min-height: 0; }
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--surface); }
+.drawer { width: 0; overflow: hidden; border-left: 1px solid var(--rule); background: var(--paper); transition: width .18s ease; }
+.drawer.open { width: 320px; }
+
+/* ── sidebar ── */
+.side-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 16px 10px; }
+.side-head h1 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+.icon-btn { width: 30px; height: 30px; border-radius: var(--r-s); display: inline-grid; place-items: center; color: var(--quiet); }
+.icon-btn:hover { background: var(--bubble); color: var(--ink); }
+.desks { overflow-y: auto; flex: 1; padding: 4px 8px 12px; }
+.desk { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; width: 100%; text-align: left; padding: 8px; border-radius: var(--r-m); }
+.desk:hover { background: var(--bubble); }
+.desk[aria-current="true"] { background: var(--bubble); }
+.desk > span:nth-child(2) { min-width: 0; }
+.desk .name, .desk .line { display: block; }
+.desk .name { font-size: 14px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desk .line { font-size: 12.5px; color: var(--quiet); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desk.offline .name { color: var(--quiet); }
+.desk.waiting .line { color: var(--wait); }
+.desk .tail { display: flex; align-items: center; gap: 6px; color: var(--quiet); font-size: 11px; }
+.sub { margin: -2px 0 4px 52px; font-size: 12px; color: var(--quiet); }
+.sub summary { list-style: none; cursor: pointer; padding: 2px 0; }
+.sub summary::-webkit-details-marker { display: none; }
+.sub li { list-style: none; padding: 2px 0; display: flex; gap: 6px; align-items: center; }
+.sub ul { margin: 2px 0 0; padding: 0; }
+
+.blob { width: 34px; height: 34px; display: grid; place-items: center; font-weight: 650; font-size: 15px; color: #141414; position: relative; flex: none; }
+.blob.s { width: 20px; height: 20px; font-size: 11px; }
+.blob .dot { position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--paper); }
+.dot.on { background: var(--ok); } .dot.off { background: var(--rule); } .dot.wait { background: var(--wait); }
+.spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--rule); border-top-color: var(--accent); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.count { font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--wait-soft); color: var(--wait); font-weight: 600; }
+.count.n { background: var(--bubble); color: var(--quiet); }
+
+.office { border-top: 1px solid var(--rule); padding: 8px; }
+.office .item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border-radius: var(--r-s); font-size: 14px; }
+.office .item:hover, .office .item[aria-current="true"] { background: var(--bubble); }
+.office .item .g { width: 20px; text-align: center; color: var(--quiet); }
+.office .item .count { margin-left: auto; }
+
+.health { border-top: 1px solid var(--rule); padding: 10px 16px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--quiet); }
+.health .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.health button { margin-left: auto; font-size: 12.5px; color: var(--quiet); }
+.health button:hover { color: var(--ink); }
+
+/* ── header ── */
+.top { display: flex; align-items: center; gap: 12px; padding: 14px 28px; border-bottom: 1px solid transparent; }
+.top .title { font-size: 17px; font-weight: 600; }
+.top .state { font-size: 13px; color: var(--quiet); }
+.top .actions { margin-left: auto; display: flex; gap: 4px; }
+.ghost { font-size: 13px; padding: 6px 10px; border-radius: var(--r-s); color: var(--quiet); }
+.ghost:hover, .ghost[aria-pressed="true"] { background: var(--bubble); color: var(--ink); }
+.menu-btn { display: none; }
+
+/* ── conversation ── */
+.split { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; }
+.split.computer { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.convo { overflow-y: auto; min-height: 0; }
+.col { max-width: 680px; margin: 0 auto; padding: 20px 28px 8px; display: flex; flex-direction: column; gap: 14px; }
+.msg { max-width: 88%; padding: 11px 15px; border-radius: var(--r-l); background: var(--bubble); }
+.msg p { margin: 0 0 8px; } .msg p:last-child { margin: 0; }
+.msg.me { align-self: flex-end; background: var(--accent-soft); }
+.msg ul { margin: 4px 0 8px; padding-left: 20px; }
+.who { font-size: 12.5px; color: var(--quiet); margin: 0 0 -8px 4px; display: flex; align-items: center; gap: 6px; }
+
+.chip { align-self: flex-start; max-width: 100%; }
+.chip > summary { list-style: none; display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px 5px 8px; border: 1px solid var(--rule); border-radius: 99px; font-size: 13px; color: var(--quiet); cursor: pointer; background: var(--surface); }
+.chip > summary::-webkit-details-marker { display: none; }
+.chip > summary:hover { color: var(--ink); border-color: var(--quiet); }
+.chip > summary .chev { transition: transform .15s; }
+.chip[open] > summary .chev { transform: rotate(90deg); }
+.chip .under { font-size: 12.5px; color: var(--quiet); margin: 4px 0 0 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: min(560px, 78vw); }
+.chip .body { margin: 8px 0 0; padding: 12px 14px; border-left: 2px solid var(--rule); font-size: 13.5px; }
+.chip.err > summary { color: var(--err); border-color: var(--err); background: var(--err-soft); }
+.tool { padding: 6px 0; border-bottom: 1px dashed var(--rule); }
+.tool:last-child { border: 0; }
+.tool .h { display: flex; gap: 8px; align-items: baseline; }
+.tool .h .state { margin-left: auto; font-size: 12px; color: var(--quiet); }
+.diff { margin: 6px 0 0; padding: 8px 10px; border-radius: var(--r-s); font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap; }
+.diff.del { background: var(--err-soft); } .diff.add { background: color-mix(in oklab, var(--ok) 14%, transparent); }
+
+.newline { display: flex; align-items: center; gap: 12px; color: var(--accent); font-size: 12px; font-weight: 600; }
+.newline::before, .newline::after { content: ""; flex: 1; height: 1px; background: color-mix(in oklab, var(--accent) 35%, transparent); }
+
+.ask { border: 1px solid var(--wait); background: var(--wait-soft); border-radius: var(--r-l); padding: 14px 16px; }
+.ask .q { font-weight: 550; margin-bottom: 10px; }
+.ask .opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.ask .opts button { padding: 6px 12px; border-radius: 99px; border: 1px solid var(--rule); background: var(--surface); font-size: 13.5px; }
+.ask .opts button:hover { border-color: var(--wait); }
+.ask .fine { font-size: 12px; color: var(--quiet); margin-top: 8px; }
+
+.queued { align-self: flex-end; font-size: 13px; color: var(--quiet); display: flex; gap: 8px; align-items: center; }
+.queued .t { background: var(--accent-soft); padding: 6px 12px; border-radius: var(--r-l); color: var(--ink); opacity: .7; }
+
+.working { align-self: flex-start; }
+.working > summary { list-style: none; display: inline-flex; gap: 10px; align-items: center; font-size: 13.5px; color: var(--quiet); cursor: pointer; padding: 4px 2px; }
+.working > summary::-webkit-details-marker { display: none; }
+.working .crew { display: flex; } .working .crew .blob { margin-left: -6px; border: 2px solid var(--surface); }
+.working ul { margin: 6px 0 0 4px; padding: 0; font-size: 13px; color: var(--quiet); }
+.working li { list-style: none; display: flex; gap: 8px; align-items: center; padding: 3px 0; }
+
+/* ── composer ── */
+.compose { max-width: 680px; width: 100%; margin: 0 auto; padding: 8px 28px 18px; }
+.box { border: 1px solid var(--rule); border-radius: 22px; background: var(--surface); padding: 6px 6px 6px 10px; display: flex; align-items: flex-end; gap: 6px; }
+.box:focus-within { border-color: var(--quiet); }
+.box textarea { flex: 1; border: 0; resize: none; background: transparent; font: inherit; color: inherit; padding: 7px 4px; min-height: 22px; max-height: 160px; outline: none; }
+.send { width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: var(--surface); display: grid; place-items: center; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 12px; color: var(--quiet); padding: 8px 12px 0; }
+.meta button { color: var(--quiet); } .meta button:hover { color: var(--ink); }
+.meta .right { margin-left: auto; display: flex; gap: 14px; }
+.slash { margin: 0 0 6px; border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--surface); padding: 6px; display: none; }
+.slash.show { display: block; }
+.slash div { display: grid; grid-template-columns: max-content 1fr; gap: 14px; padding: 5px 8px; border-radius: var(--r-s); font-size: 13px; }
+.slash div:first-child { background: var(--bubble); }
+.slash span:last-child { color: var(--quiet); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── computer ── */
+.screen[hidden] { display: none; }
+.screen { border-left: 1px solid var(--rule); display: flex; flex-direction: column; min-height: 0; background: var(--paper); }
+.tabs-row { display: flex; gap: 4px; padding: 8px; border-bottom: 1px solid var(--rule); overflow-x: auto; }
+.tabs-row button { font-size: 12px; padding: 4px 10px; border-radius: var(--r-s); white-space: nowrap; color: var(--quiet); }
+.tabs-row button[aria-pressed="true"] { background: var(--bubble); color: var(--ink); }
+.url { margin: 8px; padding: 6px 10px; border-radius: var(--r-s); background: var(--bubble); font-family: var(--mono); font-size: 12px; color: var(--quiet); }
+.pixels { flex: 1; margin: 0 8px 8px; border-radius: var(--r-m); background: repeating-linear-gradient(135deg, var(--bubble) 0 12px, var(--surface) 12px 24px); display: grid; place-items: center; color: var(--quiet); font-size: 13px; }
+.jobs { border-top: 1px solid var(--rule); padding: 8px 12px; font-size: 12px; color: var(--quiet); }
+
+/* ── drawer ── */
+.drawer-in { width: 320px; height: 100%; display: flex; flex-direction: column; }
+.drawer-head { display: flex; align-items: center; padding: 14px 16px 6px; }
+.drawer-head h2 { font-size: 15px; margin: 0; font-weight: 600; }
+.drawer-head .icon-btn { margin-left: auto; }
+.seg[hidden] { display: none; }
+.seg { display: flex; gap: 2px; padding: 4px 12px 8px; flex-wrap: wrap; }
+.seg button { font-size: 12.5px; padding: 5px 10px; border-radius: 99px; color: var(--quiet); }
+.seg button[aria-pressed="true"] { background: var(--bubble); color: var(--ink); }
+.pane { overflow-y: auto; flex: 1; padding: 4px 16px 16px; font-size: 13.5px; }
+.pane[hidden] { display: none; }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 6px 0 14px; }
+.kv span:nth-child(odd) { color: var(--quiet); }
+.grp { font-size: 12px; color: var(--quiet); margin: 14px 0 4px; font-weight: 600; }
+.row { padding: 5px 0; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; }
+.row .d { color: var(--quiet); font-size: 12.5px; }
+.tree { font-family: var(--mono); font-size: 12.5px; }
+.tree details { margin-left: 12px; } .tree summary { cursor: pointer; padding: 2px 0; } .tree a { display: block; padding: 2px 0 2px 12px; color: inherit; text-decoration: none; } .tree a:hover { color: var(--accent); }
+.bar { height: 6px; border-radius: 99px; background: var(--bubble); overflow: hidden; margin: 4px 0 2px; } .bar i { display: block; height: 100%; background: var(--accent); }
+.check { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; }
+.check .m { width: 16px; flex: none; text-align: center; }
+.check.bad .m { color: var(--err); } .check.good .m { color: var(--ok); } .check.na { color: var(--quiet); }
+
+/* ── other views ── */
+.view[hidden] { display: none !important; }
+.list { max-width: 680px; margin: 0 auto; padding: 20px 28px; display: flex; flex-direction: column; gap: 10px; }
+.filter { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--quiet); }
+.filter button { margin-left: auto; font-size: 13px; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--rule); }
+.hand { padding: 10px 2px; border-bottom: 1px solid var(--rule); }
+.hand .h { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--quiet); }
+.hand .h .when { margin-left: auto; }
+.hand .t { margin-top: 4px; }
+.hand.open .h .flag { color: var(--wait); font-weight: 600; }
+.task > summary { list-style: none; display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 10px 2px; border-bottom: 1px solid var(--rule); cursor: pointer; }
+.task > summary::-webkit-details-marker { display: none; }
+.task .ttl { font-weight: 550; } .task .sub2 { font-size: 12.5px; color: var(--quiet); }
+.task .st { font-size: 12.5px; color: var(--quiet); text-align: right; }
+.task.over .st { color: var(--err); font-weight: 600; } .task.quiet .st { color: var(--wait); }
+.task .more { padding: 8px 2px 14px; font-size: 13px; color: var(--quiet); }
+.totals { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: var(--quiet); }
+.totals b { color: var(--ink); font-weight: 600; } .totals .bad b { color: var(--err); }
+h3.who2 { font-size: 14px; margin: 18px 0 2px; display: flex; gap: 8px; align-items: center; }
+
+dialog { border: 1px solid var(--rule); border-radius: var(--r-l); background: var(--surface); color: var(--ink); padding: 22px; width: min(480px, 92vw); }
+dialog::backdrop { background: rgb(0 0 0 / .35); }
+dialog h2 { margin: 0 0 14px; font-size: 17px; }
+dialog input, dialog select { width: 100%; font: inherit; color: inherit; background: var(--paper); border: 1px solid var(--rule); border-radius: var(--r-s); padding: 9px 10px; margin-bottom: 10px; }
+dialog .row2 { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+dialog .primary { background: var(--ink); color: var(--surface); padding: 8px 14px; border-radius: var(--r-s); }
+dialog .fine { font-size: 12px; color: var(--quiet); margin-top: 12px; }
+.refuse { background: var(--err-soft); color: var(--err); padding: 8px 10px; border-radius: var(--r-s); font-size: 13px; margin-bottom: 10px; }
+
+/* ── phone ── */
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .side { position: fixed; inset: 0 auto 0 0; width: 82vw; max-width: 320px; z-index: 20; transform: translateX(-100%); transition: transform .2s; box-shadow: 0 0 40px rgb(0 0 0 / .2); }
+  .side.open { transform: none; }
+  .menu-btn { display: inline-grid; }
+  .drawer { position: fixed; inset: 0 0 0 auto; z-index: 20; }
+  .drawer.open { width: 92vw; }
+  .drawer-in { width: 92vw; }
+  .main { height: 100vh; }
+  .split.computer { grid-template-columns: minmax(0, 1fr); grid-template-rows: 1fr 40%; }
+  .top, .col, .compose, .list { padding-left: 16px; padding-right: 16px; }
+  .top .actions .lbl { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ SIDEBAR: the desks, the office's own views, health ═══ -->
+  <nav class="side" id="side" aria-label="Office">
+    <div class="side-head">
+      <h1>The office</h1>
+      <button class="icon-btn" title="Hire a desk" onclick="hire.showModal()" aria-label="Hire a desk">＋</button>
+    </div>
+    <div class="desks">
+      <button class="desk" aria-current="true" data-desk="lead">
+        <span class="blob" style="--h:200"><span class="dot on"></span>L</span>
+        <span><span class="name">lead</span><span class="line">Writing a reply</span></span>
+        <span class="tail"><span class="spin" title="working"></span></span>
+      </button>
+      <details class="sub" open><summary>2 teammates working</summary>
+        <ul>
+          <li><span class="blob s" style="--h:30">c</span>cs-buyer-650 · drafting a reply</li>
+          <li><span class="blob s" style="--h:280">r</span>reviewer · subagent, 2m</li>
+        </ul>
+      </details>
+      <button class="desk waiting" data-desk="design">
+        <span class="blob" style="--h:150"><span class="dot wait"></span>D</span>
+        <span><span class="name">design</span><span class="line">Waiting on you · plan approval</span></span>
+        <span class="tail"><span class="count">1</span></span>
+      </button>
+      <button class="desk" data-desk="quotes">
+        <span class="blob" style="--h:95"><span class="dot on"></span>Q</span>
+        <span><span class="name">design-quotation</span><span class="line">Priced SO-1109-251 · 4m ago</span></span>
+        <span class="tail">◷ 1</span>
+      </button>
+      <button class="desk" data-desk="inventory">
+        <span class="blob" style="--h:330"><span class="dot on"></span>I</span>
+        <span><span class="name">inventory</span><span class="line">Idle</span></span>
+        <span class="tail"></span>
+      </button>
+      <button class="desk" data-desk="chat">
+        <span class="blob" style="--h:20"><span class="dot on"></span>A</span>
+        <span><span class="name">alibaba-customer-service</span><span class="line">Running a command</span></span>
+        <span class="tail"><span class="spin"></span></span>
+      </button>
+      <button class="desk offline" data-desk="manufacturing">
+        <span class="blob" style="--h:250"><span class="dot off"></span>M</span>
+        <span><span class="name">manufacturing</span><span class="line">Offline</span></span>
+        <span class="tail"></span>
+      </button>
+    </div>
+    <div class="office">
+      <button class="item" data-view="between"><span class="g">⇄</span>Between desks<span class="count">2 open</span></button>
+      <button class="item" data-view="tasks"><span class="g">☰</span>Tasks<span class="count n">7</span></button>
+      <button class="item" data-view="panel"><span class="g">▤</span>Pending approvals<span class="count n">3</span></button>
+    </div>
+    <div class="health">
+      <span class="pulse" title="9 of 9 loops up, 41 of 42 checks pass"></span>9/9 loops · 41/42 checks
+      <button onclick="openDrawer('office')">Office</button>
+    </div>
+  </nav>
+
+  <!-- ═══ MAIN ═══ -->
+  <main class="main">
+    <header class="top">
+      <button class="icon-btn menu-btn" aria-label="Desks" onclick="side.classList.toggle('open')">☰</button>
+      <span class="blob s" style="--h:200">L</span>
+      <span class="title" id="title">lead</span>
+      <span class="state" id="state">Writing a reply</span>
+      <span class="actions">
+        <a class="ghost" href="#" title="Open this session in the Claude app (Remote Control)">↗ <span class="lbl">Claude app</span></a>
+        <button class="ghost" id="compBtn" aria-pressed="false" onclick="toggleComputer()" title="This desk's browser, mirrored">▭ <span class="lbl">Computer</span></button>
+        <button class="ghost" aria-pressed="false" id="detBtn" onclick="openDrawer('desk')" title="Workspace, agents, skills, plugins, hooks, usage">⋯ <span class="lbl">Details</span></button>
+      </span>
+    </header>
+
+    <!-- conversation with the selected desk -->
+    <section class="view split" id="v-convo">
+      <div class="convo" id="convo">
+        <div class="col">
+          <details class="chip"><summary><span>Thought for 12 s</span><span class="chev">›</span></summary>
+            <div class="body">The buyer's new message carries a plan photo; the design desk must see it before the quote moves. Check the ledger of his asks first.</div>
+          </details>
+          <div class="msg"><p>Morning. Three things happened overnight:</p>
+            <ul><li><b>SO-1109-254</b>: the closet redraw is saved with a picture; his last two asks are met.</li>
+            <li><b>SO-1019-174</b>: the price dropped by $39.88 after the toe-kick fix; nothing was told yet.</li>
+            <li>The camera is on. 41 rooms are queued; 12 shot so far.</li></ul>
+            <p>One thing needs you: the design desk is waiting on a plan approval.</p>
+          </div>
+          <details class="chip"><summary><span>4 tool calls — Read, Edit, Bash, SendMessage → design</span><span class="chev">›</span></summary>
+            <div class="body">
+              <div class="tool"><div class="h"><code>Read</code> services/jobs/src/options/job-options.ts <span class="state">done</span></div></div>
+              <div class="tool"><div class="h"><code>Edit</code> job-options.ts <span class="state">done</span></div>
+                <div class="diff del">- SELECT …, check_json FROM design_versions</div><div class="diff add">+ SELECT …, check_json, id FROM design_versions</div></div>
+              <div class="tool"><div class="h"><code>Bash</code> node --test tests/…/buyer-asks.test.mjs <span class="state">done · 16 pass</span></div></div>
+              <div class="tool"><div class="h"><code>SendMessage</code> → design <span class="state">delivered</span></div></div>
+            </div>
+          </details>
+          <details class="chip err"><summary><span>⛔ Hook refused: main-tree guard</span><span class="chev">›</span></summary>
+            <div class="body"><code>git checkout</code> is not allowed in the main tree. Work in a worktree.</div>
+          </details>
+          <div class="msg me"><p>Approve the design plan if it keeps his 32 inch upper.</p></div>
+
+          <div class="newline">NEW</div>
+
+          <details class="chip"><summary><span class="blob s" style="--h:150">D</span><span>design replied</span><span class="chev">›</span></summary>
+            <div class="under">Plan: keep the 32 in upper left of the window, move the spice pull-out right, re-shoot the views.</div>
+            <div class="body">Plan for SO-1015-156-G v26: keep the 32 in upper left of the window (his seq 522), move the spice pull-out to the right of the range, re-shoot all four views. Waiting for your OK before saving.</div>
+          </details>
+          <div class="msg"><p>The plan keeps the 32 inch upper. I approved it and asked for the four views.</p></div>
+          <details class="chip"><summary><span class="blob s" style="--h:150">D</span><span>Sent to design</span><span class="chev">›</span></summary>
+            <div class="under">Done when: v26 is saved, 4 views photographed, the ask ledger marks seq 522 met.</div>
+            <div class="body">Approved. Save v26, photograph it, mark seq 522 met on v26, then hand back.</div>
+          </details>
+
+          <div class="ask" role="group" aria-label="Waiting on your answer">
+            <div class="q">This desk is waiting on your answer: send the revised quote now, or wait for the freight rate?</div>
+            <div class="opts"><button>Send now</button><button>Wait for freight</button><button>Ask me later</button></div>
+            <div class="fine">A click picks that option in the desk's own dialog.</div>
+          </div>
+
+          <div class="queued"><span class="t">Also check the inventory for walnut</span><span>in its inbox</span></div>
+
+          <details class="working"><summary><span class="crew"><span class="blob s" style="--h:30">c</span><span class="blob s" style="--h:280">r</span><span class="blob s" style="--h:95">◷</span></span>Teammates working · 2m 14s · ↓ 3.1k tokens<span class="chev">⌄</span></summary>
+            <ul>
+              <li><span class="blob s" style="--h:30">c</span>cs-buyer-650 · teammate session · active now</li>
+              <li><span class="blob s" style="--h:280">r</span>reviewer · subagent · 2m, 14 turns</li>
+              <li>◷ background · npm test · running</li>
+            </ul>
+          </details>
+        </div>
+      </div>
+      <!-- the desk's computer, side by side when asked for -->
+      <aside class="screen" id="screen" hidden>
+        <div class="tabs-row"><button aria-pressed="true">OneTalk</button><button aria-pressed="false">Local Ops · order</button><button aria-pressed="false">Docs</button></div>
+        <div class="url">https://example.invalid/desk/tab</div>
+        <div class="pixels">the desk's browser, mirrored (read-only)</div>
+        <div class="jobs">Background · npm test · running · 12 KB</div>
+      </aside>
+    </section>
+
+    <!-- between desks -->
+    <section class="view" id="v-between" hidden>
+      <div class="list">
+        <div class="filter">14 messages between desks, newest first<button onclick="this.textContent = this.textContent.startsWith('Open') ? 'Show all' : 'Open asks only (2)'">Open asks only (2)</button></div>
+        <div class="hand open"><div class="h"><span class="blob s" style="--h:200">L</span>lead → <span class="blob s" style="--h:150">D</span>design<span class="flag">no reply yet</span><span class="when">Nov 11, 09:12</span></div><div class="t">Save v26 with the 32 in upper, photograph it, mark seq 522 met.</div></div>
+        <div class="hand"><div class="h"><span class="blob s" style="--h:95">Q</span>design-quotation → <span class="blob s" style="--h:200">L</span>lead<span class="when">Nov 11, 08:47</span></div><div class="t">Q2 priced at $4,029.86 on card v137; not told.</div></div>
+        <div class="hand open"><div class="h"><span class="blob s" style="--h:20">A</span>alibaba-customer-service → <span class="blob s" style="--h:330">I</span>inventory<span class="flag">no reply yet</span><span class="when">Nov 11, 08:30</span></div><div class="t">Do we have walnut 19 mm on the shelf?</div></div>
+      </div>
+    </section>
+
+    <!-- tasks -->
+    <section class="view" id="v-tasks" hidden>
+      <div class="list">
+        <div class="totals"><span><b>7</b> open</span><span><b>3</b> working</span><span><b>1</b> waiting</span><span><b>2</b> done, not verified</span><span class="bad"><b>1</b> overdue</span><span><b>1</b> quiet 24 h+</span><span><b>2</b> owner words open</span></div>
+        <h3 class="who2"><span class="blob s" style="--h:150">D</span>design <span class="state" style="font-weight:400;font-size:12.5px;color:var(--quiet)">2 open · 1 working</span></h3>
+        <details class="task over"><summary><span><span class="ttl">Redraw the laundry corner</span><br><span class="sub2">T-41 · working · 2 d</span></span><span class="st">Overdue</span></summary>
+          <div class="more">"Check whether the walls really turn outward." · notes: 1 · evidence: screenshot of v3 (open)</div></details>
+        <details class="task"><summary><span><span class="ttl">Photograph the 10 rooms of SO-1109-251</span><br><span class="sub2">T-44 · open · 3 h</span></span><span class="st">due today</span></summary>
+          <div class="more">"Every room needs its four views." · no notes yet</div></details>
+        <h3 class="who2"><span class="blob s" style="--h:95">Q</span>design-quotation</h3>
+        <details class="task quiet"><summary><span><span class="ttl">Re-price SO-1019-174 after the toe fix</span><br><span class="sub2">T-39 · waiting</span></span><span class="st">Quiet 26 h</span></summary>
+          <div class="more">"Price it again once the fix is live."</div></details>
+        <div class="grp">Closed recently</div>
+        <details class="task"><summary><span><span class="ttl">Gitignore the camera switch</span><br><span class="sub2">T-38 · done</span></span><span class="st">verified</span></summary><div class="more">Evidence: PR merged.</div></details>
+      </div>
+    </section>
+
+    <!-- a project panel -->
+    <section class="view" id="v-panel" hidden>
+      <div class="list">
+        <div class="filter">Declared by this project's office.json · refreshed every 30 s</div>
+        <div class="hand"><div class="h">Price approval · SO-1109-249<span class="when">Nov 11, 08:02</span></div><div class="t">Q1 $5,936.98, not told yet.</div></div>
+        <div class="hand"><div class="h">Freight rate · SO-1105-242<span class="when">Nov 10, 21:40</span></div><div class="t">GTZship quote waiting for a ZIP.</div></div>
+      </div>
+    </section>
+
+    <div class="compose" id="compose">
+      <div class="slash" id="slash">
+        <div><span class="mono">/model</span><span>Pick a model; give it inline, e.g. /model opus</span></div>
+        <div><span class="mono">/office-job</span><span>List, run or cancel the office's prepared jobs</span></div>
+        <div><span class="mono">/desk-health</span><span>Is every desk running and listening?</span></div>
+      </div>
+      <div class="box">
+        <button class="icon-btn" title="Attach a picture or file" aria-label="Attach">＋</button>
+        <textarea id="ta" rows="1" placeholder="Message lead — straight to its session inbox · / for commands"></textarea>
+        <button class="send" aria-label="Send">↑</button>
+      </div>
+      <div class="meta">
+        <button title="Shift-Tab into this desk's terminal: the CLI cycles its permission mode there">⇧⇥ mode · bypass</button>
+        <button onclick="document.getElementById('slash').classList.toggle('show')">/ commands</button>
+        <span class="right"><button onclick="openDrawer('desk','usage')" title="Context window and cost">opus · 34% context · $12.40 this session</button></span>
+      </div>
+    </div>
+  </main>
+
+  <!-- ═══ DETAILS DRAWER: everything about the selected desk, and the office ═══ -->
+  <aside class="drawer" id="drawer" aria-label="Details">
+    <div class="drawer-in">
+      <div class="drawer-head"><h2 id="dtitle">lead · details</h2><button class="icon-btn" onclick="closeDrawer()" aria-label="Close">✕</button></div>
+      <div class="seg" id="seg-desk">
+        <button data-pane="usage" aria-pressed="true">Usage</button><button data-pane="workspace" aria-pressed="false">Workspace</button><button data-pane="agents" aria-pressed="false">Agents</button><button data-pane="skills" aria-pressed="false">Skills</button><button data-pane="plugins" aria-pressed="false">Plugins</button><button data-pane="hooks" aria-pressed="false">Hooks</button>
+      </div>
+      <div class="seg" id="seg-office" hidden>
+        <button data-pane="loops" aria-pressed="true">Loops</button><button data-pane="checks" aria-pressed="false">Checks</button><button data-pane="updates" aria-pressed="false">Updates</button>
+      </div>
+      <div class="pane" id="p-usage">
+        <div class="grp">This session</div>
+        <div class="bar" title="34% of the context window"><i style="width:34%"></i></div>
+        <div class="kv"><span>Model</span><span>opus</span><span>Context</span><span>68k of 200k</span><span>Turns</span><span>212</span><span>Input (fresh)</span><span>1.2M tok · $6.10</span><span>Output</span><span>210k tok · $4.20</span><span>Cache read</span><span>18M tok · $1.80</span><span>Cache write</span><span>90k tok · $0.30</span><span><b>Estimated total</b></span><span><b>$12.40</b></span></div>
+        <div class="d" style="font-size:12px;color:var(--quiet)">Rates as of 2026-11-01 · cache read 0.1×, write 1.25× the input rate. An unknown model gets tokens only, never a guessed dollar.</div>
+        <div class="grp">Permission mode</div><div>bypass (from the session record)</div>
+      </div>
+      <div class="pane tree" id="p-workspace" hidden>
+        <details open><summary>runtime/</summary><a href="#">lead-alerts.log <span style="color:var(--quiet)">48 KB</span></a><a href="#">onetalk-catchup.json</a></details>
+        <details><summary>work-1111/</summary><a href="#">notes.md</a></details>
+        <a href="#">CLAUDE.md</a><a href="#">facts.md</a>
+        <div style="font-family:var(--sans);font-size:12px;color:var(--quiet);margin-top:8px">A file opens in a preview with "copy path".</div>
+      </div>
+      <div class="pane" id="p-agents" hidden><div class="grp">project</div><div class="row"><span class="blob s" style="--h:40">c</span><span>code-reviewer <span class="mono" style="color:var(--quiet)">sonnet · high</span><br><span class="d">Reviews a diff for correctness</span></span></div><div class="grp">plugin · office-anything</div><div class="row"><span class="blob s" style="--h:300">h</span><span>desk-health<br><span class="d">Doorbells, sessions, orphans</span></span></div></div>
+      <div class="pane" id="p-skills" hidden><div class="grp">project</div><div class="row"><span class="mono">/freight-quote</span><span class="d">Rate LTL freight for an order</span></div><div class="row"><span class="mono">/office-job</span><span class="d">Prepared jobs</span></div><div class="d" style="font-size:12px">Click one to type it in the message box.</div></div>
+      <div class="pane" id="p-plugins" hidden><div class="row"><span class="blob s" style="--h:210">o</span><span>office-anything <span class="mono" style="color:var(--quiet)">0.27.1</span><br><span class="d">4 agents · 12 skills · 9 commands · 6 hooks · official</span></span></div></div>
+      <div class="pane" id="p-hooks" hidden><div class="grp">SessionStart</div><div class="row"><span class="mono">desk-boot.mjs</span><span class="d">project</span></div><div class="grp">PreToolUse</div><div class="row"><span class="mono">main-tree-guard.mjs</span><span class="d">Bash · project</span></div><div class="row"><span class="mono">desk-wall.mjs</span><span class="d">* · plugin</span></div></div>
+      <div class="pane" id="p-loops" hidden><div class="grp">Loops</div><div class="check good"><span class="m">✓</span>9 of 9 loops up · last beat 40 s ago</div><div class="d" style="font-size:12.5px;color:var(--quiet)">reader · dispatcher · launcher · office-health · translate · gtz-queue · camera · mail · discord</div></div>
+      <div class="pane" id="p-checks" hidden><div class="grp">Office checks · 41 of 42 pass</div><div class="check bad"><span class="m">✕</span>desk-tokens: design-quotation's key expires in 3 days</div><div class="check good"><span class="m">✓</span>wall: every desk has a boundary</div><div class="check good"><span class="m">✓</span>ports: declared, no clashes</div><div class="check na"><span class="m">–</span>mail: not used on this machine</div></div>
+      <div class="pane" id="p-updates" hidden><div class="grp">Updates</div><div class="row"><span>Claude Code</span><button class="ghost">Update</button></div><div class="row"><span>office-anything plugin</span><button class="ghost">Update</button></div><div class="d" style="font-size:12px;color:var(--quiet)">Running sessions keep their version until restarted.</div></div>
+    </div>
+  </aside>
+</div>
+
+<dialog id="hire">
+  <h2>Hire a desk</h2>
+  <input placeholder="name, lowercase-with-hyphens (e.g. tiktok-customer-service)">
+  <input placeholder="What this desk does, in one sentence">
+  <select><option>Customer-facing: talks to people on one channel</option><option>Internal: holds knowledge, never contacts anyone</option></select>
+  <div class="refuse" hidden>The description reads like an internal desk, not a customer-facing one. Hire refused.</div>
+  <div class="row2"><button class="ghost" onclick="hire.close()">Cancel</button><button class="primary" onclick="hire.close()">Hire</button></div>
+  <div class="fine">The description is double-checked: if it reads like a different kind than the one you picked, the hire is refused and the reason shows here.</div>
+</dialog>
+
+<script>
+// #dark / #light forces the theme (screenshots)
+if (/dark|light/.test(location.hash)) document.documentElement.dataset.theme = location.hash.includes('dark') ? 'dark' : 'light';
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const side = $('#side'), drawer = $('#drawer'), hire = $('#hire');
+const states = { lead: 'Writing a reply', design: 'Waiting on you · plan approval', quotes: 'Idle', inventory: 'Idle', chat: 'Running a command', manufacturing: 'Offline' };
+function showView(v) { $$('.view').forEach((x) => x.hidden = x.id !== 'v-' + v); $('#compose').hidden = v !== 'convo'; }
+$$('.desk').forEach((b) => b.onclick = () => {
+  $$('.desk, .office .item').forEach((x) => x.removeAttribute('aria-current')); b.setAttribute('aria-current', 'true');
+  $('#title').textContent = b.querySelector('.name').textContent; $('#state').textContent = states[b.dataset.desk] ?? '';
+  $('#dtitle').textContent = $('#title').textContent + ' · details'; showView('convo'); side.classList.remove('open');
+});
+$$('.office .item').forEach((b) => b.onclick = () => {
+  $$('.desk, .office .item').forEach((x) => x.removeAttribute('aria-current')); b.setAttribute('aria-current', 'true');
+  $('#title').textContent = b.textContent.replace(/\d+.*$/, '').replace(/^\S+/, '').trim(); $('#state').textContent = ''; showView(b.dataset.view); side.classList.remove('open');
+});
+function pick(seg, pane) { $$('button', seg).forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.pane === pane))); $$('.pane').forEach((p) => p.hidden = p.id !== 'p-' + pane); }
+$$('.seg button').forEach((b) => b.onclick = () => pick(b.parentElement, b.dataset.pane));
+function openDrawer(kind, pane) {
+  drawer.classList.add('open'); $('#detBtn').setAttribute('aria-pressed', 'true');
+  $('#seg-desk').hidden = kind !== 'desk'; $('#seg-office').hidden = kind !== 'office';
+  $('#dtitle').textContent = kind === 'office' ? 'The office' : $('#title').textContent + ' · details';
+  pick(kind === 'office' ? $('#seg-office') : $('#seg-desk'), pane ?? (kind === 'office' ? 'loops' : 'usage'));
+}
+function closeDrawer() { drawer.classList.remove('open'); $('#detBtn').setAttribute('aria-pressed', 'false'); }
+function toggleComputer() { const s = $('#screen'), on = s.hidden; s.hidden = !on; $('#v-convo').classList.toggle('computer', on); $('#compBtn').setAttribute('aria-pressed', String(on)); }
+// per-desk blob: hue from the --h custom property (the real board hashes it from the desk's name)
+const BLOBS = ['42% 58% 63% 37% / 41% 44% 56% 59%', '63% 37% 54% 46% / 55% 48% 52% 45%', '50% 50% 33% 67% / 55% 60% 40% 45%', '38% 62% 47% 53% / 63% 37% 63% 37%', '58% 42% 38% 62% / 45% 63% 37% 55%'];
+$$('.blob').forEach((b) => { const h = +getComputedStyle(b).getPropertyValue('--h') || 0; b.style.background = `oklch(0.78 0.12 ${h})`; b.style.borderRadius = BLOBS[h % 5]; });
+$('#ta').addEventListener('input', (e) => $('#slash').classList.toggle('show', e.target.value.startsWith('/')));
+$('#convo').scrollTop = 1e9;
+// screenshot switches: #…drawer / #…office / #…tasks / #…between / #…computer
+const H = location.hash;
+if (H.includes('drawer')) openDrawer('desk');
+if (H.includes('office')) openDrawer('office', 'checks');
+if (H.includes('tasks')) $('[data-view=tasks]').click();
+if (H.includes('between')) $('[data-view=between]').click();
+if (H.includes('computer')) toggleComputer();
+if (H.includes('debugw')) {
+  const wide = $$('body *').filter((e) => e.getBoundingClientRect().right > innerWidth + 1 && getComputedStyle(e).position !== 'fixed');
+  document.title = 'W ' + innerWidth + ' ' + wide.slice(0, 8).map((e) => e.tagName + '.' + e.className + ':' + Math.round(e.getBoundingClientRect().width)).join(' | ');
+}
+</script>
+</body>
+</html>

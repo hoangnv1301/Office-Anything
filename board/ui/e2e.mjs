@@ -1,5 +1,7 @@
 // THE BOARD'S END-TO-END RIG. Run against a live board and a headed Chrome:
 //   node board/ui/e2e.mjs        (board on 7719, lead Chrome CDP on 9229)
+//   E2E_BOARD=7799 E2E_CDP=9333 node board/ui/e2e.mjs   (any other pair, e.g. a
+//   headless Chrome of its own: never the owner's 9222)
 // Nine functions, each measured against a threshold with REAL, hit-tested
 // input. Not part of `node --test`: it needs a living office to walk through.
 // THE LEAD'S OWN END-TO-END. Each function measured against a threshold in the
@@ -8,17 +10,19 @@ import WebSocket from 'ws'
 import { writeFileSync } from 'node:fs'
 
 const THRESH_MS = 6000
+const CDP = 'http://127.0.0.1:' + (process.env.E2E_CDP ?? '9229')
+const BOARD = 'http://127.0.0.1:' + (process.env.E2E_BOARD ?? '7719')
 // ⛔ NEVER Page.reload OVER CDP: on this Chrome, hit-tested Input events stop
 // reaching the page after a session-driven reload (isolated by probe3). A
 // fresh tab per run gets a fresh target where real input works, and the tab
 // is closed on the way out.
-const page = await (await fetch('http://127.0.0.1:9229/json/new?' + encodeURIComponent('http://127.0.0.1:7719/'), { method: 'PUT' })).json()
+const page = await (await fetch(CDP + '/json/new?' + encodeURIComponent(BOARD + '/'), { method: 'PUT' })).json()
 // ⛔ AN UNFOCUSED WINDOW BREAKS DIALOG SEMANTICS: with another Chrome holding
 // macOS focus, Base UI's focus trap never engages, so Escape and outside-press
 // dismissal silently die while everything else "works". Three checks went red
 // the moment five desk browsers were relaunched and stole focus. Activate the
 // tab, bring it to front, and give the page one real click before measuring.
-await fetch('http://127.0.0.1:9229/json/activate/' + page.id)
+await fetch(CDP + '/json/activate/' + page.id)
 await new Promise(r => setTimeout(r, 4500))
 const ws = new WebSocket(page.webSocketDebuggerUrl, { maxPayload: 64 * 1024 * 1024 })
 // ⛔ THE FIRST VERSION SLEPT A FIXED 150ms AND READ WHATEVER HAD ARRIVED.
@@ -74,7 +78,8 @@ const chat = await until(`document.querySelectorAll('[class*=is-user],[class*=is
 check('chat renders < ' + THRESH_MS + 'ms', chat.ok, chat.ms + 'ms')
 
 // 2. markdown really renders (a <strong> exists inside a bubble)
-check('markdown renders', !!(await evalJs(`!!document.querySelector('[class*=is-assistant] strong, [class*=is-assistant] code')`)))
+// streamdown renders **bold** as <span data-streamdown="strong">, not <strong>
+check('markdown renders', !!(await evalJs(`!!document.querySelector('[class*=is-assistant] strong, [class*=is-assistant] code, [class*=is-assistant] [data-streamdown=strong]')`)))
 
 // 3. images in chat
 const imgCount = await evalJs(`document.querySelectorAll('#root img').length`)
@@ -87,8 +92,12 @@ check('images in view are LOADED', imgCount === 0 ? true : imgLoaded === imgCoun
 // 4. tool runs folded
 check('tool runs folded into Task rows', (await evalJs(`[...document.querySelectorAll('button,div')].filter(b=>/tool calls? —/.test(b.textContent)).length`)) > 0)
 
-// 5. workspace tree renders and a FILE CLICK opens the dialog with content
-await mouseClick(`[...document.querySelectorAll('[role=tab]')].find(t=>t.textContent==='workspace')`)
+// 5. workspace tree renders and a FILE CLICK opens the dialog with content.
+// The minimal board (2026-11-11) keeps the workspace in the Details drawer,
+// closed by default: open it the way a person does, with the header button.
+await mouseClick(`document.querySelector('[data-testid=open-details]')`)
+await until(`!!document.querySelector('[data-rail="files"]')`, 3000)
+await mouseClick(`[...document.querySelectorAll('[role=tab]')].find(t=>t.textContent.trim().toLowerCase()==='workspace')`)
 const tree = await until(`document.querySelectorAll('[data-rail="files"] [class*=cursor-pointer]').length > 3`)
 check('workspace tree renders', tree.ok, tree.ms + 'ms')
 // ⛔ Scoped to the RAIL: unscoped, cursor-pointer also matched chat Task rows,
@@ -129,7 +138,7 @@ check('desk switch updates pane', switched.ok, switched.ms + 'ms')
 await mouseClick(`[...document.querySelectorAll('button')].find(b=>/Computer/.test(b.textContent))`)
 // ⛔ STRICT: the default placeholder text must not count as a pass. If the
 // desk's screen endpoint answers 200, only a LOADED mirror image passes.
-const screenUp = (await fetch('http://127.0.0.1:7719/api/screen?key=' + encodeURIComponent(await evalJs(`window.__selKey ?? ''`) || '-Volumes-Extreme-SSD-external-workspace-alibaba-store-diagnost-ai-alibaba-claude-runbook-v2-desks-design'))).status === 200
+const screenUp = (await fetch(BOARD + '/api/screen?key=' + encodeURIComponent(await evalJs(`window.__selKey ?? ''`) || '-Volumes-Extreme-SSD-external-workspace-alibaba-store-diagnost-ai-alibaba-claude-runbook-v2-desks-design'))).status === 200
 const computer = screenUp
   ? await until(`(()=>{const img=document.querySelector('img[alt="desk browser display"]'); const chat=document.querySelectorAll('[class*=is-user],[class*=is-assistant]').length>0; return img&&img.complete&&img.naturalWidth>0&&chat ? 'mirror-beside-chat' : false})()`, 12000)
   : await until(`/Computer is (currently )?off|no headed browser|no browser to show/.test(document.body.innerText)`, 6000)
@@ -140,14 +149,14 @@ await shot('computer')
 // ── the owner's 2026-09-04 burst: every failure below was first found by a
 // human. Each is a machine's job now. Hit-tested like everything above.
 
-// 9. the COMPOSER carries the recorded mode and the context percent, top right,
-//    like the CLI prompt; the header must NOT (it was moved twice on request)
+// 9. the COMPOSER carries the recorded mode and the context percent (the line
+//    under the box, like the CLI prompt); the header must NOT (moved twice on request)
 const cs = await evalJs(`document.querySelector('[data-testid=composer-status]')?.innerText ?? ''`)
 const hdr = await evalJs(`document.querySelector('header')?.innerText ?? ''`)
-check('composer shows recorded mode and ctx %, header does not', /mode · \w+/.test(cs) && /\d+% ctx/.test(cs) && !/% ctx/.test(hdr), cs.replace(/\s+/g, ' ').slice(0, 80))
+check('composer shows recorded mode and context %, header does not', /mode · \w+/.test(cs) && /\d+% context/.test(cs) && !/% context/.test(hdr), cs.replace(/\s+/g, ' ').slice(0, 80))
 
 // 10. the heartbeat pill, whenever the office declares one
-const beat = await (await fetch('http://127.0.0.1:7719/api/heartbeat')).json()
+const beat = await (await fetch(BOARD + '/api/heartbeat')).json()
 if (beat.declared) {
   // the page fetches the beat itself; on a cold server cache that run takes
   // seconds, so wait for the pill the way every other check waits for the page
@@ -157,17 +166,20 @@ if (beat.declared) {
 
 // 11. every rail tab renders content; hooks are in lifecycle order
 for (const tab of ['agents', 'skills', 'plugins', 'hooks']) {
-  await mouseClick(`[...document.querySelectorAll('[role=tab]')].find(t=>t.textContent==='${tab}')`)
+  await mouseClick(`[...document.querySelectorAll('[role=tab]')].find(t=>t.textContent.trim().toLowerCase()==='${tab}')`)
   const rows = await until(`(()=>{const p=[...document.querySelectorAll('[role=tabpanel]')].find(p=>p.offsetParent&&!p.hidden); return p && p.innerText.trim().length > 20})()`, 5000)
   check('rail tab "' + tab + '" renders content', rows.ok, rows.ms + 'ms')
 }
+// the last tab clicked was hooks: wait for ITS panel, not the one it replaced
+await until(`[...document.querySelectorAll('[role=tabpanel]')].some(p=>p.offsetParent&&/SESSIONSTART|PRETOOLUSE|no hooks/i.test(p.innerText))`, 4000)
 const hookOrder = await evalJs(`(()=>{const p=[...document.querySelectorAll('[role=tabpanel]')].find(p=>p.offsetParent&&/SESSIONSTART|PRETOOLUSE/i.test(p.innerText)); const t=(p?.innerText??'').toUpperCase(); return JSON.stringify({start:t.indexOf('SESSIONSTART'),pre:t.indexOf('PRETOOLUSE'),stop:t.indexOf('\\nSTOP')})})()`)
 const ho = JSON.parse(hookOrder || '{}')
+if (!(ho.start >= 0)) console.log('   diag:', await evalJs(`JSON.stringify({desk: document.querySelector('header')?.innerText.split('\\n')[0], panels: [...document.querySelectorAll('[role=tabpanel]')].map(p=>(p.offsetParent?'shown ':'hidden ')+p.innerText.slice(0,80))})`))
 check('hooks listed in lifecycle order', ho.start >= 0 && ho.pre > ho.start && (ho.stop < 0 || ho.stop > ho.pre), hookOrder)
 
 // 12. copy path: a REAL click writes the clipboard and the button says so
-await call('Browser.grantPermissions', { permissions: ['clipboardReadWrite', 'clipboardSanitizedWrite'], origin: 'http://127.0.0.1:7719' }).catch(() => {})
-await mouseClick(`[...document.querySelectorAll('[role=tab]')].find(t=>t.textContent==='workspace')`)
+await call('Browser.grantPermissions', { permissions: ['clipboardReadWrite', 'clipboardSanitizedWrite'], origin: BOARD }).catch(() => {})
+await mouseClick(`[...document.querySelectorAll('[role=tab]')].find(t=>t.textContent.trim().toLowerCase()==='workspace')`)
 await synth(`[...document.querySelectorAll('[data-rail="files"] [class*="cursor-pointer"]')].find(el=>el.textContent.trim()==='CLAUDE.md')`)
 await until(`(()=>{const d=document.querySelector('[role=dialog]'); return d && d.innerText.length > 200})()`, 4000)
 await mouseClick(`[...document.querySelectorAll('[role=dialog] button')].find(b=>/copy path/.test(b.textContent))`)
@@ -187,6 +199,9 @@ if (hasImg) {
 } else check('image click opens the lightbox', true, 'no image in view (nothing to verify)')
 
 // 14. phone: no side panels rendered, the drawer opens, a desk tap closes it and switches
+// (the Details drawer is closed first: on a phone an open one is a slide-over)
+await mouseClick(`document.querySelector('[data-testid=open-details]')`)
+await until(`!document.querySelector('[data-rail="files"]')`, 3000)
 await call('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
 await new Promise(r => setTimeout(r, 900))
 check('phone: side panels are not rendered', !!(await evalJs(`!document.querySelector('[data-rail="files"]')`)))
@@ -207,6 +222,10 @@ const key = async (k, code = k, vk) => {
 }
 const typeText = async (t) => { for (const ch of t) await call('Input.insertText', { text: ch }) }
 const taValue = () => evalJs(`document.querySelector('textarea')?.value ?? ''`)
+// back to the lead first: the phone step left a desk selected that may have
+// no route, and a desk the board cannot reach has a disabled box
+await mouseClick(`[...document.querySelectorAll('aside button, [data-testid=desk-row]')].find(b=>/team-lead/.test(b.textContent))`)
+await until(`!document.querySelector('textarea')?.disabled`, 4000)
 await mouseClick(`document.querySelector('textarea')`)
 await evalJs(`(()=>{const t=document.querySelector('textarea'); t.value=''; t.dispatchEvent(new Event('input',{bubbles:true})); return true})()`)
 
@@ -230,7 +249,8 @@ const argList = await until(`[...document.querySelectorAll('form button span.fon
 check('/model shows its argument list instead of a blind picker', argList.ok, argList.ms + 'ms')
 await key('Tab', 'Tab', 9)
 const afterTab = await taValue()
-check('Tab completes the argument inline', /^\/model claude-[\w-]+ $/.test(afterTab), JSON.stringify(afterTab))
+// the picker lists aliases first (opus, sonnet…), then full ids
+check('Tab completes the argument inline', /^\/model [\w-]+ $/.test(afterTab), JSON.stringify(afterTab))
 
 // d) Escape closes the menu, text stays
 await evalJs(`(()=>{const t=document.querySelector('textarea'); t.value='/sta'; t.dispatchEvent(new Event('input',{bubbles:true})); return true})()`)
@@ -255,4 +275,4 @@ await shot('final')
 
 console.log('---'); console.log(results.filter(r => !r.ok).length + ' FAIL of ' + results.length)
 ws.close()
-await fetch('http://127.0.0.1:9229/json/close/' + page.id).catch(() => {})
+await fetch(CDP + '/json/close/' + page.id).catch(() => {})
