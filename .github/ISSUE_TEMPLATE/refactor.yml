@@ -1,0 +1,34 @@
+name: Refactor
+description: Change Office-Anything code structure without changing behaviour
+title: '[Refactor]: '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to change code structure without changing behaviour: moves, splits, narrower APIs, boundary clean-ups.
+
+        Please write your issue in English.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What moves and why
+      description: The code that changes shape, and why the new shape is better. Include a short summary here too.
+    validations:
+      required: true
+
+  - type: textarea
+    id: unchanged
+    attributes:
+      label: What must not change
+      description: The behaviour, outputs and interfaces that stay exactly the same
+    validations:
+      required: true
+
+  - type: textarea
+    id: proof
+    attributes:
+      label: How we prove nothing changed
+      description: The tests or checks that show the behaviour is the same before and after
+    validations:
+      required: false
