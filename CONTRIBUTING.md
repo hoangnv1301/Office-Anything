@@ -74,7 +74,7 @@ the suite fails until they do.
 
 ## Issues and pull requests
 
-Open an issue first with one of the forms: `[Bug]: `, `[Feature]: ` or `[Other]: `.
+Open an issue first with one of the forms: `[Bug]: `, `[Feature]: `, `[Improvement]: `, `[Refactor]: ` or `[Chore]: `.
 The only label is `critical`, for a fault that cannot wait; everything else
 carries no label.
 

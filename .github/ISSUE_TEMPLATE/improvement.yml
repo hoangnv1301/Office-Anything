@@ -1,0 +1,34 @@
+name: Improvement
+description: Make something that exists in Office-Anything work better
+title: '[Improvement]: '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to make something that already exists work better: faster, safer, clearer or cheaper.
+
+        Please write your issue in English.
+
+  - type: textarea
+    id: weak
+    attributes:
+      label: What is weak today
+      description: What works badly now, with the real case if there is one. Include a short summary here too.
+    validations:
+      required: true
+
+  - type: textarea
+    id: better
+    attributes:
+      label: What better looks like
+      description: How it should work after the change
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or additional context
+      description: Workarounds, related issues, or anything else that helps
+    validations:
+      required: false

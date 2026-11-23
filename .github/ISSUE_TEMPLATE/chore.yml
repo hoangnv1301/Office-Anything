@@ -1,0 +1,26 @@
+name: Chore
+description: Housekeeping in Office-Anything that is not code structure
+title: '[Chore]: '
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for housekeeping that is not code structure: removals, comment cleanup, dependency bumps, config.
+
+        Please write your issue in English.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What and why
+      description: The housekeeping to do and why it is worth doing. Include a short summary here too.
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: How we know it is finished
+    validations:
+      required: true
